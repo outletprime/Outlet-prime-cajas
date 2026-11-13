@@ -1,52 +1,80 @@
-# Outlet Prime Cajas
+# Outlet Prime · Cajas y Live
 
-Aplicación web para controlar las cajas de Outlet Prime: asignar cajas a clientas,
-registrar pedidos por categoría (Target, Costco, Cremas, Perfumes, Calzado),
-escanear el código QR de cada caja, imprimir etiquetas y ver reportes.
+Dos apps web que comparten **una sola base de datos** (Supabase, proyecto **outlet-prime**)
+y **una sola lista de clientas** (una clienta = un número de WhatsApp):
+
+| App | Archivo | Para qué |
+|---|---|---|
+| **Cajas** | `index.html` | Caja fija de cada clienta, pedidos por categoría, QR, envíos y reportes. |
+| **Panel del live** | `live.html` | Apartados por WhatsApp, casilleros, cobros y paso automático a la caja fija. |
+
+Publicadas en GitHub Pages: https://outletprime.github.io/Outlet-prime-cajas/
+(el panel del live está en `…/live.html`, o desde Cajas → Ajustes → Panel del live).
+Las dos usan el mismo correo y contraseña de Supabase → Authentication → Users.
 
 ## Contenido
 
 | Archivo / carpeta | Qué es |
 |---|---|
-| `index.html` | La aplicación completa (diseño, lógica y pantallas en un solo archivo). |
-| `icons/` | Logos de Outlet Prime (claro y oscuro). |
-| `cp/` | Catálogo de códigos postales de México (SEPOMEX), un archivo por los dos primeros dígitos del C.P. Sirve para llenar estado, ciudad y colonia automáticamente. |
+| `index.html` | App de Cajas. |
+| `live.html` | Panel del live (con simulador de WhatsApp). |
+| `config.js` | Conexión con Supabase, compartida por las dos apps. |
+| `icons/` | Logos de Outlet Prime. |
+| `cp/` | Catálogo de códigos postales de México (SEPOMEX). |
+| `supabase/esquema.sql` | Estructura original de la base de Cajas (referencia, sin datos). |
+| `supabase/migrations/` | Cambios a la base, en orden. `…_sistema_lives.sql` agrega todo el sistema del live. |
+| `supabase/functions/whatsapp/` | Conector con WhatsApp Business (se activa cuando haya número del bot). |
+| `docs/WHATSAPP.md` | Pasos para conectar el número de WhatsApp del bot. |
 
-## Cómo abrirla
+## Cómo funciona el live
 
-La app usa `fetch` para leer los códigos postales, así que necesita servirse desde
-un servidor web (no basta con hacer doble clic en `index.html`):
+1. **Etiquetar.** Cada prenda tiene un número fijo (Prendas → Registrar rango, p. ej. 3001–3200), a $89.
+2. **Iniciar live** en el panel.
+3. **Apartar.** La clienta manda el número por WhatsApp (`23` o `23 45 310`). Gana el primer mensaje;
+   si ya está apartada, queda en lista de espera con su lugar. Si es nueva, se registra sola con su número.
+4. **Casillero.** Al primer apartado se le asigna un casillero (C-001 a C-100). El panel muestra
+   `0023 → C-007` y el ayudante deja ahí la prenda.
+5. **Cerrar live.** El bot manda a cada clienta su total, la CLABE y su folio.
+6. **Pago.** Se registra en Casilleros (a mano por ahora; automático cuando haya CLABE por pedido).
+   Al pagar completo, las prendas pasan solas a su **caja fija** y se crea el pedido en Cajas
+   (categoría **Live**). Si no tenía caja, se le asigna la primera libre.
+7. **Sin pago.** Recordatorio a la hora, límite a las 2 h y a las 3 h se libera solo; la prenda pasa
+   a la primera de la lista de espera. El panel indica "Regresar a racks".
 
-```bash
-python3 -m http.server 8000
-# luego abre http://localhost:8000
-```
+Toda la lógica vive en la base de datos (funciones `bot_mensaje`, `live_cerrar`, `live_registrar_pago`,
+`live_revisar_vencimientos`…), así que el bot real y el simulador se comportan igual.
 
-También se puede publicar tal cual en GitHub Pages, Netlify, Vercel o Hostinger.
+### Simulador
+
+En el panel, pestaña **WhatsApp**: escribes como si fueras una clienta y el bot responde.
+Las clientas de prueba usan números que empiezan con `00`, nunca se manda nada a un teléfono,
+y el botón **Borrar datos de prueba** las quita junto con sus apartados, cobros, cajas y pedidos.
 
 ## Dónde vive cada cosa
 
-| Qué | Dónde | Se pierde al actualizar la app? |
+| Qué | Dónde | ¿Se pierde al actualizar la app? |
 |---|---|---|
 | El programa (código) | Este repositorio de GitHub | No: cada cambio queda guardado como una versión nueva. |
-| Los datos (cajas, clientas, pedidos, fotos, videos) | Supabase, proyecto **outlet-prime** | No: el código solo los lee y escribe, actualizarlo no los toca. |
-
-La app está **conectada a Supabase** (ver `APP_CONFIG` al inicio de `index.html`).
-Para entrar se usa el correo y la contraseña de un usuario creado en
-Supabase → Authentication → Users.
+| Los datos (clientas, cajas, pedidos, prendas, lives, mensajes) | Supabase, proyecto **outlet-prime** | No: el código solo los lee y escribe. |
 
 ### Reglas para no perder datos
 
-- Cambia el código aquí en GitHub con toda libertad: los datos siguen en Supabase.
-- **No borres ni cambies** las tablas `cajas`, `categorias`, `clientas`, `asignaciones`,
-  `pedidos` ni el bucket `archivos` desde el panel de Supabase.
-- No pongas en `vistaPrevia: true`: eso activa el modo de demostración.
-- La llave `anon` que está en `index.html` es pública y es seguro que esté aquí.
-  **Nunca** subas la llave `service_role` ni contraseñas.
-- La carpeta `supabase/esquema.sql` guarda la estructura de la base (sin datos),
-  por si algún día hay que reconstruirla en otro proyecto.
+- Cambia el código aquí con toda libertad: los datos siguen en Supabase.
+- **No borres ni cambies** tablas desde el panel de Supabase. Los cambios a la base van como archivo
+  nuevo en `supabase/migrations/`.
+- La llave `anon` de `config.js` es pública y es seguro que esté aquí.
+  **Nunca** subas la llave `service_role`, tokens de WhatsApp ni contraseñas.
+- El plan gratis de Supabase no guarda respaldos descargables: haz un respaldo cada semana.
+
+## Cómo abrirla en tu computadora
+
+```bash
+python3 -m http.server 8000
+# luego abre http://localhost:8000 (Cajas) o http://localhost:8000/live.html (Live)
+```
 
 ## Origen
 
-Este código se descargó del artifact "Outlet Prime Cajas" en claude.ai
-(https://claude.ai/artifact/XCQHxE3Yn48fhrJrHdNAok).
+La app de Cajas se descargó del artifact "Outlet Prime Cajas" en claude.ai
+(https://claude.ai/artifact/XCQHxE3Yn48fhrJrHdNAok). El sistema del live sigue la propuesta
+"Outlet Prime · Sistema de lives automatizado" (https://claude.ai/artifact/8dvF4iTgDER9NyZS2CYyZD).

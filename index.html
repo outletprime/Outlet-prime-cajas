@@ -358,20 +358,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 
 </style>
 <div id="app"><div class="cargando"><div class="spinner"></div></div></div>
-<script>
-/* Conexión con la base de datos de Supabase (proyecto "outlet-prime").
- * La llave "anon" es pública: solo deja entrar a quien inicia sesión con su correo y contraseña.
- * NUNCA pongas aquí la llave "service_role". */
-window.APP_CONFIG = {
-  nombreNegocio: 'Outlet Prime',
-  supabaseUrl: 'https://fjafsvirllfuzrzonovy.supabase.co',
-  supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqYWZzdmlybGxmdXpyem9ub3Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQxMTM5NzEsImV4cCI6MjEwOTY4OTk3MX0.rN7gVhHbiy3T0mSStHKPWzUH1YD9qoTv9VYmUAbDYJI',
-  diasAlerta: 20,
-  diasAviso: 15,
-  limiteVideoMB: 48,
-  vistaPrevia: false,
-};
-</script>
+<!-- Conexión con Supabase: está en config.js (compartido con el panel del live) -->
+<script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
@@ -564,6 +552,7 @@ function traducirError(err) {
   const m = (err && (err.message || err.error_description)) || String(err);
   if ((err && err.code === '23505') || /duplicate key/i.test(m)) {
     if (/una_clienta_por_caja/.test(m)) return 'Esa caja ya tiene una clienta asignada.';
+    if (/clientas_telefono_unico/.test(m)) return 'Ya existe una clienta con ese teléfono (quizá se registró sola por WhatsApp). Búscala y edita sus datos.';
     if (/una_caja_por_clienta/.test(m)) return 'Esa clienta ya tiene una caja asignada.';
     return 'Ese registro ya existe.';
   }
@@ -1751,7 +1740,16 @@ function formClienta(id, query) {
     if (!datos.estado) faltan.push('estado');
     if (faltan.length) { toast(`Falta: ${faltan.join(', ')}.`, 'error'); return; }
     const repetida = D.clientas.find(x => x.telefono === datos.telefono && (!editar || x.id !== editar.id));
-    if (repetida && !(await confirmar(`Ya existe <b>${esc(nombreCompleto(repetida))}</b> con el teléfono ${esc(datos.telefono)}. ¿Guardar de todos modos?`, { titulo: 'Teléfono repetido', si: 'Guardar' }))) return;
+    if (repetida) {
+      // Una clienta por número de WhatsApp: así Cajas, el bot y el live comparten el mismo registro.
+      const ir_a = await modal({
+        titulo: 'Teléfono repetido',
+        html: `<p>Ya existe <b>${esc(nombreCompleto(repetida))}</b> con el teléfono ${esc(datos.telefono)}.</p><p class="nota">Cada número de WhatsApp es una sola clienta. Si se registró sola por WhatsApp, completa sus datos en su ficha.</p>`,
+        botones: [{ texto: 'Cancelar', valor: false }, { texto: 'Ver su ficha', valor: true }],
+      });
+      if (ir_a) ir(`clienta/${repetida.id}`);
+      return;
+    }
 
     if (editar) {
       const ok = await accion(async () => { await store.update('clientas', editar.id, datos); D.cargado = 0; return true; });
@@ -2118,6 +2116,7 @@ function vistaAjustes() {
     </div>
     <h3 class="seccion">Cajas y códigos QR</h3>
     <a class="fila" href="#/ajustes/cajas"><span><b>Administrar cajas</b><small>${D.cajas.length} cajas · crear, imprimir QR</small></span>${IC.qr}</a>
+    ${store.modo === 'nube' ? `<a class="fila" href="live.html"><span><b>Panel del live</b><small>Apartados por WhatsApp, casilleros y cobros</small></span>${IC.video}</a>` : ''}
     <h3 class="seccion">Precios por categoría</h3>
     <div class="tarjeta">
       ${cats.map(c => `

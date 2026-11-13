@@ -1,0 +1,4 @@
+# Ajustes de las Edge Functions de este proyecto.
+# Meta no manda el token de Supabase, así que el conector de WhatsApp valida la firma de Meta por su cuenta.
+[functions.whatsapp]
+verify_jwt = false

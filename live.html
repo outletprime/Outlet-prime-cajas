@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="OP Live">
+<title>Outlet Prime Live</title>
+<style>
+:root {
+  --fondo: #f3f3f2; --superficie: #ffffff; --superficie-2: #e9e9e7; --texto: #141414; --texto-2: #66645f;
+  --borde: #dcdbd8; --primario: #111111; --primario-texto: #ffffff; --marca: #ce091e;
+  --ok: #2f7d4f; --ok-suave: #e1f1e6; --aviso: #a86400; --aviso-suave: #fbeed6;
+  --vencida: #b8322a; --vencida-suave: #f9e1de; --info: #2b5c9e; --info-suave: #e2ebf7;
+  --wa-fondo: #efe7dd; --wa-in: #ffffff; --wa-out: #d9fdd3;
+  --sombra: 0 1px 2px rgba(40,30,20,.06), 0 2px 8px rgba(40,30,20,.05);
+  --radio: 14px; --sup: env(safe-area-inset-top, 0px); --inf: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fondo: #0e0e0e; --superficie: #1b1b1b; --superficie-2: #272727; --texto: #f1f1ef; --texto-2: #a3a19c;
+    --borde: #333333; --primario: #f1f1ef; --primario-texto: #111111; --marca: #e5263a;
+    --ok: #63c08a; --ok-suave: #1d3326; --aviso: #e7a948; --aviso-suave: #3a2d17;
+    --vencida: #f0776d; --vencida-suave: #3d2120; --info: #8db4ea; --info-suave: #1d2a3d;
+    --wa-fondo: #0b141a; --wa-in: #202c33; --wa-out: #005c4b; --sombra: none; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --fondo: #0e0e0e; --superficie: #1b1b1b; --superficie-2: #272727; --texto: #f1f1ef; --texto-2: #a3a19c;
+  --borde: #333333; --primario: #f1f1ef; --primario-texto: #111111; --marca: #e5263a;
+  --ok: #63c08a; --ok-suave: #1d3326; --aviso: #e7a948; --aviso-suave: #3a2d17;
+  --vencida: #f0776d; --vencida-suave: #3d2120; --info: #8db4ea; --info-suave: #1d2a3d;
+  --wa-fondo: #0b141a; --wa-in: #202c33; --wa-out: #005c4b; --sombra: none; color-scheme: dark;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--fondo); color: var(--texto); font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overscroll-behavior-y: none; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: var(--sup); z-index: 25; background: #000; }
+svg { width: 22px; height: 22px; flex: none; }
+h1, h2, h3, p { margin: 0; }
+small, .nota { color: var(--texto-2); font-size: 13px; }
+.nota { font-size: 14px; }
+.num { font-variant-numeric: tabular-nums; }
+
+.barra-sup { position: sticky; top: var(--sup); z-index: 20; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #000; color: #fff; border-bottom: 3px solid var(--marca); }
+.barra-sup img { height: 36px; width: auto; display: block; }
+.barra-sup h1 { flex: 1; font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn-icono { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: #fff; text-decoration: none; }
+.btn-icono:active { background: rgba(255,255,255,.15); }
+#vista { padding: 14px 16px calc(var(--inf) + 96px); max-width: 760px; margin: 0 auto; display: grid; gap: 12px; }
+
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: repeat(5, 1fr); padding: 6px 4px calc(var(--inf) + 6px); background: color-mix(in srgb, var(--superficie) 94%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-top: 1px solid var(--borde); }
+.tabs button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0; border: 0; background: none; color: var(--texto-2); font: 500 11px/1.2 inherit; font-family: inherit; cursor: pointer; position: relative; }
+.tabs button[aria-current="page"] { color: var(--marca); }
+.tabs .punto { position: absolute; top: 0; right: calc(50% - 20px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--marca); color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; padding: 0 18px; border-radius: 12px; border: 0; font: inherit; font-weight: 600; cursor: pointer; background: var(--superficie-2); color: var(--texto); text-decoration: none; text-align: center; }
+.btn:active { transform: scale(.98); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn-primario { background: var(--primario); color: var(--primario-texto); }
+.btn-marca { background: var(--marca); color: #fff; }
+.btn-secundario { background: var(--superficie); color: var(--texto); border: 1px solid var(--borde); }
+.btn-peligro { background: var(--vencida); color: #fff; }
+.btn-grande { width: 100%; min-height: 54px; font-size: 17px; }
+.btn-mini { min-height: 36px; padding: 0 12px; font-size: 14px; }
+.fila-botones { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.tarjeta { padding: 14px; border-radius: var(--radio); background: var(--superficie); border: 1px solid var(--borde); box-shadow: var(--sombra); display: grid; gap: 10px; }
+.seccion { font-size: 13px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--texto-2); margin-top: 10px; }
+.banner { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--radio); font-size: 15px; }
+.banner svg { margin-top: 1px; }
+.banner-aviso { background: var(--aviso-suave); color: var(--aviso); }
+.banner-info { background: var(--info-suave); color: var(--info); }
+.banner-ok { background: var(--ok-suave); color: var(--ok); }
+.banner a { color: inherit; font-weight: 700; }
+.chip { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; background: var(--superficie-2); color: var(--texto-2); white-space: nowrap; }
+.chip-ok { background: var(--ok-suave); color: var(--ok); }
+.chip-aviso { background: var(--aviso-suave); color: var(--aviso); }
+.chip-vencida { background: var(--vencida-suave); color: var(--vencida); }
+.chip-info { background: var(--info-suave); color: var(--info); }
+.chip-vivo { background: var(--marca); color: #fff; }
+.punto-vivo { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #fff; margin-right: 5px; vertical-align: 1px; animation: parpadeo 1.4s infinite; }
+@keyframes parpadeo { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .punto-vivo { animation: none; } }
+
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+@media (max-width: 520px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+.kpi { padding: 10px 12px; border-radius: 12px; background: var(--superficie); border: 1px solid var(--borde); }
+.kpi small { display: block; }
+.kpi b { font-size: 22px; font-variant-numeric: tabular-nums; }
+
+.feed { display: grid; gap: 6px; }
+.feed-fila { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--superficie); border: 1px solid var(--borde); }
+.feed-fila > :last-child { grid-row: 1 / span 2; grid-column: 2; }
+.feed-fila.espera { background: transparent; border-style: dashed; }
+.feed-num { font-size: 26px; font-weight: 800; letter-spacing: -.5px; font-variant-numeric: tabular-nums; line-height: 1.1; white-space: nowrap; }
+.feed-num .flecha { color: var(--texto-2); font-weight: 500; margin: 0 6px; }
+.feed-num .cas { color: var(--marca); }
+.feed-quien { min-width: 0; font-size: 14px; color: var(--texto-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed-quien b { color: var(--texto); }
+.nuevo { animation: entra .6s ease-out; }
+@keyframes entra { from { background: var(--ok-suave); } }
+
+.filtros { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px 2px; }
+.filtros::-webkit-scrollbar { display: none; }
+.filtro { flex: none; padding: 8px 14px; border-radius: 99px; background: var(--superficie); border: 1px solid var(--borde); color: var(--texto); font: 500 14px/1.2 inherit; font-family: inherit; cursor: pointer; }
+.filtro b { color: var(--texto-2); margin-left: 3px; }
+.filtro[aria-pressed="true"] { background: var(--texto); color: var(--fondo); border-color: var(--texto); }
+.filtro[aria-pressed="true"] b { color: inherit; opacity: .7; }
+
+.casillero { display: grid; grid-template-columns: 86px 1fr; gap: 12px; padding: 12px; border-radius: var(--radio); background: var(--superficie); border: 1px solid var(--borde); border-left: 5px solid var(--borde); }
+.casillero.e-por_pagar, .casillero.e-pago_incompleto { border-left-color: var(--aviso); }
+.casillero.e-pagada { border-left-color: var(--ok); }
+.casillero.e-vencida, .casillero.e-cancelada, .casillero.sin-caja { border-left-color: var(--vencida); }
+.casillero.e-abierta { border-left-color: var(--info); }
+.cas-id { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.cas-id small { display: block; font-size: 12px; font-weight: 500; margin-top: 4px; }
+.cas-cuerpo { display: grid; gap: 6px; min-width: 0; }
+.cas-cab { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; align-items: baseline; }
+.cas-cab b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.piezas { font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: .3px; }
+.paso { font-size: 15px; }
+.paso b { color: var(--marca); }
+
+label { display: grid; gap: 5px; font-size: 14px; font-weight: 600; color: var(--texto-2); }
+input, select, textarea { width: 100%; min-height: 46px; padding: 10px 12px; border-radius: 11px; border: 1px solid var(--borde); background: var(--superficie); color: var(--texto); font: inherit; font-size: 16px; font-weight: 400; }
+textarea { resize: vertical; min-height: 80px; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--primario); outline-offset: 0; border-color: transparent; }
+.dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tres { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.formulario { display: grid; gap: 12px; }
+
+.chat { display: grid; gap: 6px; padding: 12px; border-radius: var(--radio); background: var(--wa-fondo); min-height: 240px; max-height: 55vh; overflow-y: auto; align-content: start; }
+.burbuja { max-width: 85%; min-width: 84px; padding: 7px 10px 18px; border-radius: 10px; font-size: 15px; white-space: pre-wrap; overflow-wrap: anywhere; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,.08); }
+.burbuja time { position: absolute; right: 8px; bottom: 3px; font-size: 11px; color: var(--texto-2); }
+.burbuja.entrada { justify-self: end; background: var(--wa-out); border-top-right-radius: 2px; }
+.burbuja.salida { justify-self: start; background: var(--wa-in); border-top-left-radius: 2px; }
+.chat-vacio { color: var(--texto-2); text-align: center; padding: 40px 10px; font-size: 14px; }
+.enviar { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.atajos { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.lista-simple { display: grid; gap: 6px; }
+.lista-simple > div { padding: 10px 12px; border-radius: 10px; background: var(--superficie-2); font-size: 14px; }
+.estados { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+@media (max-width: 520px) { .estados { grid-template-columns: repeat(2, 1fr); } }
+
+.vacio { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 34px 16px; color: var(--texto-2); }
+.vacio svg { width: 40px; height: 40px; }
+.vacio h2 { color: var(--texto); font-size: 19px; }
+.cargando { display: grid; place-items: center; padding: 80px 0; }
+.spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--borde); border-top-color: var(--marca); animation: gira .8s linear infinite; }
+@keyframes gira { to { transform: rotate(360deg); } }
+.toast { position: fixed; left: 16px; right: 16px; top: calc(var(--sup) + 12px); z-index: 100; margin: 0 auto; max-width: 480px; padding: 13px 16px; border-radius: 12px; background: var(--texto); color: var(--fondo); font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,.2); transform: translateY(-20px); opacity: 0; transition: .25s; }
+.toast.visible { transform: none; opacity: 1; }
+.toast-error { background: var(--vencida); color: #fff; }
+.modal-fondo { position: fixed; inset: 0; z-index: 75; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); }
+.modal { width: 100%; max-width: 520px; max-height: 88vh; overflow: auto; padding: 20px 18px calc(var(--inf) + 16px); border-radius: 20px 20px 0 0; background: var(--superficie); display: grid; gap: 12px; }
+@media (min-width: 600px) { .modal-fondo { align-items: center; } .modal { border-radius: 20px; } }
+.modal h2 { font-size: 19px; }
+.modal-botones { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 10px; margin-top: 6px; }
+
+.login-fondo { min-height: 100vh; background: #000; }
+.login { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 24px; max-width: 420px; margin: 0 auto; }
+.login img { width: 100%; max-width: 300px; margin: 0 auto; display: block; }
+.login h1 { color: #fff; text-align: center; font-size: 20px; }
+.login label { color: #bdbdbd; }
+.login input { background: #1b1b1b; border-color: #333; color: #fff; }
+</style>
+</head>
+<body>
+<div id="app"><div class="cargando"><div class="spinner"></div></div></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script>
+/* Panel del live · Outlet Prime
+ * Lee y escribe en la misma base de Supabase que la app de Cajas.
+ * Toda la lógica (apartar, casilleros, cobros, caja fija) está en la base de datos;
+ * este panel solo muestra y llama a esas funciones. */
+const CFG = window.APP_CONFIG || {};
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtDinero = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
+const dinero = n => fmtDinero.format(Number(n) || 0);
+const num4 = n => String(n).padStart(4, '0');
+const hora = v => v ? new Date(v).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' }) : '';
+const horaSeg = v => v ? new Date(v).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit', second: '2-digit' }) : '';
+const fechaHora = v => v ? new Date(v).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '';
+const folio = f => 'OP-' + String(f).padStart(3, '0');
+const telBonito = t => { const d = String(t || ''); return d.startsWith('00') ? 'prueba ' + d.slice(-2) : d.replace(/(\d{2})(\d{4})(\d{4})/, '$1 $2 $3'); };
+
+const svg = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const IC = {
+  vivo: svg('<circle cx="12" cy="12" r="2.5"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19 5a10 10 0 0 1 0 14M5 19A10 10 0 0 1 5 5"/>'),
+  casilleros: svg('<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>'),
+  prendas: svg('<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/>'),
+  chat: svg('<path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.5L3 21l2-5.5A8.4 8.4 0 1 1 21 11.5z"/>'),
+  ajustes: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
+  cajas: svg('<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>'),
+  alerta: svg('<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>'),
+  info: svg('<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>'),
+  ok: svg('<path d="M20 6 9 17l-5-5"/>'),
+  enviar: svg('<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>'),
+};
+
+/* ---------- Avisos y ventanas ---------- */
+function toast(msg, tipo = 'ok') {
+  const t = document.createElement('div');
+  t.className = `toast toast-${tipo}`;
+  t.setAttribute('role', 'status');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('visible'));
+  setTimeout(() => { t.classList.remove('visible'); setTimeout(() => t.remove(), 300); }, tipo === 'error' ? 5500 : 3000);
+}
+function modal({ titulo, html, botones, alAbrir }) {
+  return new Promise(resolve => {
+    const fondo = document.createElement('div');
+    fondo.className = 'modal-fondo';
+    fondo.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="${esc(titulo)}">
+      <h2>${esc(titulo)}</h2><div>${html || ''}</div>
+      <div class="modal-botones">${botones.map((b, i) => `<button type="button" class="btn ${b.clase || (i === botones.length - 1 ? 'btn-primario' : 'btn-secundario')}" data-i="${i}">${esc(b.texto)}</button>`).join('')}</div></div>`;
+    const cerrar = v => { fondo.remove(); resolve(v); };
+    fondo.addEventListener('click', e => {
+      const b = e.target.closest('[data-i]');
+      if (b) { const def = botones[+b.dataset.i]; const v = typeof def.valor === 'function' ? def.valor(fondo) : def.valor; if (v !== undefined) cerrar(v); }
+      else if (e.target === fondo) cerrar(null);
+    });
+    document.body.appendChild(fondo);
+    alAbrir && alAbrir(fondo, cerrar);
+  });
+}
+const confirmar = (titulo, html, si = 'Sí, continuar', peligro = false) =>
+  modal({ titulo, html, botones: [{ texto: 'Cancelar', valor: false }, { texto: si, valor: true, clase: peligro ? 'btn-peligro' : 'btn-primario' }] }).then(Boolean);
+
+function traducirError(err) {
+  const m = (err && (err.message || err.error_description)) || String(err);
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Sin conexión a internet. Revisa la señal e intenta de nuevo.';
+  if (/Invalid login credentials/i.test(m)) return 'Correo o contraseña incorrectos.';
+  if (/JWT|session/i.test(m)) return 'Tu sesión expiró. Vuelve a entrar.';
+  if (/live_config_check/.test(m)) return 'Las horas deben ir en orden: recordatorio, luego límite de pago, luego liberar.';
+  if (/lives_uno_activo/.test(m)) return 'Ya hay un live en curso.';
+  if (/does not exist|schema cache/i.test(m)) return 'Falta instalar el sistema de lives en la base de datos.';
+  return m;
+}
+let ocupado = false;
+async function accion(fn, okMsg) {
+  if (ocupado) return null;
+  ocupado = true;
+  try { const r = await fn(); if (okMsg) toast(typeof okMsg === 'function' ? okMsg(r) : okMsg); return r ?? true; }
+  catch (e) { console.error(e); toast(traducirError(e), 'error'); return null; }
+  finally { ocupado = false; }
+}
+
+/* ---------- Datos ---------- */
+const sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true } });
+let usuario = null;
+async function q(consulta) { const { data, error } = await consulta; if (error) throw error; return data; }
+async function rpc(fn, args) { const { data, error } = await sb.rpc(fn, args); if (error) throw error; return data; }
+
+const D = { live: null, cfg: null, feed: [], tablero: [], vistos: new Set(), primeraCarga: true };
+async function cargar() {
+  const [lives, cfg, tablero] = await Promise.all([
+    q(sb.from('lives').select('*').eq('estado', 'activo').limit(1)),
+    q(sb.from('live_config').select('*').limit(1)),
+    q(sb.from('live_tablero').select('*').or('casillero_liberado_en.is.null,estado.in.(por_pagar,pago_incompleto)').order('folio', { ascending: true }).limit(1000)),
+  ]);
+  D.live = lives[0] || null;
+  D.cfg = cfg[0] || {};
+  D.tablero = tablero;
+  D.feed = D.live
+    ? await q(sb.from('live_feed').select('*').eq('live_id', D.live.id).in('estado', ['apartada', 'espera', 'pagada']).order('creado_en', { ascending: false }).limit(500))
+    : [];
+}
+
+/* ---------- Estructura ---------- */
+const VISTAS = [
+  { id: 'vivo', nombre: 'En vivo', icono: IC.vivo },
+  { id: 'casilleros', nombre: 'Casilleros', icono: IC.casilleros },
+  { id: 'prendas', nombre: 'Prendas', icono: IC.prendas },
+  { id: 'whatsapp', nombre: 'WhatsApp', icono: IC.chat },
+  { id: 'ajustes', nombre: 'Ajustes', icono: IC.ajustes },
+];
+let vista = (location.hash.replace('#', '') || 'vivo');
+if (!VISTAS.some(v => v.id === vista)) vista = 'vivo';
+
+function montar() {
+  $('#app').innerHTML = `
+    <header class="barra-sup">
+      <img src="icons/logo-oscuro.png" alt="Outlet Prime">
+      <h1 id="titulo">Live</h1>
+      <a class="btn-icono" href="index.html" aria-label="Ir a la app de Cajas" title="Cajas">${IC.cajas}</a>
+    </header>
+    <main id="vista"></main>
+    <nav class="tabs" aria-label="Secciones">
+      ${VISTAS.map(v => `<button type="button" data-vista="${v.id}">${v.icono}<span>${v.nombre}</span><span class="punto" data-punto="${v.id}" hidden></span></button>`).join('')}
+    </nav>`;
+  $$('[data-vista]').forEach(b => b.onclick = () => irA(b.dataset.vista));
+}
+function irA(v) {
+  vista = v;
+  history.replaceState(null, '', '#' + v);
+  window.scrollTo(0, 0);
+  pintar(true);
+}
+function marcarTabs() {
+  $$('[data-vista]').forEach(b => b.setAttribute('aria-current', b.dataset.vista === vista ? 'page' : 'false'));
+  const pendientes = D.tablero.filter(c => siguientePaso(c).accion).length;
+  const p = $('[data-punto="casilleros"]');
+  if (p) { p.hidden = !pendientes; p.textContent = pendientes; }
+  $('#titulo').textContent = VISTAS.find(x => x.id === vista).nombre;
+}
+async function pintar(cambioDeVista = false) {
+  marcarTabs();
+  const v = $('#vista');
+  if (cambioDeVista) v.innerHTML = '<div class="cargando"><div class="spinner"></div></div>';
+  try {
+    const html = await ({ vivo: vistaVivo, casilleros: vistaCasilleros, prendas: vistaPrendas, whatsapp: vistaWhatsApp, ajustes: vistaAjustes })[vista]();
+    if (html !== null) v.innerHTML = html;
+    conectar[vista] && conectar[vista](v);
+  } catch (e) {
+    console.error(e);
+    v.innerHTML = `<div class="vacio">${IC.alerta}<h2>No se pudo cargar</h2><p>${esc(traducirError(e))}</p><button class="btn btn-primario" onclick="pintar(true)">Reintentar</button></div>`;
+  }
+}
+const conectar = {};
+
+/* ---------- En vivo ---------- */
+function posicionesEspera(feed) {
+  const pos = {};
+  const porPrenda = {};
+  feed.filter(a => a.estado === 'espera').forEach(a => (porPrenda[a.prenda] = porPrenda[a.prenda] || []).push(a));
+  Object.values(porPrenda).forEach(l => l.sort((a, b) => new Date(a.mensaje_en) - new Date(b.mensaje_en) || new Date(a.creado_en) - new Date(b.creado_en)).forEach((a, i) => pos[a.id] = i + 1));
+  return pos;
+}
+async function vistaVivo() {
+  await cargar();
+  const sinClabe = !(D.cfg.clabe || '').trim();
+  if (!D.live) {
+    const porCobrar = D.tablero.filter(c => ['por_pagar', 'pago_incompleto'].includes(c.estado));
+    return `
+      <div class="vacio">${IC.vivo}<h2>No hay live en curso</h2><p>Al iniciar, el bot de WhatsApp empieza a apartar por número de etiqueta.</p></div>
+      ${sinClabe ? `<div class="banner banner-aviso">${IC.alerta}<span>Falta la CLABE para cobrar. <a href="#ajustes" data-ir="ajustes">Ponla en Ajustes</a> antes de cerrar el live.</span></div>` : ''}
+      <form class="tarjeta" id="f-iniciar">
+        <label>Nombre del live (opcional)<input name="titulo" placeholder="Ej. Live mañana" maxlength="60" autocomplete="off"></label>
+        <button class="btn btn-marca btn-grande">${IC.vivo} Iniciar live</button>
+      </form>
+      ${porCobrar.length ? `<div class="banner banner-info">${IC.info}<span>${porCobrar.length} ${porCobrar.length === 1 ? 'clienta tiene' : 'clientas tienen'} pago pendiente del último live. <a href="#casilleros" data-ir="casilleros">Ver casilleros</a></span></div>` : ''}`;
+  }
+  const apartadas = D.feed.filter(a => a.estado !== 'espera');
+  const espera = D.feed.filter(a => a.estado === 'espera');
+  const clientas = new Set(apartadas.map(a => a.clienta_id)).size;
+  const total = apartadas.reduce((s, a) => s + Number(a.precio || 0), 0);
+  const pos = posicionesEspera(D.feed);
+  const sinCasillero = D.tablero.filter(c => c.live_id === D.live.id && !c.casillero && c.estado === 'abierta').length;
+  const nuevos = D.primeraCarga ? new Set() : new Set(D.feed.filter(a => !D.vistos.has(a.id)).map(a => a.id));
+  D.feed.forEach(a => D.vistos.add(a.id));
+  D.primeraCarga = false;
+  return `
+    <div class="fila-botones" style="justify-content:space-between;align-items:center">
+      <span class="chip chip-vivo"><span class="punto-vivo"></span>EN VIVO desde ${hora(D.live.iniciado_en)}</span>
+      <small>${esc(D.live.titulo || '')}</small>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><small>Apartadas</small><b>${apartadas.length}</b></div>
+      <div class="kpi"><small>Clientas</small><b>${clientas}</b></div>
+      <div class="kpi"><small>Total</small><b>${dinero(total)}</b></div>
+      <div class="kpi"><small>En espera</small><b>${espera.length}</b></div>
+    </div>
+    ${sinCasillero ? `<div class="banner banner-aviso">${IC.alerta}<span>${sinCasillero} ${sinCasillero === 1 ? 'clienta no tiene' : 'clientas no tienen'} casillero: ya no hay casilleros libres.</span></div>` : ''}
+    ${sinClabe ? `<div class="banner banner-aviso">${IC.alerta}<span>Falta la CLABE: los cobros saldrían sin datos de pago. <a href="#ajustes" data-ir="ajustes">Ponla en Ajustes</a>.</span></div>` : ''}
+    <h3 class="seccion">Apartados al momento</h3>
+    ${D.feed.length ? `<div class="feed">${D.feed.map(a => filaFeed(a, pos, nuevos.has(a.id))).join('')}</div>`
+      : `<div class="vacio"><p>Aún no hay apartados. Cuando una clienta mande un número por WhatsApp aparece aquí con su casillero.</p></div>`}
+    <button class="btn btn-peligro btn-grande" id="cerrar-live">Cerrar live y mandar cobros</button>
+    <p class="nota">Al cerrar, cada clienta recibe por WhatsApp su total y cómo pagar. Tiene ${horas(D.cfg.horas_limite)} para pagar; a las ${horas(D.cfg.horas_liberar)} lo no pagado se libera solo.</p>`;
+}
+function horas(h) { const n = Number(h); return n === 1 ? '1 hora' : `${n} horas`; }
+function filaFeed(a, pos, nuevo) {
+  if (a.estado === 'espera') {
+    return `<div class="feed-fila espera"><div class="feed-num"><span>${num4(a.prenda)}</span> <span class="chip">Espera #${pos[a.id] || '?'}</span></div>
+      <div class="feed-quien"><b>${esc(a.clienta)}</b> · ${horaSeg(a.mensaje_en)}</div>
+      <button class="btn btn-mini btn-secundario" data-quitar="${a.id}" aria-label="Quitar de la lista de espera">Quitar</button></div>`;
+  }
+  return `<div class="feed-fila${nuevo ? ' nuevo' : ''}"><div class="feed-num"><span>${num4(a.prenda)}</span><span class="flecha">→</span><span class="cas">${esc(a.casillero || 'SIN CASILLERO')}</span></div>
+    <div class="feed-quien"><b>${esc(a.clienta)}</b> · ${horaSeg(a.mensaje_en)}</div>
+    ${a.estado === 'apartada' ? `<button class="btn btn-mini btn-secundario" data-liberar="${a.id}" data-num="${a.prenda}">Liberar</button>` : '<span class="chip chip-ok">Pagada</span>'}</div>`;
+}
+conectar.vivo = raiz => {
+  $$('[data-ir]', raiz).forEach(a => a.onclick = e => { e.preventDefault(); irA(a.dataset.ir); });
+  const f = $('#f-iniciar', raiz);
+  if (f) f.onsubmit = async e => {
+    e.preventDefault();
+    const ok = await accion(() => rpc('live_iniciar', { p_titulo: f.titulo.value, p_usuario: usuario.nombre }), 'Live iniciado. El bot ya está apartando.');
+    if (ok) { D.vistos.clear(); D.primeraCarga = true; pintar(); }
+  };
+  const c = $('#cerrar-live', raiz);
+  if (c) c.onclick = async () => {
+    const n = new Set(D.feed.filter(a => a.estado === 'apartada').map(a => a.clienta_id)).size;
+    if (!(await confirmar('¿Cerrar el live?', `<p>Se manda por WhatsApp el total y cómo pagar a <b>${n} ${n === 1 ? 'clienta' : 'clientas'}</b>. Después de cerrar ya no se puede apartar.</p>`, 'Cerrar y cobrar', true))) return;
+    const r = await accion(() => rpc('live_cerrar', { p_live: D.live.id, p_usuario: usuario.nombre }), r => `Live cerrado. Cobro enviado a ${r} ${r === 1 ? 'clienta' : 'clientas'}.`);
+    if (r !== null) irA('casilleros');
+  };
+  $$('[data-liberar]', raiz).forEach(b => b.onclick = async () => {
+    if (!(await confirmar(`¿Liberar la ${num4(b.dataset.num)}?`, '<p>Se quita a esta clienta. Si alguien está en espera, pasa automáticamente a la primera y le avisa el bot.</p>', 'Liberar'))) return;
+    if (await accion(() => rpc('live_liberar_apartado', { p_apartado: b.dataset.liberar }), 'Prenda liberada')) pintar();
+  });
+  $$('[data-quitar]', raiz).forEach(b => b.onclick = async () => {
+    if (await accion(() => rpc('live_liberar_apartado', { p_apartado: b.dataset.quitar }), 'Quitada de la lista de espera')) pintar();
+  });
+};
+
+/* ---------- Casilleros ---------- */
+let filtroCas = 'todos';
+function siguientePaso(c) {
+  const falta = Number(c.total) - Number(c.monto_pagado);
+  switch (c.estado) {
+    case 'abierta': return { chip: ['chip-info', 'Live en curso'], paso: 'Guardar aquí lo que aparte' };
+    case 'por_pagar': return { chip: ['chip-aviso', `Pendiente · ${hora(c.limite_pago)}`], paso: `Esperar el pago (se libera a las ${hora(c.liberar_en)})`, accion: false, pago: true };
+    case 'pago_incompleto': return { chip: ['chip-aviso', `Faltan ${dinero(falta)}`], paso: 'Pago incompleto: revisar con la clienta', pago: true };
+    case 'pagada':
+      if (!c.caja) return { chip: ['chip-vencida', 'Sin caja libre'], paso: 'No hay cajas libres: crea más en la app de Cajas', accion: 'caja', boton: 'Reintentar caja', sinCaja: true };
+      return { chip: ['chip-ok', 'Pagado'], paso: `Mover a la caja <b>${esc(c.caja)}</b>`, accion: 'listo', boton: 'Ya está en la caja' };
+    case 'vencida': return { chip: ['chip-vencida', 'Sin pago'], paso: '<b>Regresar las prendas a racks</b>', accion: 'listo', boton: 'Ya las regresé' };
+    case 'cancelada': return { chip: ['chip', 'Cancelada'], paso: 'Vaciar el casillero', accion: 'listo', boton: 'Ya está vacío' };
+    default: return { chip: ['chip', c.estado], paso: '' };
+  }
+}
+const FILTROS = [
+  ['todos', 'Todos', () => true],
+  ['accion', 'Por hacer', c => !!siguientePaso(c).accion],
+  ['pago', 'Por pagar', c => ['por_pagar', 'pago_incompleto'].includes(c.estado)],
+  ['vivo', 'En live', c => c.estado === 'abierta'],
+];
+async function vistaCasilleros() {
+  await cargar();
+  const lista = D.tablero.filter(c => c.casillero_liberado_en == null || ['por_pagar', 'pago_incompleto'].includes(c.estado));
+  if (!FILTROS.some(f => f[0] === filtroCas)) filtroCas = 'todos';
+  const visibles = lista.filter(FILTROS.find(f => f[0] === filtroCas)[2])
+    .sort((a, b) => String(a.casillero || 'Z').localeCompare(String(b.casillero || 'Z')) || a.folio - b.folio);
+  const ocupados = lista.filter(c => c.casillero).length;
+  return `
+    <div class="filtros" role="group" aria-label="Filtrar">
+      ${FILTROS.map(([id, nombre, fn]) => `<button type="button" class="filtro" data-filtro="${id}" aria-pressed="${filtroCas === id}">${nombre}<b>${lista.filter(fn).length}</b></button>`).join('')}
+    </div>
+    <small>${ocupados} de 100 casilleros ocupados</small>
+    ${visibles.length ? visibles.map(tarjetaCasillero).join('') : `<div class="vacio">${IC.casilleros}<h2>Nada por aquí</h2><p>${filtroCas === 'todos' ? 'No hay casilleros ocupados.' : 'No hay casilleros en este filtro.'}</p></div>`}`;
+}
+function tarjetaCasillero(c) {
+  const s = siguientePaso(c);
+  return `<article class="casillero e-${c.estado}${s.sinCaja ? ' sin-caja' : ''}">
+    <div class="cas-id">${esc(c.casillero || '—')}<small>${folio(c.folio)}</small></div>
+    <div class="cas-cuerpo">
+      <div class="cas-cab"><b>${esc(c.clienta)}</b><span class="chip ${s.chip[0]}">${esc(s.chip[1])}</span></div>
+      <small>${telBonito(c.telefono)} · ${c.piezas} ${c.piezas === 1 ? 'prenda' : 'prendas'} · ${dinero(c.total)}</small>
+      <div class="piezas">${(c.prendas || []).map(num4).join(' · ') || '<span class="nota">Sin prendas</span>'}</div>
+      <p class="paso">${s.paso}</p>
+      <div class="fila-botones">
+        ${s.accion ? `<button class="btn btn-mini btn-primario" data-${s.accion}="${c.id}">${esc(s.boton)}</button>` : ''}
+        ${s.pago ? `<button class="btn btn-mini btn-primario" data-pago="${c.id}">Registrar pago</button>` : ''}
+      </div>
+    </div>
+  </article>`;
+}
+conectar.casilleros = raiz => {
+  $$('[data-filtro]', raiz).forEach(b => b.onclick = () => { filtroCas = b.dataset.filtro; pintar(); });
+  $$('[data-listo]', raiz).forEach(b => b.onclick = async () => {
+    if (await accion(() => rpc('live_casillero_listo', { p_cuenta: b.dataset.listo, p_usuario: usuario.nombre }), 'Casillero libre')) pintar();
+  });
+  $$('[data-caja]', raiz).forEach(b => b.onclick = async () => {
+    const caja = await accion(() => rpc('live_pasar_a_caja', { p_cuenta: b.dataset.caja }));
+    if (caja === true) toast('Sigue sin haber cajas libres. Crea más en la app de Cajas.', 'error');
+    else if (caja) { toast(`Asignada a la caja ${caja}`); pintar(); }
+  });
+  $$('[data-pago]', raiz).forEach(b => b.onclick = () => registrarPago(D.tablero.find(c => c.id === b.dataset.pago)));
+};
+async function registrarPago(c) {
+  const falta = Math.max(0, Number(c.total) - Number(c.monto_pagado));
+  const datos = await modal({
+    titulo: `Registrar pago · ${folio(c.folio)}`,
+    html: `<div class="formulario">
+      <p><b>${esc(c.clienta)}</b> · total ${dinero(c.total)}${Number(c.monto_pagado) ? ` · ya pagó ${dinero(c.monto_pagado)}` : ''}</p>
+      <label>Monto recibido<input id="pago-monto" type="number" inputmode="decimal" min="1" step="1" value="${falta}"></label>
+      <label>Referencia (opcional)<input id="pago-ref" placeholder="Ej. rastreo SPEI" autocomplete="off"></label>
+      <p class="nota">Con el pago completo, las prendas pasan solas a su caja fija y el bot le confirma.</p></div>`,
+    botones: [{ texto: 'Cancelar', valor: null }, { texto: 'Registrar pago', valor: el => {
+      const monto = Number($('#pago-monto', el).value);
+      if (!(monto > 0)) { toast('Escribe el monto recibido.', 'error'); return undefined; }
+      return { monto, ref: $('#pago-ref', el).value };
+    } }],
+  });
+  if (!datos) return;
+  const r = await accion(() => rpc('live_registrar_pago', { p_cuenta: c.id, p_monto: datos.monto, p_usuario: usuario.nombre, p_referencia: datos.ref }));
+  if (!r) return;
+  if (r.estado === 'pago_incompleto') toast(`Pago parcial: faltan ${dinero(Number(r.total) - Number(r.monto_pagado))}.`);
+  else toast(r.caja ? `Pagado. Mover a la caja ${r.caja}.` : 'Pagado, pero no hay cajas libres.');
+  pintar();
+}
+
+/* ---------- Prendas ---------- */
+let buscada = null;
+async function contar(estado) {
+  const { count, error } = await sb.from('prendas').select('numero', { count: 'exact', head: true }).eq('estado', estado);
+  if (error) throw error;
+  return count || 0;
+}
+async function vistaPrendas() {
+  const [disp, apar, pag, cfg] = await Promise.all([contar('disponible'), contar('apartada'), contar('pagada'), q(sb.from('live_config').select('precio').limit(1))]);
+  let detalle = '';
+  if (buscada != null) {
+    const [p] = await q(sb.from('prendas').select('*').eq('numero', buscada));
+    if (!p) detalle = `<div class="tarjeta"><b>${num4(buscada)}</b><p class="nota">Esa etiqueta no está registrada. Regístrala con el rango de arriba.</p></div>`;
+    else {
+      const hist = await q(sb.from('live_feed').select('*').eq('prenda', buscada).order('creado_en', { ascending: false }).limit(30));
+      const ET = { disponible: ['chip-ok', 'Disponible'], apartada: ['chip-aviso', 'Apartada'], pagada: ['chip-info', 'Vendida'], enviada: ['chip', 'Enviada'], baja: ['chip-vencida', 'Baja'] };
+      const EA = { apartada: 'Apartada', espera: 'En espera', pagada: 'Pagada', liberada: 'Liberada', cancelada: 'Cancelada' };
+      detalle = `<div class="tarjeta">
+        <div class="cas-cab"><b style="font-size:24px">${num4(p.numero)}</b><span class="chip ${ET[p.estado][0]}">${ET[p.estado][1]}</span></div>
+        <small>${dinero(p.precio)} · registrada ${fechaHora(p.registrada_en)}</small>
+        ${hist.length ? `<div class="lista-simple">${hist.map(a => `<div><b>${esc(a.clienta)}</b> · ${EA[a.estado] || a.estado}${a.casillero ? ' · ' + esc(a.casillero) : ''}<br><small>${fechaHora(a.mensaje_en)}</small></div>`).join('')}</div>` : '<p class="nota">Nadie la ha pedido todavía.</p>'}
+      </div>`;
+    }
+  }
+  return `
+    <div class="estados">
+      <div class="kpi"><small>Disponibles</small><b>${disp}</b></div>
+      <div class="kpi"><small>Apartadas</small><b>${apar}</b></div>
+      <div class="kpi"><small>Vendidas</small><b>${pag}</b></div>
+      <div class="kpi"><small>Registradas</small><b>${disp + apar + pag}</b></div>
+    </div>
+    <h3 class="seccion">Registrar etiquetas nuevas</h3>
+    <form class="tarjeta formulario" id="f-rango">
+      <div class="tres">
+        <label>Desde<input name="desde" type="number" inputmode="numeric" min="1" max="99999" required placeholder="3001"></label>
+        <label>Hasta<input name="hasta" type="number" inputmode="numeric" min="1" max="99999" required placeholder="3200"></label>
+        <label>Precio<input name="precio" type="number" inputmode="decimal" min="1" value="${Number((cfg[0] || {}).precio || 89)}"></label>
+      </div>
+      <button class="btn btn-primario">Registrar rango</button>
+      <p class="nota">Los números que ya existían no se tocan. Lo que no se vende en un live sigue disponible para el siguiente.</p>
+    </form>
+    <h3 class="seccion">Buscar una prenda</h3>
+    <form class="enviar" id="f-buscar">
+      <input name="n" type="number" inputmode="numeric" min="1" max="99999" placeholder="Número de etiqueta" value="${buscada ?? ''}" aria-label="Número de etiqueta">
+      <button class="btn btn-primario">Buscar</button>
+    </form>
+    ${detalle}`;
+}
+conectar.prendas = raiz => {
+  $('#f-rango', raiz).onsubmit = async e => {
+    e.preventDefault();
+    const f = e.target;
+    const desde = +f.desde.value, hasta = +f.hasta.value;
+    if (hasta < desde) { toast('El segundo número debe ser mayor o igual al primero.', 'error'); return; }
+    const n = await accion(() => rpc('live_registrar_prendas', { p_desde: desde, p_hasta: hasta, p_precio: +f.precio.value || null, p_usuario: usuario.nombre }));
+    if (n === null) return;
+    const total = hasta - desde + 1, nuevas = n === true ? 0 : n;
+    toast(nuevas === total ? `${nuevas} prendas registradas` : `${nuevas} nuevas; ${total - nuevas} ya existían`);
+    pintar();
+  };
+  $('#f-buscar', raiz).onsubmit = e => { e.preventDefault(); const n = parseInt(e.target.n.value, 10); buscada = n > 0 ? n : null; pintar(); };
+};
+
+/* ---------- WhatsApp (simulador) ---------- */
+const PRUEBAS = ['María', 'Ana', 'Sofía', 'Lucía', 'Fer', 'Karla'].map((n, i) => ({ tel: '000000000' + (i + 1), nombre: `${n} (prueba)` }));
+let simTel = PRUEBAS[0].tel;
+async function vistaWhatsApp() {
+  const [chat, pendientes, { count: nPend }] = await Promise.all([
+    q(sb.from('wa_mensajes').select('*').eq('telefono', simTel).order('creado_en', { ascending: true }).limit(200)),
+    q(sb.from('wa_mensajes').select('*').eq('direccion', 'salida').eq('estado', 'pendiente').order('creado_en', { ascending: false }).limit(10)),
+    sb.from('wa_mensajes').select('id', { count: 'exact', head: true }).eq('direccion', 'salida').eq('estado', 'pendiente'),
+  ]);
+  return `
+    <div class="banner banner-info">${IC.info}<span><b>Simulador.</b> Escribe como si fueras una clienta. El bot responde igual que en WhatsApp, pero aquí nada sale a ningún teléfono. Las clientas de prueba usan números que empiezan con 00.</span></div>
+    <label>Clienta de prueba<select id="sim-tel">${PRUEBAS.map(p => `<option value="${p.tel}" ${p.tel === simTel ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></label>
+    <div class="chat" id="chat" aria-live="polite">
+      ${chat.length ? chat.map(m => `<div class="burbuja ${m.direccion}">${esc(m.texto).replace(/\*(.+?)\*/g, '<b>$1</b>')}<time>${hora(m.creado_en)}</time></div>`).join('')
+        : '<div class="chat-vacio">Manda un número de etiqueta, por ejemplo <b>23</b>, o varios: <b>23 45 310</b>.</div>'}
+    </div>
+    <form class="enviar" id="f-sim">
+      <input name="texto" placeholder="Mensaje" autocomplete="off" enterkeyhint="send" aria-label="Mensaje">
+      <button class="btn btn-marca" aria-label="Enviar">${IC.enviar}</button>
+    </form>
+    <div class="atajos">${['Hola', '1', '2 3', '5 6 7'].map(t => `<button type="button" class="btn btn-mini btn-secundario" data-atajo="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+    <h3 class="seccion">Pruebas</h3>
+    <div class="tarjeta">
+      <p class="nota">Los recordatorios y liberaciones corren solos cada minuto. Para no esperar, puedes revisarlos ahora.</p>
+      <div class="fila-botones">
+        <button class="btn btn-secundario" id="revisar">Revisar vencimientos ahora</button>
+        <button class="btn btn-peligro" id="borrar-sim">Borrar datos de prueba</button>
+      </div>
+    </div>
+    <h3 class="seccion">Mensajes reales por enviar · ${nPend || 0}</h3>
+    <div class="tarjeta">
+      <p class="nota">Cuando se conecte el número de WhatsApp del bot, estos mensajes salen solos. Mientras tanto se quedan aquí. Los de más de 30 minutos ya no se mandan.</p>
+      ${pendientes.length ? `<div class="lista-simple">${pendientes.map(m => `<div><b>${telBonito(m.telefono)}</b> · <small>${fechaHora(m.creado_en)}</small><br>${esc(m.texto).slice(0, 160)}${m.texto.length > 160 ? '…' : ''}</div>`).join('')}</div>` : '<p class="nota">No hay mensajes pendientes.</p>'}
+    </div>`;
+}
+conectar.whatsapp = raiz => {
+  const chat = $('#chat', raiz);
+  chat.scrollTop = chat.scrollHeight;
+  $('#sim-tel', raiz).onchange = e => { simTel = e.target.value; pintar(); };
+  const enviar = async texto => {
+    if (!texto.trim()) return;
+    const p = PRUEBAS.find(x => x.tel === simTel);
+    const r = await accion(() => rpc('bot_mensaje', { p_telefono: simTel, p_texto: texto, p_nombre: p.nombre }));
+    if (r) pintar();
+  };
+  $('#f-sim', raiz).onsubmit = async e => { e.preventDefault(); const t = e.target.texto.value; e.target.texto.value = ''; await enviar(t); setTimeout(() => { const i = $('#f-sim input'); i && i.focus(); }, 50); };
+  $$('[data-atajo]', raiz).forEach(b => b.onclick = () => enviar(b.dataset.atajo));
+  $('#revisar', raiz).onclick = async () => {
+    const r = await accion(() => rpc('live_revisar_vencimientos'));
+    if (r) { toast(`Recordatorios: ${r.recordatorios || 0} · Liberadas: ${r.vencidas || 0}`); pintar(); }
+  };
+  $('#borrar-sim', raiz).onclick = async () => {
+    if (!(await confirmar('¿Borrar datos de prueba?', '<p>Se borran las clientas de prueba (números que empiezan con 00), sus apartados, cobros, cajas y pedidos de prueba. Las prendas que tenían vuelven a estar disponibles. <b>Las clientas reales no se tocan.</b></p>', 'Borrar pruebas', true))) return;
+    const r = await accion(() => rpc('live_borrar_simulacion'));
+    if (r) { toast(`Listo: ${r.clientas} clientas de prueba borradas.`); D.vistos.clear(); pintar(); }
+  };
+};
+
+/* ---------- Ajustes ---------- */
+async function vistaAjustes() {
+  const [c] = await q(sb.from('live_config').select('*').limit(1));
+  const v = c || {};
+  return `
+    <form class="tarjeta formulario" id="f-ajustes">
+      <h3 class="seccion" style="margin:0">Cobro</h3>
+      <label>CLABE para recibir pagos<input name="clabe" inputmode="numeric" maxlength="18" pattern="[0-9]{18}" value="${esc(v.clabe || '')}" placeholder="18 dígitos"></label>
+      <div class="dos">
+        <label>Banco<input name="banco" value="${esc(v.banco || '')}" placeholder="BBVA"></label>
+        <label>A nombre de<input name="titular" value="${esc(v.titular || '')}" placeholder="Titular de la cuenta"></label>
+      </div>
+      <p class="nota">Mientras no haya una CLABE distinta por pedido (Fintoc o Conekta), todas pagan a esta CLABE con su folio en el concepto, y el pago se registra a mano en Casilleros.</p>
+      <h3 class="seccion">Tiempos después de cerrar el live</h3>
+      <div class="tres">
+        <label>Recordatorio (h)<input name="horas_recordatorio" type="number" step="0.25" min="0.25" value="${v.horas_recordatorio ?? 1}"></label>
+        <label>Límite de pago (h)<input name="horas_limite" type="number" step="0.25" min="0.25" value="${v.horas_limite ?? 2}"></label>
+        <label>Liberar (h)<input name="horas_liberar" type="number" step="0.25" min="0.25" value="${v.horas_liberar ?? 3}"></label>
+      </div>
+      <h3 class="seccion">Prendas</h3>
+      <div class="dos">
+        <label>Precio por prenda<input name="precio" type="number" min="1" step="1" value="${v.precio ?? 89}"></label>
+        <label>Máximo por clienta y live<input name="limite_por_clienta" type="number" min="1" step="1" value="${v.limite_por_clienta ?? ''}" placeholder="Sin límite"></label>
+      </div>
+      <label>Mensaje cuando no hay live<textarea name="mensaje_sin_live" maxlength="400">${esc(v.mensaje_sin_live || '')}</textarea></label>
+      <button class="btn btn-primario btn-grande">Guardar ajustes</button>
+    </form>
+    <div class="tarjeta">
+      <p>Sesión: <b>${esc(usuario.nombre)}</b> <small>${esc(usuario.email)}</small></p>
+      <div class="fila-botones"><a class="btn btn-secundario" href="index.html">${IC.cajas} App de Cajas</a><button class="btn btn-secundario" id="salir">Cerrar sesión</button></div>
+    </div>`;
+}
+conectar.ajustes = raiz => {
+  $('#f-ajustes', raiz).onsubmit = async e => {
+    e.preventDefault();
+    const f = e.target;
+    const clabe = f.clabe.value.replace(/\D/g, '');
+    if (clabe && clabe.length !== 18) { toast('La CLABE debe tener 18 dígitos.', 'error'); return; }
+    const datos = {
+      clabe: clabe || null, banco: f.banco.value.trim() || null, titular: f.titular.value.trim() || null,
+      horas_recordatorio: +f.horas_recordatorio.value, horas_limite: +f.horas_limite.value, horas_liberar: +f.horas_liberar.value,
+      precio: +f.precio.value, limite_por_clienta: f.limite_por_clienta.value ? +f.limite_por_clienta.value : null,
+      mensaje_sin_live: f.mensaje_sin_live.value.trim() || 'Ahorita no hay live en curso.', actualizado_en: new Date().toISOString(),
+    };
+    if (!(datos.horas_recordatorio < datos.horas_limite && datos.horas_limite <= datos.horas_liberar)) {
+      toast('Las horas deben ir en orden: recordatorio, luego límite de pago, luego liberar.', 'error'); return;
+    }
+    await accion(() => q(sb.from('live_config').update(datos).eq('id', true).select()), 'Ajustes guardados');
+  };
+  $('#salir', raiz).onclick = async () => { await sb.auth.signOut(); location.reload(); };
+};
+
+/* ---------- Inicio de sesión ---------- */
+function pantallaLogin() {
+  $('#app').innerHTML = `<div class="login-fondo"><div class="login">
+    <img src="icons/logo-oscuro.png" alt="Outlet Prime">
+    <h1>Panel del live</h1>
+    <form id="f-login" class="formulario">
+      <label>Correo<input name="email" type="email" inputmode="email" autocomplete="username" autocapitalize="off" required></label>
+      <label>Contraseña<input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="btn btn-marca btn-grande">Entrar</button>
+    </form></div></div>`;
+  $('#f-login').onsubmit = async e => {
+    e.preventDefault();
+    const f = e.target;
+    const ok = await accion(async () => {
+      const { error } = await sb.auth.signInWithPassword({ email: f.email.value.trim(), password: f.password.value });
+      if (error) throw error;
+      return true;
+    });
+    if (ok) arrancar();
+  };
+}
+async function leerUsuario() {
+  const { data } = await sb.auth.getSession();
+  const u = data.session && data.session.user;
+  return u ? { nombre: (u.user_metadata && u.user_metadata.nombre) || u.email.split('@')[0], email: u.email } : null;
+}
+async function arrancar() {
+  usuario = await leerUsuario();
+  if (!usuario) return pantallaLogin();
+  montar();
+  pintar(true);
+}
+
+/* Se actualiza sola cada 4 segundos (sin interrumpir si alguien está escribiendo o hay una ventana abierta). */
+setInterval(() => {
+  if (!usuario || document.visibilityState !== 'visible' || ocupado || $('.modal-fondo')) return;
+  const foco = document.activeElement;
+  if (foco && /INPUT|TEXTAREA|SELECT/.test(foco.tagName)) return;
+  if (['vivo', 'casilleros', 'whatsapp'].includes(vista)) pintar();
+}, 4000);
+window.addEventListener('hashchange', () => { const v = location.hash.replace('#', ''); if (v !== vista && VISTAS.some(x => x.id === v)) irA(v); });
+
+arrancar().catch(e => { console.error(e); $('#app').innerHTML = `<div class="vacio">${IC.alerta}<h2>No se pudo iniciar</h2><p>${esc(traducirError(e))}</p></div>`; });
+</script>
+</body>
+</html>
