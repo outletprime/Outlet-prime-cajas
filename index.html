@@ -1,0 +1,2373 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Outlet Prime Cajas</title>
+<style>
+:root {
+  --fondo: #f3f3f2;
+  --superficie: #ffffff;
+  --superficie-2: #e9e9e7;
+  --texto: #141414;
+  --texto-2: #66645f;
+  --borde: #dcdbd8;
+  --primario: #111111;
+  --primario-texto: #ffffff;
+  --primario-suave: #e6e6e4;
+  --marca: #ce091e;
+  --marca-texto: #ffffff;
+  --ok: #2f7d4f;
+  --ok-suave: #e1f1e6;
+  --aviso: #a86400;
+  --aviso-suave: #fbeed6;
+  --vencida: #b8322a;
+  --vencida-suave: #f9e1de;
+  --libre: #8a8278;
+  --sombra: 0 1px 2px rgba(40, 30, 20, .06), 0 2px 8px rgba(40, 30, 20, .05);
+  --radio: 14px;
+  --sup: env(safe-area-inset-top, 0px);
+  --inf: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fondo: #0e0e0e;
+    --superficie: #1b1b1b;
+    --superficie-2: #272727;
+    --texto: #f1f1ef;
+    --texto-2: #a3a19c;
+    --borde: #333333;
+    --primario: #f1f1ef;
+    --primario-texto: #111111;
+    --primario-suave: #262626;
+    --marca: #e5263a;
+    --marca-texto: #ffffff;
+    --ok: #63c08a;
+    --ok-suave: #1d3326;
+    --aviso: #e7a948;
+    --aviso-suave: #3a2d17;
+    --vencida: #f0776d;
+    --vencida-suave: #3d2120;
+    --libre: #8f887f;
+    --sombra: none;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --fondo: #0e0e0e;
+  --superficie: #1b1b1b;
+  --superficie-2: #272727;
+  --texto: #f1f1ef;
+  --texto-2: #a3a19c;
+  --borde: #333333;
+  --primario: #f1f1ef;
+  --primario-texto: #111111;
+  --primario-suave: #262626;
+  --marca: #e5263a;
+  --marca-texto: #ffffff;
+  --ok: #63c08a;
+  --ok-suave: #1d3326;
+  --aviso: #e7a948;
+  --aviso-suave: #3a2d17;
+  --vencida: #f0776d;
+  --vencida-suave: #3d2120;
+  --libre: #8f887f;
+  --sombra: none;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  overscroll-behavior-y: none;
+}
+a { color: var(--primario); text-decoration: none; }
+svg { width: 22px; height: 22px; flex: none; }
+h1, h2, h3 { margin: 0; }
+small { color: var(--texto-2); font-size: 13px; }
+.nota { color: var(--texto-2); font-size: 14px; margin: 8px 0; }
+.centro { text-align: center; }
+.intro { margin: 4px 0 14px; }
+
+/* Barra superior y pestañas */
+.barra-sup {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 6px;
+  padding: calc(var(--sup) + 8px) 12px 8px;
+  background: #000; color: #fff;
+  border-bottom: 3px solid var(--marca);
+}
+.logo-barra { height: 40px; width: auto; display: block; }
+.barra-sup h1 { flex: 1; font-size: 18px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn-icono { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: #fff; }
+.btn-icono:active { background: rgba(255, 255, 255, .15); }
+.aviso-demo { background: var(--aviso-suave); color: var(--aviso); font-size: 13px; text-align: center; padding: 6px 12px; }
+
+#vista { padding: 14px 16px calc(var(--inf) + 110px); max-width: 720px; margin: 0 auto; }
+
+.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  padding: 6px 4px calc(var(--inf) + 6px);
+  background: color-mix(in srgb, var(--superficie) 92%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  border-top: 1px solid var(--borde);
+}
+.tabs a { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0; color: var(--texto-2); font-size: 11px; font-weight: 500; }
+.tabs a.activa { color: var(--marca); }
+.tab-escanear b { display: grid; place-items: center; width: 54px; height: 54px; margin-top: -24px; border-radius: 50%; background: var(--marca); color: var(--marca-texto); box-shadow: 0 4px 14px rgba(206, 9, 30, .35); }
+.tab-escanear b svg { width: 26px; height: 26px; }
+
+/* Botones */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 46px; padding: 0 18px; border-radius: 12px; border: 0;
+  font: inherit; font-weight: 600; cursor: pointer; text-align: center;
+  background: var(--superficie-2); color: var(--texto);
+}
+.btn:active { transform: scale(.98); }
+.btn:disabled { opacity: .5; }
+.btn-primario { background: var(--primario); color: var(--primario-texto); }
+.btn-secundario { background: var(--superficie); color: var(--texto); border: 1px solid var(--borde); }
+.btn-peligro { background: var(--vencida); color: #fff; }
+.btn-claro { background: rgba(255, 255, 255, .92); color: #111; }
+.btn-grande { width: 100%; min-height: 52px; font-size: 17px; }
+.btn-mini { min-height: 36px; padding: 0 12px; font-size: 14px; background: var(--superficie-2); }
+.btn-mini svg { width: 18px; height: 18px; }
+.btn-icono-solo { display: inline-grid; place-items: center; min-width: 36px; min-height: 36px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--texto-2); cursor: pointer; }
+.btn-icono-solo svg { width: 19px; height: 19px; }
+.acciones { display: grid; gap: 10px; margin: 14px 0; }
+.acciones-fila { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-top: 12px; }
+
+/* Banners y chips */
+.banner { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--radio); margin-bottom: 12px; font-size: 15px; }
+.banner small { color: inherit; opacity: .85; }
+.banner-ok { background: var(--ok-suave); color: var(--ok); }
+.banner-aviso { background: var(--aviso-suave); color: var(--aviso); }
+.banner-vencida { background: var(--vencida-suave); color: var(--vencida); }
+.banner-libre { background: var(--primario-suave); color: var(--primario); }
+.chip { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; background: var(--superficie-2); color: var(--texto-2); white-space: nowrap; }
+.chip-ok { background: var(--ok-suave); color: var(--ok); }
+.chip-aviso { background: var(--aviso-suave); color: var(--aviso); }
+.chip-vencida { background: var(--vencida-suave); color: var(--vencida); }
+.texto-vencida { color: var(--vencida); font-weight: 600; }
+
+/* Filtros y buscador */
+.filtros { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px 12px; padding: 0 16px 2px; scrollbar-width: none; }
+.filtros::-webkit-scrollbar { display: none; }
+.filtro { flex: none; padding: 8px 14px; border-radius: 99px; background: var(--superficie); border: 1px solid var(--borde); color: var(--texto); font-size: 14px; font-weight: 500; }
+.filtro b { color: var(--texto-2); font-weight: 600; margin-left: 2px; }
+.filtro.activo { background: var(--texto); color: var(--fondo); border-color: var(--texto); }
+.filtro.activo b { color: inherit; opacity: .7; }
+.buscador { width: 100%; margin-bottom: 12px; }
+
+/* Rejilla de cajas */
+.rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(102px, 1fr)); gap: 10px; }
+.caja-card {
+  position: relative; display: flex; flex-direction: column; gap: 2px; min-height: 92px; padding: 10px 10px 10px 13px;
+  border-radius: var(--radio); background: var(--superficie); box-shadow: var(--sombra); color: var(--texto);
+  border: 1px solid var(--borde); border-left: 5px solid var(--libre); text-align: left; font: inherit; cursor: pointer; overflow: hidden;
+}
+.caja-card.nivel-ok { border-left-color: var(--ok); }
+.caja-card.nivel-aviso { border-left-color: var(--aviso); background: color-mix(in srgb, var(--aviso-suave) 50%, var(--superficie)); }
+.caja-card.nivel-vencida { border-left-color: var(--vencida); background: color-mix(in srgb, var(--vencida-suave) 60%, var(--superficie)); }
+.caja-codigo { font-size: 24px; font-weight: 800; letter-spacing: -.5px; }
+.caja-nombre { font-size: 13px; font-weight: 600; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.caja-nombre.libre { color: var(--libre); font-weight: 500; }
+.caja-meta { font-size: 12px; color: var(--texto-2); margin-top: auto; }
+.nivel-vencida .caja-meta { color: var(--vencida); font-weight: 600; }
+.seleccionable input { position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; accent-color: var(--primario); }
+.seleccionable:has(input:checked) { outline: 2px solid var(--primario); }
+.borrar-caja { position: absolute; right: 4px; bottom: 4px; border: 0; background: none; color: var(--texto-2); padding: 6px; cursor: pointer; }
+.borrar-caja svg { width: 17px; height: 17px; }
+
+/* Listas y tarjetas */
+.lista { display: grid; gap: 8px; }
+.fila {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+  padding: 12px 14px; border-radius: var(--radio); background: var(--superficie); border: 1px solid var(--borde);
+  color: var(--texto); font: inherit; text-align: left; cursor: pointer; margin-bottom: 8px;
+}
+.lista .fila { margin: 0; }
+.fila > span:first-child { display: flex; flex-direction: column; min-width: 0; }
+.fila b { overflow: hidden; text-overflow: ellipsis; }
+.fila.deshabilitada { opacity: .55; }
+.tarjeta { padding: 14px; border-radius: var(--radio); background: var(--superficie); border: 1px solid var(--borde); box-shadow: var(--sombra); margin-bottom: 12px; }
+.tarjeta p { margin: 6px 0 0; }
+.clienta-nombre { font-size: 19px; display: block; margin-bottom: 2px; }
+.clienta small { display: block; }
+.clienta .ref { margin-top: 4px; font-style: italic; }
+.clienta-botones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.mini-clienta b { display: block; font-size: 17px; }
+.totales { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
+.totales > div { padding: 10px 12px; border-radius: 12px; background: var(--superficie); border: 1px solid var(--borde); }
+.totales small { display: block; }
+.totales b { font-size: 18px; }
+.seccion { font-size: 13px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--texto-2); margin: 22px 0 10px; }
+.pedido-cabeza { display: flex; justify-content: space-between; gap: 10px; }
+.pedido-pie { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.pedido-pie > span { display: flex; gap: 6px; align-items: center; }
+.datos { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0 0 4px; padding: 0 4px; font-size: 15px; }
+.datos dt { color: var(--texto-2); }
+.datos dd { margin: 0; overflow-wrap: anywhere; }
+.bloque-historial { padding: 12px; border-radius: var(--radio); background: var(--superficie-2); margin-bottom: 12px; }
+.bloque-historial > small { display: block; margin: 2px 0 10px; }
+.bloque-historial .tarjeta { margin-bottom: 8px; box-shadow: none; }
+.historial-cabeza { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.envio { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: var(--superficie); margin-bottom: 8px; }
+.envio > span { flex: 1; }
+.plegable { margin-top: 18px; }
+.plegable summary { cursor: pointer; color: var(--texto-2); font-weight: 600; padding: 8px 0; }
+.lista-alerta { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 6px; }
+.lista-alerta a { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 10px; background: var(--vencida-suave); color: var(--texto); }
+
+/* Formularios */
+.formulario { display: grid; gap: 12px; }
+.formulario .seccion { margin: 10px 0 -2px; }
+label { display: grid; gap: 5px; font-size: 14px; font-weight: 600; color: var(--texto-2); }
+input, select, textarea {
+  width: 100%; min-height: 46px; padding: 10px 12px; border-radius: 11px; border: 1px solid var(--borde);
+  background: var(--superficie); color: var(--texto); font: inherit; font-size: 16px; font-weight: 400;
+}
+textarea { resize: vertical; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--primario); outline-offset: 0; border-color: transparent; }
+input[type="checkbox"] { width: 22px; min-height: 22px; height: 22px; accent-color: var(--primario); }
+.dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.en-linea { display: flex; gap: 10px; align-items: flex-end; margin-top: 12px; }
+.en-linea label { flex: 1; }
+.interruptor { display: flex; align-items: center; gap: 10px; font-weight: 500; color: var(--texto); }
+.campo-suelto { margin-top: 14px; }
+.subir-archivo {
+  display: block; padding: 18px; border-radius: var(--radio); border: 2px dashed var(--borde);
+  background: var(--superficie); text-align: center; cursor: pointer; color: var(--texto); margin-bottom: 4px;
+}
+.subir-archivo > span { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.subir-archivo svg { width: 34px; height: 34px; color: var(--marca); }
+.subir-archivo img, .subir-archivo video { width: 100%; max-height: 300px; object-fit: contain; border-radius: 10px; background: #000; }
+.subir-archivo.invalido { border-color: var(--vencida); background: var(--vencida-suave); }
+
+/* Pedido */
+.categorias { display: grid; gap: 8px; }
+.cat { padding: 12px 14px; border-radius: var(--radio); background: var(--superficie); border: 1px solid var(--borde); }
+.cat-fila { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.cat-fila > span { display: flex; flex-direction: column; }
+.subtotal { display: block; text-align: right; margin-top: 4px; }
+.subtotal:empty { display: none; }
+.contador { display: flex; align-items: center; border: 1px solid var(--borde); border-radius: 12px; overflow: hidden; }
+.contador button { width: 44px; height: 44px; border: 0; background: var(--superficie-2); color: var(--texto); font-size: 22px; cursor: pointer; }
+.contador input { width: 52px; min-height: 44px; border: 0; border-radius: 0; text-align: center; font-weight: 700; padding: 0; -moz-appearance: textfield; }
+.contador input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.piezas { display: grid; gap: 8px; margin-top: 8px; }
+.pieza { display: grid; grid-template-columns: 64px 1fr 40px; gap: 8px; align-items: center; font-size: 14px; color: var(--texto-2); }
+.pie-total {
+  position: fixed; left: 0; right: 0; bottom: calc(var(--inf) + 66px); z-index: 15;
+  display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+  background: var(--superficie); border-top: 1px solid var(--borde); box-shadow: 0 -4px 16px rgba(0, 0, 0, .06);
+}
+.pie-total > div { flex: 1; display: flex; flex-direction: column; }
+.pie-total b { font-size: 22px; }
+#vista:has(.pie-total) { padding-bottom: calc(var(--inf) + 180px); }
+
+/* Reportes */
+.periodo { margin: 4px 0 12px; }
+.rango { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; margin-bottom: 8px; }
+.kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.kpi { padding: 12px 14px; border-radius: 12px; background: var(--superficie); border: 1px solid var(--borde); }
+.kpi small { display: block; }
+.kpi b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.kpi-grande { grid-column: 1 / -1; background: var(--primario); border-color: var(--primario); }
+.kpi-grande small, .kpi-grande b { color: var(--primario-texto); }
+.kpi-grande b { font-size: 30px; }
+.tabla { width: 100%; border-collapse: collapse; background: var(--superficie); border-radius: var(--radio); overflow: hidden; margin-bottom: 14px; font-variant-numeric: tabular-nums; }
+.tabla th, .tabla td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--borde); }
+.tabla th:first-child, .tabla td:first-child { text-align: left; }
+.tabla th { font-size: 13px; color: var(--texto-2); font-weight: 600; }
+.tabla tfoot td { font-weight: 700; border-bottom: 0; }
+
+/* Ajustes */
+.precio-fila { display: grid; grid-template-columns: 1fr 100px auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+.precio-fila .nota { margin: 0; font-size: 12px; }
+
+/* Vacío, carga, avisos, modales */
+.vacio { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding: 50px 20px; color: var(--texto-2); }
+.vacio svg { width: 46px; height: 46px; }
+.vacio h2 { color: var(--texto); font-size: 20px; }
+.cargando { display: grid; place-items: center; padding: 70px 0; }
+.spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--borde); border-top-color: var(--marca); animation: gira .8s linear infinite; }
+@keyframes gira { to { transform: rotate(360deg); } }
+.toast {
+  position: fixed; left: 16px; right: 16px; top: calc(var(--sup) + 12px); z-index: 100; margin: 0 auto; max-width: 480px;
+  padding: 13px 16px; border-radius: 12px; background: var(--texto); color: var(--fondo); font-weight: 500;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .2); transform: translateY(-20px); opacity: 0; transition: .25s;
+}
+.toast.visible { transform: none; opacity: 1; }
+.toast-error { background: var(--vencida); color: #fff; }
+.modal-fondo { position: fixed; inset: 0; z-index: 75; display: flex; align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, .4); opacity: 0; transition: opacity .2s; }
+.modal-fondo.visible { opacity: 1; }
+.modal { width: 100%; max-width: 520px; max-height: 88vh; overflow: auto; padding: 20px 18px calc(var(--inf) + 16px); border-radius: 20px 20px 0 0; background: var(--superficie); }
+@media (min-width: 600px) { .modal-fondo { align-items: center; } .modal { border-radius: 20px; } }
+.modal-titulo { font-size: 19px; margin-bottom: 8px; }
+.modal-cuerpo p { margin: 6px 0; }
+.modal-botones { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 10px; margin-top: 18px; }
+.video-modal, .foto-modal { width: 100%; max-height: 65vh; border-radius: 12px; background: #000; object-fit: contain; }
+.espera { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgba(0, 0, 0, .45); padding: 24px; }
+.espera-caja { width: 100%; max-width: 320px; padding: 24px; border-radius: 18px; background: var(--superficie); text-align: center; display: grid; justify-items: center; gap: 10px; }
+.espera-texto { margin: 0; font-weight: 600; }
+.espera-nota { margin: 0; font-size: 13px; color: var(--texto-2); }
+.espera-nota:empty { display: none; }
+.barra { width: 100%; height: 8px; border-radius: 99px; background: var(--superficie-2); overflow: hidden; }
+.barra-relleno { height: 100%; width: 0; background: var(--marca); transition: width .2s; }
+
+/* Escáner */
+.escaner { position: fixed; inset: 0; z-index: 70; background: #000; }
+.escaner video { width: 100%; height: 100%; object-fit: cover; }
+.escaner-marco { position: absolute; left: 50%; top: 45%; width: min(70vw, 300px); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 24px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, .45); border: 3px solid rgba(255, 255, 255, .9); }
+.escaner-arriba { position: absolute; top: calc(var(--sup) + 12px); right: 12px; }
+.escaner-abajo { position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 16px calc(var(--inf) + 20px); text-align: center; color: #fff; }
+.escaner-msg { margin: 0 0 12px; font-weight: 600; text-shadow: 0 1px 4px rgba(0, 0, 0, .6); }
+.escaner-acciones { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.escaner-acciones label { display: inline-flex; color: #111; font-size: 16px; }
+
+/* Inicio de sesión */
+.login-fondo { min-height: 100vh; background: #000; }
+.login { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 24px; max-width: 420px; margin: 0 auto; }
+.login-logo { width: 100%; max-width: 320px; height: auto; margin: 0 auto; display: block; }
+.login label { color: #bdbdbd; }
+.login input { background: #1b1b1b; border-color: #333; color: #fff; }
+.login .btn-primario { background: var(--marca); color: #fff; }
+
+/* Impresión de etiquetas */
+#zona-impresion { display: none; }
+@media print {
+  @page { size: letter; margin: 10mm; }
+  body > *:not(#zona-impresion) { display: none !important; }
+  body { background: #fff; }
+  #zona-impresion { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 6mm; }
+  .etiqueta { display: flex; flex-direction: column; align-items: center; padding: 4mm; border: 1px dashed #aaa; break-inside: avoid; color: #000; }
+  .etiqueta img { width: 38mm; height: auto; margin-bottom: 2mm; }
+  .etiqueta svg { width: 46mm; height: 46mm; }
+  .etiqueta b { font: 800 28pt -apple-system, Helvetica, Arial, sans-serif; margin-top: 2mm; }
+  .etiqueta small { font: 9pt -apple-system, Helvetica, Arial, sans-serif; color: #555; }
+}
+
+/* Ajustes para el visor de Claude */
+.barra-sup { top: env(safe-area-inset-top, 0px); padding-top: 8px; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 25; background: #000; }
+
+</style>
+<div id="app"><div class="cargando"><div class="spinner"></div></div></div>
+<script>
+window.APP_CONFIG = { nombreNegocio: 'Outlet Prime', supabaseUrl: '', supabaseAnonKey: '', diasAlerta: 20, diasAviso: 15, limiteVideoMB: 48, vistaPrevia: true };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.mini.min.js"></script>
+<script>
+/* Capa de datos.
+ * - LocalStore: modo prueba. Todo se guarda en este dispositivo (IndexedDB).
+ * - SupaStore: modo real. Base de datos compartida en Supabase (internet).
+ * Ambas exponen la misma interfaz, así la app no necesita saber cuál usa.
+ */
+const TABLAS = ['cajas', 'categorias', 'clientas', 'asignaciones', 'pedidos'];
+const BUCKET = 'archivos';
+
+function uid() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+const CATEGORIAS_INICIALES = [
+  { id: 'target', nombre: 'Target', precio: 89, editable: false, activa: true, orden: 1 },
+  { id: 'costco', nombre: 'Costco', precio: 289, editable: false, activa: true, orden: 2 },
+  { id: 'cremas', nombre: 'Cremas', precio: 189, editable: false, activa: true, orden: 3 },
+  { id: 'perfumes', nombre: 'Perfumes', precio: 589, editable: false, activa: true, orden: 4 },
+  { id: 'calzado', nombre: 'Calzado', precio: 0, editable: true, activa: true, orden: 5 },
+];
+
+/* ---------- Modo prueba: IndexedDB ---------- */
+class LocalStore {
+  constructor() { this.modo = 'local'; }
+
+  async init() {
+    this.db = await new Promise((res, rej) => {
+      const req = indexedDB.open('control-cajas', 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        for (const t of TABLAS) if (!db.objectStoreNames.contains(t)) db.createObjectStore(t, { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('archivos')) db.createObjectStore('archivos', { keyPath: 'id' });
+      };
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    });
+    const cats = await this.all('categorias');
+    if (!cats.length) for (const c of CATEGORIAS_INICIALES) await this.insert('categorias', c);
+  }
+
+  _tx(store, modo, fn) {
+    return new Promise((res, rej) => {
+      const tx = this.db.transaction(store, modo);
+      const r = fn(tx.objectStore(store));
+      tx.oncomplete = () => res(r && 'result' in r ? r.result : undefined);
+      tx.onerror = () => rej(tx.error);
+      tx.onabort = () => rej(tx.error || new Error('Operación cancelada'));
+    });
+  }
+
+  async usuario() { return { nombre: localStorage.getItem('demo-nombre') || 'Prueba', email: '' }; }
+  async login() { return this.usuario(); }
+  async logout() {}
+  async cambiarNombre(n) { localStorage.setItem('demo-nombre', n); }
+
+  all(t) { return this._tx(t, 'readonly', s => s.getAll()); }
+  async insert(t, row) { const r = { id: uid(), ...row }; await this._tx(t, 'readwrite', s => s.add(r)); return r; }
+  async update(t, id, patch) {
+    const actual = await this._tx(t, 'readonly', s => s.get(id));
+    if (!actual) throw new Error('El registro ya no existe.');
+    const r = { ...actual, ...patch };
+    await this._tx(t, 'readwrite', s => s.put(r));
+    return r;
+  }
+  remove(t, id) { return this._tx(t, 'readwrite', s => s.delete(id)); }
+
+  async upload(path, blob, onProgress) {
+    await this._tx('archivos', 'readwrite', s => s.put({ id: path, blob }));
+    onProgress && onProgress(1);
+    return path;
+  }
+  async fileUrl(path) {
+    const f = await this._tx('archivos', 'readonly', s => s.get(path));
+    return f ? URL.createObjectURL(f.blob) : null;
+  }
+  async fileBlob(path) {
+    const f = await this._tx('archivos', 'readonly', s => s.get(path));
+    if (!f) throw new Error('No se encontró el archivo.');
+    return f.blob;
+  }
+  removeFile(path) { return this._tx('archivos', 'readwrite', s => s.delete(path)); }
+
+  async borrarTodo() {
+    for (const t of [...TABLAS, 'archivos']) await this._tx(t, 'readwrite', s => s.clear());
+    for (const c of CATEGORIAS_INICIALES) await this.insert('categorias', c);
+  }
+}
+
+/* ---------- Modo real: Supabase ---------- */
+class SupaStore {
+  constructor(url, key) {
+    this.modo = 'nube';
+    this.url = url.replace(/\/+$/, '');
+    this.key = key;
+    this.sb = window.supabase.createClient(this.url, key, { auth: { persistSession: true, autoRefreshToken: true } });
+  }
+  async init() {}
+
+  async usuario() {
+    const { data } = await this.sb.auth.getSession();
+    const u = data.session && data.session.user;
+    if (!u) return null;
+    return { nombre: (u.user_metadata && u.user_metadata.nombre) || u.email.split('@')[0], email: u.email };
+  }
+  async login(email, password) {
+    const { error } = await this.sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return this.usuario();
+  }
+  async logout() { await this.sb.auth.signOut(); }
+  async cambiarNombre(nombre) {
+    const { error } = await this.sb.auth.updateUser({ data: { nombre } });
+    if (error) throw error;
+  }
+
+  async all(t) {
+    let out = [], from = 0;
+    const paso = 1000;
+    for (;;) {
+      const { data, error } = await this.sb.from(t).select('*').range(from, from + paso - 1);
+      if (error) throw error;
+      out = out.concat(data);
+      if (data.length < paso) break;
+      from += paso;
+    }
+    return out;
+  }
+  async insert(t, row) {
+    const { data, error } = await this.sb.from(t).insert({ id: uid(), ...row }).select().single();
+    if (error) throw error;
+    return data;
+  }
+  async update(t, id, patch) {
+    const { data, error } = await this.sb.from(t).update(patch).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  }
+  async remove(t, id) {
+    const { error } = await this.sb.from(t).delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  async upload(path, blob, onProgress) {
+    const { data } = await this.sb.auth.getSession();
+    if (!data.session) throw new Error('Tu sesión expiró. Vuelve a entrar.');
+    return new Promise((res, rej) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${this.url}/storage/v1/object/${BUCKET}/${path}`);
+      xhr.setRequestHeader('Authorization', `Bearer ${data.session.access_token}`);
+      xhr.setRequestHeader('apikey', this.key);
+      xhr.setRequestHeader('x-upsert', 'true');
+      xhr.setRequestHeader('Content-Type', blob.type || 'application/octet-stream');
+      xhr.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total); };
+      xhr.onload = () => {
+        if (xhr.status < 300) return res(path);
+        if (xhr.status === 413) return rej(new Error('El archivo es demasiado grande para subirlo.'));
+        let msg = '';
+        try { msg = JSON.parse(xhr.responseText).message; } catch (e) { /* sin detalle */ }
+        rej(new Error(msg || `No se pudo subir el archivo (error ${xhr.status}).`));
+      };
+      xhr.onerror = () => rej(new Error('Sin conexión a internet al subir el archivo.'));
+      xhr.send(blob);
+    });
+  }
+  async fileUrl(path) {
+    const { data, error } = await this.sb.storage.from(BUCKET).createSignedUrl(path, 3600);
+    if (error) throw error;
+    return data.signedUrl;
+  }
+  async fileBlob(path) {
+    const { data, error } = await this.sb.storage.from(BUCKET).download(path);
+    if (error) throw error;
+    return data;
+  }
+  async removeFile(path) {
+    const { error } = await this.sb.storage.from(BUCKET).remove([path]);
+    if (error) throw error;
+  }
+}
+
+function traducirError(err) {
+  const m = (err && (err.message || err.error_description)) || String(err);
+  if ((err && err.code === '23505') || /duplicate key/i.test(m)) {
+    if (/una_clienta_por_caja/.test(m)) return 'Esa caja ya tiene una clienta asignada.';
+    if (/una_caja_por_clienta/.test(m)) return 'Esa clienta ya tiene una caja asignada.';
+    return 'Ese registro ya existe.';
+  }
+  if (/Failed to fetch|NetworkError|Load failed|network/i.test(m)) return 'Sin conexión a internet. Revisa la señal e intenta de nuevo.';
+  if (/Invalid login credentials/i.test(m)) return 'Correo o contraseña incorrectos.';
+  if (/JWT|session/i.test(m)) return 'Tu sesión expiró. Cierra y vuelve a entrar.';
+  if (/foreign key/i.test(m)) return 'No se puede borrar porque tiene historial asociado.';
+  return m;
+}
+
+/* ---------- Respaldo en memoria (si el navegador no permite guardar) ---------- */
+class MemStore extends LocalStore {
+  async init() {
+    this.mem = {};
+    for (const t of [...TABLAS, 'archivos']) this.mem[t] = new Map();
+    for (const c of CATEGORIAS_INICIALES) this.mem.categorias.set(c.id, { ...c });
+  }
+  _tx(store, modo, fn) {
+    const m = this.mem[store];
+    const s = {
+      getAll: () => ({ result: [...m.values()].map(x => ({ ...x })) }),
+      get: id => ({ result: m.has(id) ? { ...m.get(id) } : undefined }),
+      add: r => { if (m.has(r.id)) throw new Error('Ese registro ya existe.'); m.set(r.id, { ...r }); return {}; },
+      put: r => { m.set(r.id, { ...r }); return {}; },
+      delete: id => { m.delete(id); return {}; },
+      clear: () => { m.clear(); return {}; },
+    };
+    try { const r = fn(s); return Promise.resolve(r && 'result' in r ? r.result : undefined); } catch (e) { return Promise.reject(e); }
+  }
+}
+
+/* Utilidades generales: formato, modales, avisos, archivos, códigos postales, QR. */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const fmtDinero = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
+const dinero = n => fmtDinero.format(Number(n) || 0);
+
+function aFecha(v) {
+  if (v instanceof Date) return v;
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    const [y, m, d] = v.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return new Date(v);
+}
+const fechaCorta = v => v ? aFecha(v).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+const fechaHora = v => v ? aFecha(v).toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+function fechaISO(d = new Date()) {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function inicioDia(d) { const x = aFecha(d); return new Date(x.getFullYear(), x.getMonth(), x.getDate()); }
+function diasDesde(v) { return Math.round((inicioDia(new Date()) - inicioDia(v)) / 864e5); }
+const ordenNatural = (a, b) => String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
+const sinAcentos = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const nombreCompleto = c => c ? `${c.nombre || ''} ${c.apellidos || ''}`.trim() : '(sin clienta)';
+const esTactil = () => matchMedia('(pointer: coarse)').matches;
+
+function direccion(c) {
+  if (!c) return '';
+  const l1 = [c.calle, c.numero ? `#${c.numero}` : '', c.interior ? `Int. ${c.interior}` : ''].filter(Boolean).join(' ');
+  const l2 = [c.colonia ? `Col. ${c.colonia}` : '', c.cp ? `C.P. ${c.cp}` : ''].filter(Boolean).join(', ');
+  const l3 = [c.ciudad, c.estado].filter(Boolean).join(', ');
+  return [l1, l2, l3].filter(Boolean).join(', ');
+}
+function telLimpio(t) { return String(t || '').replace(/\D/g, ''); }
+function linkWhatsApp(t) {
+  const n = telLimpio(t);
+  return n.length === 10 ? `https://wa.me/52${n}` : `https://wa.me/${n}`;
+}
+
+/* ---------- Avisos y modales ---------- */
+function toast(msg, tipo = 'ok') {
+  const t = document.createElement('div');
+  t.className = `toast toast-${tipo}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('visible'));
+  setTimeout(() => { t.classList.remove('visible'); setTimeout(() => t.remove(), 300); }, tipo === 'error' ? 5000 : 2800);
+}
+
+function modal({ titulo, html, botones = [{ texto: 'Cerrar', valor: null }], cerrable = true, alAbrir }) {
+  return new Promise(resolve => {
+    const fondo = document.createElement('div');
+    fondo.className = 'modal-fondo';
+    fondo.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true">
+        ${titulo ? `<h2 class="modal-titulo">${esc(titulo)}</h2>` : ''}
+        <div class="modal-cuerpo">${html || ''}</div>
+        <div class="modal-botones">
+          ${botones.map((b, i) => `<button type="button" class="btn ${b.clase || (i === botones.length - 1 ? 'btn-primario' : 'btn-secundario')}" data-i="${i}">${esc(b.texto)}</button>`).join('')}
+        </div>
+      </div>`;
+    const cerrar = v => { fondo.classList.remove('visible'); setTimeout(() => fondo.remove(), 200); resolve(v); };
+    fondo.addEventListener('click', e => {
+      const b = e.target.closest('[data-i]');
+      if (b) {
+        const def = botones[+b.dataset.i];
+        if (def.antes && def.antes(fondo) === false) return;
+        cerrar(typeof def.valor === 'function' ? def.valor(fondo) : def.valor);
+      } else if (cerrable && e.target === fondo) cerrar(null);
+    });
+    document.body.appendChild(fondo);
+    requestAnimationFrame(() => fondo.classList.add('visible'));
+    alAbrir && alAbrir(fondo, cerrar);
+  });
+}
+
+function confirmar(msg, { titulo = '¿Confirmas?', si = 'Sí, continuar', no = 'Cancelar', peligro = false } = {}) {
+  return modal({
+    titulo, html: `<p>${msg}</p>`,
+    botones: [{ texto: no, valor: false }, { texto: si, valor: true, clase: peligro ? 'btn-peligro' : 'btn-primario' }],
+  }).then(Boolean);
+}
+
+/* Pantalla de espera con barra de progreso. */
+const espera = {
+  el: null,
+  mostrar(texto, progreso) {
+    if (!this.el) {
+      this.el = document.createElement('div');
+      this.el.className = 'espera';
+      this.el.innerHTML = '<div class="espera-caja"><div class="spinner"></div><p class="espera-texto"></p><div class="barra"><div class="barra-relleno"></div></div><p class="espera-nota"></p></div>';
+      document.body.appendChild(this.el);
+    }
+    $('.espera-texto', this.el).textContent = texto;
+    const barra = $('.barra', this.el);
+    if (progreso == null) barra.style.display = 'none';
+    else { barra.style.display = ''; $('.barra-relleno', this.el).style.width = `${Math.round(progreso * 100)}%`; }
+  },
+  nota(t) { if (this.el) $('.espera-nota', this.el).textContent = t || ''; },
+  ocultar() { if (this.el) { this.el.remove(); this.el = null; } },
+};
+
+/* ---------- Archivos ---------- */
+function compartirArchivos(archivos) {
+  // archivos: [{ blob, nombre }]. En iPhone abre el menú Compartir (Guardar en Archivos, WhatsApp, correo...).
+  if (window.claude && window.claude.use) return guardarEnVisor(archivos);
+  const files = archivos.map(a => new File([a.blob], a.nombre, { type: a.blob.type }));
+  if (esTactil() && navigator.canShare && navigator.canShare({ files })) {
+    return navigator.share({ files }).catch(e => { if (e.name !== 'AbortError') descargar(archivos); });
+  }
+  descargar(archivos);
+  return Promise.resolve();
+}
+async function guardarEnVisor(archivos) {
+  const dl = await window.claude.use('downloads').catch(() => null);
+  if (!dl) { toast('Aquí no se pueden descargar archivos. En la app instalada sí.', 'error'); return; }
+  for (const a of archivos) {
+    try { await dl.save({ filename: a.nombre, data: a.blob }); }
+    catch (e) { if (e && e.code !== 'declined') { toast('No se pudo descargar el archivo.', 'error'); return; } }
+  }
+}
+function descargar(archivos) {
+  archivos.forEach((a, i) => setTimeout(() => {
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(a.blob);
+    link.download = a.nombre;
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => { URL.revokeObjectURL(link.href); link.remove(); }, 5000);
+  }, i * 400));
+}
+function dataUrlABlob(url) {
+  const [meta, b64] = url.split(',');
+  const tipo = meta.match(/:(.*?);/)[1];
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: tipo });
+}
+
+/* Reduce una foto a máx. 1600 px en JPEG para que suba rápido. */
+async function reducirFoto(file, maxLado = 1600, calidad = 0.82) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = () => rej(new Error('No se pudo leer la foto.'));
+      i.src = url;
+    });
+    const k = Math.min(1, maxLado / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * k);
+    c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise(res => c.toBlob(res, 'image/jpeg', calidad));
+  } finally { URL.revokeObjectURL(url); }
+}
+
+const mb = bytes => (bytes / 1048576).toFixed(1);
+
+/* ---------- Códigos postales (catálogo SEPOMEX incluido en la app) ---------- */
+const cacheCP = {};
+async function buscarCP(cp) {
+  cp = String(cp || '').trim();
+  if (!/^\d{5}$/.test(cp)) return null;
+  const pre = cp.slice(0, 2);
+  if (!cacheCP[pre]) {
+    try {
+      const r = await fetch(`cp/${pre}.json`);
+      cacheCP[pre] = r.ok ? await r.json() : {};
+    } catch (e) { return null; }
+  }
+  const f = cacheCP[pre][cp];
+  return f ? { estado: f[0], municipio: f[1], ciudad: f[2], colonias: f[3] } : null;
+}
+
+/* ---------- QR ---------- */
+function urlBase() { return location.href.split('#')[0].split('?')[0]; }
+function textoQR(codigo) { return `${urlBase()}#/caja/${encodeURIComponent(codigo)}`; }
+function qrModulos(texto) {
+  const qr = qrcode(0, 'M');
+  qr.addData(texto);
+  qr.make();
+  return qr;
+}
+function qrSVG(texto, tam = 160) {
+  const qr = qrModulos(texto);
+  const n = qr.getModuleCount(), m = 2, total = n + m * 2;
+  let d = '';
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.isDark(y, x)) d += `M${x + m},${y + m}h1v1h-1z`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="${tam}" height="${tam}" shape-rendering="crispEdges"><rect width="${total}" height="${total}" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
+}
+function dibujarQR(ctx, texto, x, y, tam) {
+  const qr = qrModulos(texto);
+  const n = qr.getModuleCount(), m = 2, celda = tam / (n + m * 2);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(x, y, tam, tam);
+  ctx.fillStyle = '#000';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    if (qr.isDark(r, c)) ctx.fillRect(Math.floor(x + (c + m) * celda), Math.floor(y + (r + m) * celda), Math.ceil(celda), Math.ceil(celda));
+  }
+}
+/* Extrae el código de caja del contenido de un QR (URL de la app o texto "CAJA:A1"). */
+function codigoDesdeQR(texto) {
+  if (!texto) return null;
+  let m = String(texto).match(/#\/caja\/([^/?#]+)/);
+  if (m) return decodeURIComponent(m[1]).toUpperCase();
+  m = String(texto).match(/^CAJA:(.+)$/i);
+  if (m) return m[1].trim().toUpperCase();
+  const t = String(texto).trim().toUpperCase();
+  return /^[A-Z0-9-]{1,12}$/.test(t) ? t : null;
+}
+
+/* Cámara: lector de QR y compresión de video. */
+
+/* ---------- Lector de QR ---------- */
+function escanearQR() {
+  return new Promise(resolve => {
+    const capa = document.createElement('div');
+    capa.className = 'escaner';
+    capa.innerHTML = `
+      <video playsinline muted autoplay></video>
+      <div class="escaner-marco"></div>
+      <div class="escaner-arriba">
+        <button type="button" class="btn btn-claro" data-cerrar>Cerrar</button>
+      </div>
+      <div class="escaner-abajo">
+        <p class="escaner-msg">Apunta la cámara al código QR de la caja</p>
+        <div class="escaner-acciones">
+          <label class="btn btn-claro">Leer desde foto<input type="file" accept="image/*" hidden data-foto></label>
+          <button type="button" class="btn btn-claro" data-manual>Escribir código</button>
+        </div>
+      </div>`;
+    document.body.appendChild(capa);
+    const video = $('video', capa);
+    const lienzo = document.createElement('canvas');
+    const ctx = lienzo.getContext('2d', { willReadFrequently: true });
+    let stream = null, activo = true;
+
+    const terminar = codigo => {
+      activo = false;
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      capa.remove();
+      resolve(codigo);
+    };
+    const encontrado = texto => {
+      const c = codigoDesdeQR(texto);
+      if (!c) { $('.escaner-msg', capa).textContent = 'Ese QR no es de una caja. Intenta con otro.'; return false; }
+      if (navigator.vibrate) navigator.vibrate(80);
+      terminar(c);
+      return true;
+    };
+
+    $('[data-cerrar]', capa).onclick = () => terminar(null);
+    $('[data-manual]', capa).onclick = async () => {
+      const c = await modal({
+        titulo: 'Escribir código de caja',
+        html: '<label>Código de la caja<input id="codigo-manual" placeholder="Ej. A1" autocapitalize="characters" autocomplete="off"></label>',
+        botones: [{ texto: 'Cancelar', valor: null }, { texto: 'Abrir caja', valor: el => $('#codigo-manual', el).value }],
+        alAbrir: (el, cerrar) => {
+          const i = $('#codigo-manual', el);
+          setTimeout(() => i.focus(), 50);
+          i.onkeydown = e => { if (e.key === 'Enter') cerrar(i.value); };
+        },
+      });
+      if (c && c.trim()) terminar(c.trim().toUpperCase());
+    };
+    $('[data-foto]', capa).onchange = async e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const img = new Image();
+      img.src = URL.createObjectURL(f);
+      await img.decode().catch(() => {});
+      const k = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight));
+      lienzo.width = img.naturalWidth * k; lienzo.height = img.naturalHeight * k;
+      ctx.drawImage(img, 0, 0, lienzo.width, lienzo.height);
+      const r = jsQR(ctx.getImageData(0, 0, lienzo.width, lienzo.height).data, lienzo.width, lienzo.height);
+      URL.revokeObjectURL(img.src);
+      if (!r || !encontrado(r.data)) $('.escaner-msg', capa).textContent = 'No se encontró un QR en la foto.';
+    };
+
+    const leer = () => {
+      if (!activo) return;
+      if (video.readyState >= 2 && video.videoWidth) {
+        const k = Math.min(1, 720 / Math.max(video.videoWidth, video.videoHeight));
+        lienzo.width = Math.round(video.videoWidth * k);
+        lienzo.height = Math.round(video.videoHeight * k);
+        ctx.drawImage(video, 0, 0, lienzo.width, lienzo.height);
+        const r = jsQR(ctx.getImageData(0, 0, lienzo.width, lienzo.height).data, lienzo.width, lienzo.height, { inversionAttempts: 'dontInvert' });
+        if (r && r.data && encontrado(r.data)) return;
+      }
+      setTimeout(() => requestAnimationFrame(leer), 120);
+    };
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      $('.escaner-msg', capa).textContent = 'Este navegador no permite usar la cámara aquí. Usa "Leer desde foto".';
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+      .then(s => {
+        if (!activo) { s.getTracks().forEach(t => t.stop()); return; }
+        stream = s;
+        video.srcObject = s;
+        video.play().catch(() => {});
+        leer();
+      })
+      .catch(() => {
+        $('.escaner-msg', capa).textContent = 'No se pudo abrir la cámara. Revisa el permiso en Ajustes > Safari > Cámara, o usa "Leer desde foto".';
+      });
+  });
+}
+
+/* ---------- Compresión de video ----------
+ * Reproduce el video en un lienzo más pequeño y lo vuelve a grabar con menor calidad.
+ * Tarda aproximadamente lo mismo que dura el video. Se debe llamar directamente desde
+ * un toque del usuario (sin "await" antes) para que el iPhone permita conservar el audio.
+ */
+function puedeComprimir() {
+  return !!(window.MediaRecorder && HTMLCanvasElement.prototype.captureStream);
+}
+function formatoGrabacion() {
+  const opciones = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+  return opciones.find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+}
+const PERFILES_VIDEO = {
+  subida: { maxLado: 1280, bps: 2500000 },   // ~19 MB por minuto
+  archivo: { maxLado: 854, bps: 900000 },    // ~7 MB por minuto (pedido ya enviado)
+};
+
+/* fuente: Blob o URL. opciones: { maxBytes, actx (AudioContext compartido), turno (promesa a esperar antes de grabar) } */
+function comprimirVideo(fuente, perfil, onProgress, opciones = {}) {
+  const { maxLado, bps: bpsPerfil } = PERFILES_VIDEO[perfil] || PERFILES_VIDEO.archivo;
+  if (!puedeComprimir()) return Promise.reject(new Error('Este navegador no puede comprimir videos.'));
+
+  // Todo lo que requiere el "toque" del usuario se hace aquí, de forma síncrona.
+  const esBlob = typeof fuente !== 'string';
+  const url = esBlob ? URL.createObjectURL(fuente) : fuente;
+  const v = document.createElement('video');
+  v.playsInline = true;
+  v.setAttribute('playsinline', '');
+  v.preload = 'auto';
+  if (!esBlob) v.crossOrigin = 'anonymous';
+  v.src = url;
+  const propio = !opciones.actx;
+  let actx = opciones.actx || null, destinoAudio = null;
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = actx.createMediaElementSource(v);
+    destinoAudio = actx.createMediaStreamDestination();
+    src.connect(destinoAudio);
+    actx.resume();
+  } catch (e) { destinoAudio = null; v.muted = true; }
+  const arranque = v.play().catch(() => { v.muted = true; return v.play(); });
+
+  return (async () => {
+    const lienzo = document.createElement('canvas');
+    let activo = true, rec = null, pista = null;
+    const alVolver = () => { if (document.visibilityState === 'visible' && activo && v.paused && !v.ended) v.play().catch(() => {}); };
+    try {
+      await arranque;
+      v.pause();
+      if (!v.videoWidth) await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error('No se pudo leer el video.')); });
+      if (opciones.turno) await opciones.turno;
+      let bps = bpsPerfil;
+      if (opciones.maxBytes && isFinite(v.duration) && v.duration > 0) {
+        bps = Math.max(300000, Math.min(bps, (opciones.maxBytes * 8 * 0.85) / v.duration - 64000));
+      }
+      const k = Math.min(1, maxLado / Math.max(v.videoWidth, v.videoHeight));
+      lienzo.width = Math.round((v.videoWidth * k) / 2) * 2;
+      lienzo.height = Math.round((v.videoHeight * k) / 2) * 2;
+      const ctx = lienzo.getContext('2d');
+      const stream = lienzo.captureStream(30);
+      pista = stream;
+      if (destinoAudio && !v.muted) destinoAudio.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+      const tipo = formatoGrabacion();
+      rec = new MediaRecorder(stream, { ...(tipo ? { mimeType: tipo } : {}), videoBitsPerSecond: bps, audioBitsPerSecond: 64000 });
+      const partes = [];
+      rec.ondataavailable = e => { if (e.data && e.data.size) partes.push(e.data); };
+      const detenido = new Promise(res => { rec.onstop = res; });
+
+      const dibujar = () => {
+        if (!activo) return;
+        ctx.drawImage(v, 0, 0, lienzo.width, lienzo.height);
+        if (onProgress && v.duration) onProgress(Math.min(1, v.currentTime / v.duration));
+        if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(dibujar);
+        else requestAnimationFrame(dibujar);
+      };
+      document.addEventListener('visibilitychange', alVolver);
+      v.currentTime = 0;
+      ctx.drawImage(v, 0, 0, lienzo.width, lienzo.height);
+      rec.start(1000);
+      await v.play();
+      dibujar();
+      await new Promise((res, rej) => { v.onended = res; v.onerror = () => rej(new Error('Error al reproducir el video.')); });
+      activo = false;
+      ctx.drawImage(v, 0, 0, lienzo.width, lienzo.height);
+      rec.stop();
+      await detenido;
+      const salida = new Blob(partes, { type: (rec.mimeType || tipo || 'video/mp4').split(';')[0] });
+      if (!salida.size) throw new Error('La compresión no produjo video.');
+      return salida;
+    } finally {
+      activo = false;
+      document.removeEventListener('visibilitychange', alVolver);
+      try { if (rec && rec.state !== 'inactive') rec.stop(); } catch (e) { /* ya detenido */ }
+      if (pista) pista.getTracks().forEach(t => t.stop());
+      v.pause();
+      v.removeAttribute('src');
+      if (esBlob) URL.revokeObjectURL(url);
+      if (actx && propio) actx.close().catch(() => {});
+    }
+  })();
+}
+function extensionVideo(blob) {
+  const t = blob.type || '';
+  if (t.includes('webm')) return 'webm';
+  if (t.includes('quicktime')) return 'mov';
+  return 'mp4';
+}
+
+/* Datos de ejemplo para la vista previa. Solo se cargan si no hay cajas todavía. */
+window.sembrarEjemplo = async function (store) {
+  if ((await store.all('cajas')).length) return;
+  const dia = 864e5;
+  const hace = (d, h = 11) => { const x = new Date(Date.now() - d * dia); x.setHours(h, 20, 0, 0); return x.toISOString(); };
+  for (const l of ['A', 'B']) for (let n = 1; n <= 8; n++) await store.insert('cajas', { id: l + n, creada_en: hace(40) });
+
+  const clientas = [
+    ['Laura', 'Méndez Ortiz', '3311234567', 'laura.mendez@ejemplo.com', 'Av. Chapultepec', '214', '', '44100', 'Guadalajara Centro', 'Guadalajara', 'Jalisco', 'Edificio blanco junto a la farmacia'],
+    ['Sofía', 'Ramírez Cruz', '5512349876', '', 'Durango', '87', '4', '06700', 'Roma Norte', 'Ciudad de México', 'Ciudad de México', 'Portón café, timbre 4'],
+    ['Daniela', 'Torres Vega', '8187654321', 'dani.torres@ejemplo.com', 'Río Amazonas', '1450', '', '66220', 'Del Valle', 'San Pedro Garza García', 'Nuevo León', 'Casa de dos pisos, fachada gris'],
+    ['Gabriela', 'Hernández Luna', '2229876543', '', '5 de Mayo', '32', 'B', '72000', 'Centro', 'Puebla', 'Puebla', 'Frente al parque'],
+    ['Mariana', 'Castillo Ruiz', '4421239988', 'mariana.c@ejemplo.com', 'Zaragoza', '19', '', '76000', 'Centro', 'Querétaro', 'Querétaro', 'Zaguán verde'],
+    ['Valeria', 'Gómez Silva', '9991112233', '', 'Calle 60', '501', '', '97000', 'Centro', 'Mérida', 'Yucatán', 'Casa amarilla esquina'],
+  ];
+  const ids = [];
+  for (const [i, c] of clientas.entries()) {
+    const n = await store.insert('clientas', {
+      nombre: c[0], apellidos: c[1], telefono: c[2], correo: c[3], calle: c[4], numero: c[5], interior: c[6], cp: c[7],
+      colonia: c[8], ciudad: c[9], estado: c[10], referencia: c[11], fecha_registro: fechaISO(new Date(Date.now() - (60 - i * 7) * dia)),
+      creado_por: i % 2 ? 'Usuario 2' : 'Usuario 1', creada_en: hace(60 - i * 7),
+    });
+    ids.push(n.id);
+  }
+  const precios = { target: ['Target', 89], costco: ['Costco', 289], cremas: ['Cremas', 189], perfumes: ['Perfumes', 589] };
+  const items = (cant, pares = []) => [
+    ...Object.entries(cant).map(([k, n]) => ({ cat: k, nombre: precios[k][0], precio: precios[k][1], cantidad: n })),
+    ...pares.map(p => ({ cat: 'calzado', nombre: 'Calzado', precio: p, cantidad: 1, editable: true })),
+  ];
+  const asignar = (caja, ci, dias, extra = {}) => store.insert('asignaciones', {
+    caja, clienta_id: ids[ci], estado: 'activa', asignada_en: hace(dias, 10), asignada_por: 'Usuario 1', movimientos: [], ...extra,
+  });
+  const pedido = (a, dias, its, notas = '') => {
+    const total = its.reduce((s, i) => s + i.precio * i.cantidad, 0);
+    const prendas = its.reduce((s, i) => s + i.cantidad, 0);
+    return store.insert('pedidos', {
+      asignacion_id: a.id, clienta_id: a.clienta_id, caja: a.caja, fecha: hace(dias, 12 + (dias % 6)), items: its, prendas, total,
+      notas, video: null, video_mb: null, video_comprimido: false, creado_por: dias % 2 ? 'Usuario 2' : 'Usuario 1',
+    });
+  };
+
+  const a1 = await asignar('A1', 0, 24);
+  await pedido(a1, 24, items({ target: 4, perfumes: 1 }));
+  await pedido(a1, 15, items({ costco: 2 }, [520]), 'Tenis talla 24');
+  const a3 = await asignar('A3', 1, 17);
+  await pedido(a3, 17, items({ target: 6, cremas: 2 }));
+  const a4 = await asignar('A4', 2, 6);
+  await pedido(a4, 6, items({ costco: 1, perfumes: 2 }));
+  await pedido(a4, 2, items({ target: 3 }, [450, 380]));
+  const b2 = await asignar('B2', 3, 1);
+  await pedido(b2, 1, items({ cremas: 3, target: 2 }));
+  const env = await asignar('A2', 4, 21, {
+    estado: 'enviada', enviada_en: hace(4, 16), enviada_por: 'Usuario 2', paqueteria: 'Estafeta', guia: '7055 1234 5678',
+    peso_kg: 4.2, medidas: '45×35×25', costo_envio: 210, notas_envio: '', foto_guia: null,
+  });
+  await pedido(env, 21, items({ target: 5, costco: 2 }));
+  await pedido(env, 12, items({ perfumes: 1 }, [690]));
+};
+
+/* Control de Cajas — app principal (pantallas y reglas del negocio). */
+const CFG = Object.assign({
+  nombreNegocio: 'Control de Cajas',
+  diasAlerta: 20,
+  diasAviso: 15,
+  limiteVideoMB: 48,
+  supabaseUrl: '',
+  supabaseAnonKey: '',
+}, window.APP_CONFIG || {});
+const VERSION = '1.0.0';
+const LIMITE_VIDEO = CFG.limiteVideoMB * 1048576;
+const PAQUETERIAS = ['Estafeta', 'DHL', 'FedEx', 'Paquetexpress', 'Redpack', 'J&T Express', '99 Minutos', 'Correos de México', 'Mercado Envíos', 'Otra'];
+
+let store = null;
+let usuario = null;
+const D = { cajas: [], categorias: [], clientas: [], asignaciones: [], pedidos: [], cargado: 0 };
+
+/* ---------- Íconos ---------- */
+const svg = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const IC = {
+  cajas: svg('<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>'),
+  clientas: svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.5 3.3-5.5 6.5-5.5s5.9 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.7.8 2.8 2.6 3 5.2"/>'),
+  escanear: svg('<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M7 12h10"/>'),
+  pedido: svg('<path d="M6 7h12l-1 13H7z"/><path d="M9 7a3 3 0 0 1 6 0"/><path d="M12 11v5M9.5 13.5h5"/>'),
+  reportes: svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
+  ajustes: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
+  atras: svg('<path d="m15 18-6-6 6-6"/>'),
+  tel: svg('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>'),
+  chat: svg('<path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.5L3 21l2-5.5A8.4 8.4 0 1 1 21 11.5z"/>'),
+  video: svg('<rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3z"/>'),
+  camion: svg('<path d="M1 4h14v12H1zM15 9h4l3 3v4h-7"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/>'),
+  mover: svg('<path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/>'),
+  mas: svg('<path d="M12 5v14M5 12h14"/>'),
+  basura: svg('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'),
+  alerta: svg('<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>'),
+  excel: svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13l4 5M12 13l-4 5"/>'),
+  foto: svg('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>'),
+  qr: svg('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h3v3"/>'),
+};
+
+/* ---------- Datos ---------- */
+async function refrescar(forzar = false) {
+  if (!forzar && Date.now() - D.cargado < 4000) return;
+  const res = await Promise.all(TABLAS.map(t => store.all(t)));
+  TABLAS.forEach((t, i) => { D[t] = res[i]; });
+  D.cargado = Date.now();
+}
+const idx = {
+  caja: id => D.cajas.find(c => c.id === id),
+  clienta: id => D.clientas.find(c => c.id === id),
+  asig: id => D.asignaciones.find(a => a.id === id),
+  activaCaja: id => D.asignaciones.find(a => a.caja === id && a.estado === 'activa'),
+  activaClienta: id => D.asignaciones.find(a => a.clienta_id === id && a.estado === 'activa'),
+  pedidosDe: asigId => D.pedidos.filter(p => p.asignacion_id === asigId).sort((a, b) => (a.fecha < b.fecha ? -1 : 1)),
+  categorias: (todas = false) => D.categorias.filter(c => todas || c.activa !== false).sort((a, b) => (a.orden || 0) - (b.orden || 0)),
+};
+function estadoAsig(a) {
+  const dias = diasDesde(a.asignada_en);
+  return { dias, nivel: dias >= CFG.diasAlerta ? 'vencida' : dias >= CFG.diasAviso ? 'aviso' : 'ok' };
+}
+function resumenPedidos(pedidos) {
+  return pedidos.reduce((r, p) => ({ total: r.total + Number(p.total || 0), prendas: r.prendas + Number(p.prendas || 0) }), { total: 0, prendas: 0 });
+}
+function textoItems(items) {
+  const g = {};
+  for (const it of items || []) {
+    g[it.nombre] = g[it.nombre] || { cant: 0, importe: 0 };
+    g[it.nombre].cant += it.cantidad;
+    g[it.nombre].importe += it.precio * it.cantidad;
+  }
+  return Object.entries(g).map(([n, v]) => `${v.cant} ${n}`).join(' · ');
+}
+function cajasOrdenadas() { return D.cajas.slice().sort((a, b) => ordenNatural(a.id, b.id)); }
+function vencidas() {
+  return D.asignaciones.filter(a => a.estado === 'activa').map(a => ({ a, ...estadoAsig(a) })).filter(x => x.nivel === 'vencida').sort((x, y) => y.dias - x.dias);
+}
+
+async function accion(fn, texto = 'Guardando…') {
+  espera.mostrar(texto);
+  try { return await fn(); } catch (e) { console.error(e); toast(traducirError(e), 'error'); return undefined; } finally { espera.ocultar(); }
+}
+
+/* Reglas: una clienta por caja y una caja por clienta. */
+async function asignarCaja(cajaId, clientaId) {
+  await refrescar(true);
+  if (idx.activaCaja(cajaId)) throw new Error(`La caja ${cajaId} ya tiene una clienta asignada.`);
+  const otra = idx.activaClienta(clientaId);
+  if (otra) throw new Error(`Esa clienta ya está en la caja ${otra.caja}. Usa "Reasignar" desde esa caja.`);
+  const a = await store.insert('asignaciones', {
+    caja: cajaId, clienta_id: clientaId, estado: 'activa', asignada_en: new Date().toISOString(), asignada_por: usuario.nombre, movimientos: [],
+  });
+  D.asignaciones.push(a);
+  return a;
+}
+
+/* ---------- Estructura de la pantalla ---------- */
+function montarShell() {
+  document.body.classList.toggle('modo-local', store.modo === 'local');
+  $('#app').innerHTML = `
+    <header class="barra-sup">
+      <a class="btn-icono" id="btn-atras" hidden>${IC.atras}</a>
+      <img class="logo-barra" id="logo-barra" src="icons/logo-oscuro.png" alt="${esc(CFG.nombreNegocio)}" hidden>
+      <h1 id="titulo"></h1>
+      <a class="btn-icono" href="#/ajustes" aria-label="Ajustes">${IC.ajustes}</a>
+    </header>
+    ${CFG.vistaPrevia ? '<div class="aviso-demo">Vista previa con datos de ejemplo. Lo que hagas aquí se queda solo en este navegador.</div>' : store.modo !== 'nube' ? '<div class="aviso-demo">Modo prueba: los datos solo se guardan en este dispositivo.</div>' : ''}
+    <main id="vista"></main>
+    <nav class="tabs">
+      <a href="#/cajas" data-tab="cajas">${IC.cajas}<span>Cajas</span></a>
+      <a href="#/clientas" data-tab="clientas">${IC.clientas}<span>Clientas</span></a>
+      <a href="#" data-tab="escanear" class="tab-escanear" id="tab-escanear"><b>${IC.escanear}</b><span>Escanear</span></a>
+      <a href="#/pedido" data-tab="pedido">${IC.pedido}<span>Pedido nuevo</span></a>
+      <a href="#/reportes" data-tab="reportes">${IC.reportes}<span>Reportes</span></a>
+    </nav>`;
+  $('#tab-escanear').onclick = async e => {
+    e.preventDefault();
+    const c = await escanearQR();
+    if (c) ir(`caja/${encodeURIComponent(c)}`);
+  };
+}
+function titulo(t, atras) {
+  const conLogo = t === CFG.nombreNegocio;
+  $('#logo-barra').hidden = !conLogo;
+  $('#titulo').textContent = conLogo ? '' : t;
+  const b = $('#btn-atras');
+  b.hidden = !atras;
+  if (atras) b.href = `#/${atras}`;
+  document.title = `${t} · ${CFG.nombreNegocio}`;
+}
+const vista = () => $('#vista');
+let rutaInterna = '';
+const ir = r => {
+  if (CFG.vistaPrevia) { rutaInterna = r; navegar(); return; }
+  if (location.hash === `#/${r}`) navegar(); else location.hash = `#/${r}`;
+};
+const rutaActual = () => (CFG.vistaPrevia ? rutaInterna : location.hash.replace(/^#\/?/, ''));
+
+const RUTAS = [
+  [/^(cajas)?$/, vistaCajas, 'cajas', true],
+  [/^caja\/([^/]+)$/, vistaCaja, 'cajas', true],
+  [/^clientas$/, vistaClientas, 'clientas', true],
+  [/^clienta\/nueva$/, q => formClienta(null, q), 'clientas', false],
+  [/^clienta\/([^/]+)\/editar$/, formClienta, 'clientas', false],
+  [/^clienta\/([^/]+)$/, vistaClienta, 'clientas', true],
+  [/^pedido$/, elegirCajaPedido, 'pedido', true],
+  [/^pedido\/([^/]+)$/, formPedido, 'pedido', false],
+  [/^enviar\/([^/]+)$/, formEnvio, 'cajas', false],
+  [/^reasignar\/([^/]+)$/, vistaReasignar, 'cajas', true],
+  [/^reportes$/, vistaReportes, 'reportes', true],
+  [/^ajustes$/, vistaAjustes, '', true],
+  [/^ajustes\/cajas$/, vistaAdminCajas, '', true],
+];
+let rutaRecargable = false;
+let turnoRender = 0;
+async function navegar() {
+  if (!usuario) return;
+  const [path, qs] = rutaActual().split('?');
+  const query = new URLSearchParams(qs || '');
+  const ruta = RUTAS.find(r => r[0].test(path));
+  if (!ruta) { ir('cajas'); return; }
+  const [re, fn, tab, recargable] = ruta;
+  const args = path.match(re).slice(1).filter(x => x !== undefined && x !== 'cajas').map(decodeURIComponent);
+  $$('.tabs a').forEach(a => a.classList.toggle('activa', a.dataset.tab === tab));
+  rutaRecargable = recargable;
+  const turno = ++turnoRender;
+  const timer = setTimeout(() => { if (turno === turnoRender) vista().innerHTML = '<div class="cargando"><div class="spinner"></div></div>'; }, 250);
+  try {
+    await refrescar();
+    clearTimeout(timer);
+    if (turno !== turnoRender) return;
+    await fn(...args, query);
+  } catch (e) {
+    clearTimeout(timer);
+    console.error(e);
+    vista().innerHTML = `<div class="vacio">${IC.alerta}<p>${esc(traducirError(e))}</p><button class="btn btn-primario" onclick="D.cargado=0;navegar()">Reintentar</button></div>`;
+  }
+  window.scrollTo(0, 0);
+}
+
+/* ---------- Alertas de 20 días ---------- */
+let ultimaAlerta = 0;
+function revisarAlertas() {
+  ultimaAlerta = Date.now();
+  const v = vencidas();
+  if (navigator.setAppBadge) (v.length ? navigator.setAppBadge(v.length) : navigator.clearAppBadge()).catch(() => {});
+  if (!v.length) return;
+  modal({
+    titulo: `${v.length === 1 ? '1 caja lleva' : `${v.length} cajas llevan`} ${CFG.diasAlerta} días o más`,
+    html: `<p>Esta mercancía ya debe enviarse:</p>
+      <ul class="lista-alerta">${v.map(x => `<li><a href="#/caja/${encodeURIComponent(x.a.caja)}" data-cierra><b>${esc(x.a.caja)}</b> · ${esc(nombreCompleto(idx.clienta(x.a.clienta_id)))} <span class="chip chip-vencida">${x.dias} días</span></a></li>`).join('')}</ul>`,
+    botones: [{ texto: 'Entendido', valor: true }],
+    alAbrir: (el, cerrar) => $$('[data-cierra]', el).forEach(a => a.addEventListener('click', () => cerrar(true))),
+  });
+}
+
+/* ---------- Pantalla: Cajas ---------- */
+function vistaCajas(query) {
+  titulo(CFG.nombreNegocio);
+  const filtro = query.get('f') || 'todas';
+  const filas = cajasOrdenadas().map(c => {
+    const a = idx.activaCaja(c.id);
+    const cl = a && idx.clienta(a.clienta_id);
+    const st = a ? estadoAsig(a) : null;
+    const r = a ? resumenPedidos(idx.pedidosDe(a.id)) : null;
+    return { c, a, cl, st, r };
+  });
+  const cuenta = {
+    todas: filas.length,
+    ocupadas: filas.filter(f => f.a).length,
+    libres: filas.filter(f => !f.a).length,
+    vencidas: filas.filter(f => f.st && f.st.nivel === 'vencida').length,
+  };
+  if (!filas.length) {
+    vista().innerHTML = `<div class="vacio">${IC.cajas}<h2>Aún no hay cajas</h2><p>Crea tus cajas (A1, A2, B1…) y genera sus códigos QR.</p><a class="btn btn-primario" href="#/ajustes/cajas">Crear cajas</a></div>`;
+    return;
+  }
+  const visibles = filas.filter(f => filtro === 'todas' || (filtro === 'ocupadas' && f.a) || (filtro === 'libres' && !f.a) || (filtro === 'vencidas' && f.st && f.st.nivel === 'vencida'));
+  const aviso = cuenta.vencidas ? `<a class="banner banner-vencida" href="#/cajas?f=vencidas">${IC.alerta}<span><b>${cuenta.vencidas} ${cuenta.vencidas === 1 ? 'caja pasa' : 'cajas pasan'} de ${CFG.diasAlerta} días.</b> Esa mercancía debe enviarse.</span></a>` : '';
+  vista().innerHTML = `
+    ${aviso}
+    <div class="filtros">
+      ${[['todas', 'Todas'], ['ocupadas', 'Ocupadas'], ['libres', 'Libres'], ['vencidas', 'Vencidas']].map(([k, t]) => `<a href="#/cajas?f=${k}" class="filtro ${filtro === k ? 'activo' : ''}">${t} <b>${cuenta[k]}</b></a>`).join('')}
+    </div>
+    <input type="search" class="buscador" id="buscar" placeholder="Buscar caja o clienta…" autocomplete="off">
+    <div class="rejilla" id="rejilla">
+      ${visibles.map(f => `
+        <a class="caja-card nivel-${f.st ? f.st.nivel : 'libre'}" href="#/caja/${encodeURIComponent(f.c.id)}" data-busca="${esc(sinAcentos(`${f.c.id} ${nombreCompleto(f.cl)}`))}">
+          <span class="caja-codigo">${esc(f.c.id)}</span>
+          ${f.a ? `<span class="caja-nombre">${esc(nombreCompleto(f.cl))}</span>
+            <span class="caja-meta">Día ${f.st.dias} · ${dinero(f.r.total)}</span>` : '<span class="caja-nombre libre">Libre</span>'}
+        </a>`).join('') || '<p class="nota">No hay cajas en este filtro.</p>'}
+    </div>`;
+  $('#buscar').oninput = e => {
+    const q = sinAcentos(e.target.value);
+    $$('#rejilla .caja-card').forEach(el => { el.hidden = q && !el.dataset.busca.includes(q); });
+  };
+}
+
+/* ---------- Pantalla: una caja ---------- */
+async function vistaCaja(id) {
+  id = id.toUpperCase();
+  const caja = idx.caja(id);
+  titulo(`Caja ${id}`, 'cajas');
+  if (!caja) {
+    vista().innerHTML = `<div class="vacio">${IC.alerta}<h2>La caja ${esc(id)} no existe</h2><p>Puedes crearla en Ajustes → Cajas y QR.</p><a class="btn btn-primario" href="#/ajustes/cajas">Ir a Cajas y QR</a></div>`;
+    return;
+  }
+  const a = idx.activaCaja(id);
+  if (!a) return vistaCajaLibre(caja);
+
+  const cl = idx.clienta(a.clienta_id);
+  const st = estadoAsig(a);
+  const pedidos = idx.pedidosDe(a.id);
+  const r = resumenPedidos(pedidos);
+  const faltan = CFG.diasAlerta - st.dias;
+  const estadoTxt = st.nivel === 'vencida' ? `Lleva ${st.dias} días. ¡Debe enviarse!` : st.nivel === 'aviso' ? `Lleva ${st.dias} días. Faltan ${faltan} para el límite.` : `Lleva ${st.dias} ${st.dias === 1 ? 'día' : 'días'}. Faltan ${faltan} para el límite de ${CFG.diasAlerta}.`;
+  const historialCaja = D.asignaciones.filter(x => x.caja === id && x.estado === 'enviada').sort((x, y) => (x.enviada_en < y.enviada_en ? 1 : -1));
+
+  vista().innerHTML = `
+    <div class="banner banner-${st.nivel}">${st.nivel === 'ok' ? IC.cajas : IC.alerta}<span>${estadoTxt}<br><small>Asignada el ${fechaCorta(a.asignada_en)}${(a.movimientos || []).length ? ` · reasignada desde ${esc(a.movimientos.map(m => m.de).join(', '))}` : ''}</small></span></div>
+    ${tarjetaClienta(cl)}
+    <div class="totales">
+      <div><small>Pedidos</small><b>${pedidos.length}</b></div>
+      <div><small>Prendas</small><b>${r.prendas}</b></div>
+      <div><small>Total</small><b>${dinero(r.total)}</b></div>
+    </div>
+    <div class="acciones">
+      <a class="btn btn-primario" href="#/pedido/${encodeURIComponent(id)}">${IC.mas} Nuevo pedido</a>
+      <a class="btn btn-secundario" href="#/enviar/${encodeURIComponent(id)}">${IC.camion} Marcar como enviado</a>
+      <a class="btn btn-secundario" href="#/reasignar/${encodeURIComponent(id)}">${IC.mover} Reasignar a otra caja</a>
+    </div>
+    <h3 class="seccion">Historial de pedidos</h3>
+    ${pedidos.length ? pedidos.slice().reverse().map(p => tarjetaPedido(p, true)).join('') : '<p class="nota">Esta caja todavía no tiene pedidos.</p>'}
+    ${historialCaja.length ? `<details class="plegable"><summary>Envíos anteriores de esta caja (${historialCaja.length})</summary>
+      ${historialCaja.map(x => `<a class="fila" href="#/clienta/${x.clienta_id}"><span>${esc(nombreCompleto(idx.clienta(x.clienta_id)))}</span><small>Enviada ${fechaCorta(x.enviada_en)}</small></a>`).join('')}</details>` : ''}`;
+  conectarPedidos(vista());
+}
+
+function tarjetaClienta(cl, enlace = true) {
+  if (!cl) return '<div class="tarjeta"><p>Clienta no encontrada.</p></div>';
+  return `
+    <div class="tarjeta clienta">
+      <div class="clienta-cabeza">
+        <div><b class="clienta-nombre">${esc(nombreCompleto(cl))}</b><small>${esc(direccion(cl))}</small>
+        ${cl.referencia ? `<small class="ref">Ref.: ${esc(cl.referencia)}</small>` : ''}</div>
+      </div>
+      <div class="clienta-botones">
+        ${cl.telefono ? `<a class="btn btn-mini" href="tel:${esc(telLimpio(cl.telefono))}">${IC.tel} Llamar</a><a class="btn btn-mini" href="${linkWhatsApp(cl.telefono)}" target="_blank" rel="noopener">${IC.chat} WhatsApp</a>` : ''}
+        ${enlace ? `<a class="btn btn-mini" href="#/clienta/${cl.id}">Ver ficha</a>` : ''}
+      </div>
+    </div>`;
+}
+
+function tarjetaPedido(p, borrable) {
+  const items = p.items || [];
+  return `
+    <div class="tarjeta pedido" data-pedido="${p.id}">
+      <div class="pedido-cabeza"><b>${fechaHora(p.fecha)}</b><b>${dinero(p.total)}</b></div>
+      <p>${esc(textoItems(items))} <small>(${p.prendas} ${p.prendas === 1 ? 'prenda' : 'prendas'})</small></p>
+      ${items.filter(i => i.editable).length ? `<p class="nota">${items.filter(i => i.editable).map(i => `${esc(i.nombre)} ${dinero(i.precio)}`).join(' · ')}</p>` : ''}
+      ${p.notas ? `<p class="nota">${esc(p.notas)}</p>` : ''}
+      <div class="pedido-pie">
+        <small>Registró: ${esc(p.creado_por || '')}</small>
+        <span>
+          ${p.video ? `<button class="btn btn-mini" data-ver-video="${p.id}">${IC.video} Ver video${p.video_comprimido ? ' (comprimido)' : ''}</button>` : '<small class="nota">Sin video</small>'}
+          ${borrable ? `<button class="btn btn-mini btn-icono-solo" data-borrar-pedido="${p.id}" aria-label="Eliminar pedido">${IC.basura}</button>` : ''}
+        </span>
+      </div>
+    </div>`;
+}
+function conectarPedidos(raiz) {
+  $$('[data-ver-video]', raiz).forEach(b => { b.onclick = () => verVideo(D.pedidos.find(p => p.id === b.dataset.verVideo)); });
+  $$('[data-borrar-pedido]', raiz).forEach(b => {
+    b.onclick = async () => {
+      const p = D.pedidos.find(x => x.id === b.dataset.borrarPedido);
+      if (!(await confirmar(`Se eliminará el pedido del ${fechaHora(p.fecha)} por ${dinero(p.total)}, con su video. Esto no se puede deshacer.`, { titulo: '¿Eliminar pedido?', si: 'Eliminar', peligro: true }))) return;
+      await accion(async () => {
+        await store.remove('pedidos', p.id);
+        if (p.video) await store.removeFile(p.video).catch(() => {});
+        D.pedidos = D.pedidos.filter(x => x.id !== p.id);
+        toast('Pedido eliminado');
+        navegar();
+      }, 'Eliminando…');
+    };
+  });
+}
+async function verVideo(p) {
+  const url = await accion(() => store.fileUrl(p.video), 'Abriendo video…');
+  if (!url) return;
+  modal({ titulo: `Video del ${fechaCorta(p.fecha)}`, html: `<video class="video-modal" src="${esc(url)}" controls playsinline autoplay></video>` });
+}
+
+function vistaCajaLibre(caja) {
+  const id = caja.id;
+  const lista = D.clientas.slice().sort((a, b) => ordenNatural(nombreCompleto(a), nombreCompleto(b)));
+  vista().innerHTML = `
+    <div class="banner banner-libre">${IC.cajas}<span><b>Caja ${esc(id)} libre.</b> Selecciona la clienta que ya pagó para asignarle esta caja.</span></div>
+    <div class="acciones"><a class="btn btn-primario" href="#/clienta/nueva?caja=${encodeURIComponent(id)}">${IC.mas} Registrar clienta nueva</a></div>
+    <input type="search" class="buscador" id="buscar" placeholder="Buscar por nombre o teléfono…" autocomplete="off">
+    <div class="lista" id="lista">
+      ${lista.map(c => {
+        const a = idx.activaClienta(c.id);
+        return `<button class="fila ${a ? 'deshabilitada' : ''}" data-clienta="${c.id}" data-busca="${esc(sinAcentos(`${nombreCompleto(c)} ${c.telefono}`))}">
+          <span><b>${esc(nombreCompleto(c))}</b><small>${esc(c.telefono || '')} · ${esc(c.colonia || '')}</small></span>
+          ${a ? `<span class="chip">En caja ${esc(a.caja)}</span>` : '<span class="chip chip-ok">Sin caja</span>'}
+        </button>`;
+      }).join('') || '<p class="nota">Aún no hay clientas registradas.</p>'}
+    </div>`;
+  $('#buscar').oninput = e => {
+    const q = sinAcentos(e.target.value);
+    $$('#lista .fila').forEach(el => { el.hidden = q && !el.dataset.busca.includes(q); });
+  };
+  $$('[data-clienta]').forEach(b => {
+    b.onclick = async () => {
+      const cl = idx.clienta(b.dataset.clienta);
+      const otra = idx.activaClienta(cl.id);
+      if (otra) { toast(`${nombreCompleto(cl)} ya está en la caja ${otra.caja}. Para moverla usa "Reasignar" en esa caja.`, 'error'); return; }
+      if (!(await confirmar(`¿Asignar la caja <b>${esc(id)}</b> a <b>${esc(nombreCompleto(cl))}</b>?<br><br>Confirma que la clienta <b>ya pagó</b>.`, { titulo: 'Asignar caja', si: 'Sí, ya pagó' }))) return;
+      const a = await accion(() => asignarCaja(id, cl.id), 'Asignando…');
+      if (a) { toast(`Caja ${id} asignada`); ir(`pedido/${encodeURIComponent(id)}`); }
+    };
+  });
+}
+
+/* ---------- Pantalla: reasignar ---------- */
+function vistaReasignar(id) {
+  id = id.toUpperCase();
+  titulo(`Reasignar ${id}`, `caja/${encodeURIComponent(id)}`);
+  const a = idx.activaCaja(id);
+  if (!a) { ir(`caja/${encodeURIComponent(id)}`); return; }
+  const cl = idx.clienta(a.clienta_id);
+  const libres = cajasOrdenadas().filter(c => !idx.activaCaja(c.id));
+  vista().innerHTML = `
+    <p class="intro">Mover a <b>${esc(nombreCompleto(cl))}</b> y sus ${idx.pedidosDe(a.id).length} pedidos de la caja <b>${esc(id)}</b> a otra caja libre. El conteo de días continúa desde ${fechaCorta(a.asignada_en)}.</p>
+    <div class="acciones"><button class="btn btn-secundario" id="escanear-destino">${IC.escanear} Escanear la caja nueva</button></div>
+    <h3 class="seccion">Cajas libres</h3>
+    <div class="rejilla">${libres.map(c => `<button class="caja-card nivel-libre" data-destino="${esc(c.id)}"><span class="caja-codigo">${esc(c.id)}</span><span class="caja-nombre libre">Libre</span></button>`).join('') || '<p class="nota">No hay cajas libres. Crea más en Ajustes → Cajas y QR.</p>'}</div>`;
+  const mover = async destino => {
+    destino = destino.toUpperCase();
+    if (destino === id) { toast('Es la misma caja.', 'error'); return; }
+    if (!idx.caja(destino)) { toast(`La caja ${destino} no existe.`, 'error'); return; }
+    if (!(await confirmar(`¿Mover a ${esc(nombreCompleto(cl))} de la caja <b>${esc(id)}</b> a la caja <b>${esc(destino)}</b>?<br><br>La caja ${esc(id)} quedará libre.`, { titulo: 'Reasignar caja', si: 'Mover' }))) return;
+    const ok = await accion(async () => {
+      await refrescar(true);
+      const actual = idx.asig(a.id);
+      if (!actual || actual.estado !== 'activa' || actual.caja !== id) throw new Error('La caja cambió mientras tanto. Revisa de nuevo.');
+      if (idx.activaCaja(destino)) throw new Error(`La caja ${destino} ya está ocupada.`);
+      const movimientos = [...(actual.movimientos || []), { de: id, a: destino, fecha: new Date().toISOString(), por: usuario.nombre }];
+      await store.update('asignaciones', a.id, { caja: destino, movimientos });
+      D.cargado = 0;
+      return true;
+    }, 'Moviendo…');
+    if (ok) { toast(`Movida a la caja ${destino}. La caja ${id} quedó libre.`); ir(`caja/${encodeURIComponent(destino)}`); }
+  };
+  $$('[data-destino]').forEach(b => { b.onclick = () => mover(b.dataset.destino); });
+  $('#escanear-destino').onclick = async () => { const c = await escanearQR(); if (c) mover(c); };
+}
+
+/* ---------- Pantalla: marcar como enviado ---------- */
+function formEnvio(id) {
+  id = id.toUpperCase();
+  titulo(`Enviar caja ${id}`, `caja/${encodeURIComponent(id)}`);
+  const a = idx.activaCaja(id);
+  if (!a) { ir(`caja/${encodeURIComponent(id)}`); return; }
+  const cl = idx.clienta(a.clienta_id);
+  const pedidos = idx.pedidosDe(a.id);
+  const r = resumenPedidos(pedidos);
+  let foto = null;
+  vista().innerHTML = `
+    ${tarjetaClienta(cl, false)}
+    <div class="totales"><div><small>Pedidos</small><b>${pedidos.length}</b></div><div><small>Prendas</small><b>${r.prendas}</b></div><div><small>Mercancía</small><b>${dinero(r.total)}</b></div></div>
+    <form id="f-envio" class="formulario" novalidate>
+      <label class="subir-archivo" id="zona-foto">
+        <input type="file" accept="image/*" capture="environment" id="foto" hidden>
+        <span id="foto-vista">${IC.foto}<b>Tomar foto de la guía de paquetería</b><small>Obligatoria. Queda guardada en el historial.</small></span>
+      </label>
+      <label>Paquetería<select name="paqueteria" required><option value="">Selecciona…</option>${PAQUETERIAS.map(p => `<option>${p}</option>`).join('')}</select></label>
+      <label>Número de guía<input name="guia" autocomplete="off" inputmode="text"></label>
+      <div class="dos">
+        <label>Peso (kg)<input name="peso_kg" type="number" step="0.01" min="0" inputmode="decimal"></label>
+        <label>Medidas (cm)<input name="medidas" placeholder="40×30×20"></label>
+      </div>
+      <label>Costo de envío<input name="costo_envio" type="number" step="0.01" min="0" inputmode="decimal" placeholder="$0.00"></label>
+      <label>Notas<textarea name="notas_envio" rows="2"></textarea></label>
+      <button class="btn btn-primario btn-grande" type="submit">${IC.camion} Confirmar envío y liberar caja</button>
+      <p class="nota centro">La clienta y sus pedidos quedan en su historial. La caja ${esc(id)} quedará libre para usarse de nuevo.</p>
+    </form>`;
+  $('#foto').onchange = e => {
+    foto = e.target.files[0] || null;
+    if (foto) $('#foto-vista').innerHTML = `<img src="${URL.createObjectURL(foto)}" alt="Foto de la guía"><small>Toca para cambiar la foto</small>`;
+  };
+  $('#f-envio').onsubmit = async e => {
+    e.preventDefault();
+    const f = Object.fromEntries(new FormData(e.target));
+    if (!foto) { toast('Toma la foto de la guía de paquetería.', 'error'); $('#zona-foto').classList.add('invalido'); return; }
+    if (!f.paqueteria) { toast('Selecciona la paquetería.', 'error'); return; }
+    if (!(await confirmar(`Se marcará como <b>enviada</b> la mercancía de ${esc(nombreCompleto(cl))} y la caja <b>${esc(id)}</b> quedará libre.`, { titulo: '¿Confirmar envío?', si: 'Confirmar envío' }))) return;
+    const ok = await accion(async () => {
+      await refrescar(true);
+      const actual = idx.asig(a.id);
+      if (!actual || actual.estado !== 'activa') throw new Error('Esta caja ya fue enviada o cambió. Revisa de nuevo.');
+      espera.mostrar('Subiendo foto…', 0);
+      const reducida = await reducirFoto(foto);
+      const ruta = `guias/${a.id}.jpg`;
+      await store.upload(ruta, reducida, p => espera.mostrar('Subiendo foto…', p));
+      espera.mostrar('Guardando…');
+      await store.update('asignaciones', a.id, {
+        estado: 'enviada', enviada_en: new Date().toISOString(), enviada_por: usuario.nombre, foto_guia: ruta,
+        paqueteria: f.paqueteria, guia: f.guia.trim(), peso_kg: f.peso_kg ? Number(f.peso_kg) : null, medidas: f.medidas.trim(),
+        costo_envio: f.costo_envio ? Number(f.costo_envio) : null, notas_envio: f.notas_envio.trim(),
+      });
+      D.cargado = 0;
+      return true;
+    }, 'Guardando envío…');
+    if (!ok) return;
+    toast(`Envío registrado. La caja ${id} quedó libre.`);
+    ir(`clienta/${cl.id}`);
+    const pendientes = pedidos.filter(p => p.video && !p.video_comprimido);
+    if (pendientes.length) setTimeout(() => ofrecerCompresion(pendientes), 600);
+  };
+}
+
+/* Comprime los videos de pedidos ya enviados para ahorrar espacio (sin borrarlos). */
+async function ofrecerCompresion(pedidos) {
+  if (!puedeComprimir()) return;
+  const fuentes = await accion(() => Promise.all(pedidos.map(p => store.fileUrl(p.video))), 'Preparando videos…');
+  if (!fuentes) return;
+  const resp = await modal({
+    titulo: 'Comprimir videos',
+    html: `<p>${pedidos.length === 1 ? 'Hay 1 video' : `Hay ${pedidos.length} videos`} de pedidos enviados. Comprimirlos ahorra espacio y <b>no se borran</b> (por si hay reclamos).</p><p class="nota">Tarda aproximadamente lo que duran los videos. Deja la app abierta y la pantalla encendida.</p>`,
+    botones: [
+      { texto: 'Después', valor: null },
+      { texto: 'Comprimir ahora', valor: () => iniciarCompresion(pedidos, fuentes) },
+    ],
+  });
+  if (resp) await resp;
+}
+function iniciarCompresion(pedidos, fuentes) {
+  // Se llama directo desde el toque del botón: prepara todos los videos al mismo tiempo
+  // (para conservar el audio en iPhone) y los procesa uno por uno.
+  let actx = null;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch (e) { actx = null; }
+  let turno = Promise.resolve();
+  let hechos = 0;
+  const trabajos = pedidos.map((p, i) => {
+    let liberar;
+    const miTurno = turno;
+    turno = new Promise(r => { liberar = r; });
+    const prog = x => espera.mostrar(`Comprimiendo video ${i + 1} de ${pedidos.length}…`, x);
+    const tarea = comprimirVideo(fuentes[i], 'archivo', prog, { actx, turno: miTurno.then(() => prog(0)) })
+      .then(async blob => {
+        const original = p.video_mb ? p.video_mb * 1048576 : Infinity;
+        if (blob.size >= original) { await store.update('pedidos', p.id, { video_comprimido: true }); return; }
+        const ruta = `videos/${p.id}-c.${extensionVideo(blob)}`;
+        espera.mostrar(`Guardando video ${i + 1} de ${pedidos.length}…`, 0);
+        await store.upload(ruta, blob, x => espera.mostrar(`Guardando video ${i + 1} de ${pedidos.length}…`, x));
+        await store.update('pedidos', p.id, { video: ruta, video_mb: Number(mb(blob.size)), video_comprimido: true });
+        if (ruta !== p.video) await store.removeFile(p.video).catch(() => {});
+        hechos++;
+      })
+      .catch(e => { console.error(e); toast(`Video ${i + 1}: ${traducirError(e)}`, 'error'); })
+      .finally(() => liberar());
+    return tarea;
+  });
+  espera.mostrar('Preparando videos…');
+  espera.nota('No cierres la app ni apagues la pantalla.');
+  return Promise.all(trabajos).then(() => {
+    espera.ocultar();
+    if (actx) actx.close().catch(() => {});
+    D.cargado = 0;
+    if (hechos) toast(`${hechos} ${hechos === 1 ? 'video comprimido' : 'videos comprimidos'}`);
+    if (rutaRecargable) navegar();
+  });
+}
+
+/* ---------- Pantalla: clientas ---------- */
+function vistaClientas() {
+  titulo('Clientas');
+  const lista = D.clientas.slice().sort((a, b) => ordenNatural(nombreCompleto(a), nombreCompleto(b)));
+  vista().innerHTML = `
+    <div class="acciones"><a class="btn btn-primario" href="#/clienta/nueva">${IC.mas} Registrar clienta</a></div>
+    <input type="search" class="buscador" id="buscar" placeholder="Buscar por nombre, teléfono o colonia…" autocomplete="off">
+    <p class="nota">${lista.length} ${lista.length === 1 ? 'clienta registrada' : 'clientas registradas'}</p>
+    <div class="lista" id="lista">
+      ${lista.map(c => {
+        const a = idx.activaClienta(c.id);
+        const st = a && estadoAsig(a);
+        return `<a class="fila" href="#/clienta/${c.id}" data-busca="${esc(sinAcentos(`${nombreCompleto(c)} ${c.telefono} ${c.colonia} ${c.ciudad}`))}">
+          <span><b>${esc(nombreCompleto(c))}</b><small>${esc(c.telefono || '')} · ${esc([c.colonia, c.ciudad].filter(Boolean).join(', '))}</small></span>
+          ${a ? `<span class="chip chip-${st.nivel}">Caja ${esc(a.caja)}</span>` : ''}
+        </a>`;
+      }).join('') || '<p class="nota">Aún no hay clientas.</p>'}
+    </div>`;
+  $('#buscar').oninput = e => {
+    const q = sinAcentos(e.target.value);
+    $$('#lista .fila').forEach(el => { el.hidden = q && !el.dataset.busca.includes(q); });
+  };
+}
+
+function vistaClienta(id) {
+  const cl = idx.clienta(id);
+  titulo('Clienta', 'clientas');
+  if (!cl) { vista().innerHTML = '<div class="vacio"><p>No se encontró la clienta.</p></div>'; return; }
+  const asigs = D.asignaciones.filter(a => a.clienta_id === id).sort((a, b) => (a.asignada_en < b.asignada_en ? 1 : -1));
+  const activa = asigs.find(a => a.estado === 'activa');
+  const todos = D.pedidos.filter(p => p.clienta_id === id);
+  const r = resumenPedidos(todos);
+  vista().innerHTML = `
+    ${tarjetaClienta(cl, false)}
+    <dl class="datos">
+      <dt>Teléfono</dt><dd>${esc(cl.telefono || '—')}</dd>
+      <dt>Correo</dt><dd>${esc(cl.correo || '—')}</dd>
+      <dt>Fecha de registro</dt><dd>${fechaCorta(cl.fecha_registro) || '—'}</dd>
+      <dt>Registró</dt><dd>${esc(cl.creado_por || '—')}</dd>
+    </dl>
+    <div class="acciones">
+      ${activa ? `<a class="btn btn-primario" href="#/caja/${encodeURIComponent(activa.caja)}">${IC.cajas} Ver caja ${esc(activa.caja)}</a>` : '<p class="nota centro">No tiene caja asignada. Escanea una caja libre para asignársela.</p>'}
+      <a class="btn btn-secundario" href="#/clienta/${cl.id}/editar">Editar datos</a>
+    </div>
+    <div class="totales"><div><small>Compras</small><b>${todos.length}</b></div><div><small>Prendas</small><b>${r.prendas}</b></div><div><small>Total histórico</small><b>${dinero(r.total)}</b></div></div>
+    <h3 class="seccion">Historial</h3>
+    ${asigs.map(a => {
+      const ps = idx.pedidosDe(a.id);
+      const rs = resumenPedidos(ps);
+      const st = estadoAsig(a);
+      return `<div class="bloque-historial">
+        <div class="historial-cabeza">
+          <b>Caja ${esc(a.caja)}</b>
+          ${a.estado === 'activa' ? `<span class="chip chip-${st.nivel}">En caja · día ${st.dias}</span>` : `<span class="chip chip-ok">Enviada ${fechaCorta(a.enviada_en)}</span>`}
+        </div>
+        <small>Asignada ${fechaCorta(a.asignada_en)} · ${ps.length} pedidos · ${dinero(rs.total)}</small>
+        ${a.estado === 'enviada' ? `<div class="envio">
+          ${IC.camion}<span><b>${esc(a.paqueteria || '')}</b> ${a.guia ? `· Guía ${esc(a.guia)}` : ''}<br>
+          <small>${[a.peso_kg ? `${a.peso_kg} kg` : '', a.medidas ? `${esc(a.medidas)} cm` : '', a.costo_envio != null ? `Envío ${dinero(a.costo_envio)}` : '', a.enviada_por ? `por ${esc(a.enviada_por)}` : ''].filter(Boolean).join(' · ')}</small>
+          ${a.notas_envio ? `<br><small>${esc(a.notas_envio)}</small>` : ''}</span>
+          ${a.foto_guia ? `<button class="btn btn-mini" data-ver-guia="${a.id}">${IC.foto} Guía</button>` : ''}
+        </div>` : ''}
+        ${ps.slice().reverse().map(p => tarjetaPedido(p, false)).join('')}
+      </div>`;
+    }).join('') || '<p class="nota">Sin compras todavía.</p>'}`;
+  conectarPedidos(vista());
+  $$('[data-ver-guia]').forEach(b => {
+    b.onclick = async () => {
+      const a = idx.asig(b.dataset.verGuia);
+      const url = await accion(() => store.fileUrl(a.foto_guia), 'Abriendo foto…');
+      if (url) modal({ titulo: `Guía ${a.guia || ''}`, html: `<img class="foto-modal" src="${esc(url)}" alt="Foto de la guía">` });
+    };
+  });
+}
+
+/* ---------- Formulario de clienta ---------- */
+function formClienta(id, query) {
+  const editar = id ? idx.clienta(id) : null;
+  if (id && !editar) { ir('clientas'); return; }
+  const cajaDestino = !editar && query && query.get('caja');
+  titulo(editar ? 'Editar clienta' : 'Registrar clienta', editar ? `clienta/${id}` : (cajaDestino ? `caja/${encodeURIComponent(cajaDestino)}` : 'clientas'));
+  const c = editar || { fecha_registro: fechaISO() };
+  const campo = (name, label, attrs = '', extra = '') => `<label>${label}<input name="${name}" value="${esc(c[name] || '')}" ${attrs}>${extra}</label>`;
+  vista().innerHTML = `
+    ${cajaDestino ? `<div class="banner banner-libre">${IC.cajas}<span>Al guardar se le asignará la caja <b>${esc(cajaDestino)}</b>.</span></div>` : ''}
+    <form id="f-clienta" class="formulario" novalidate autocomplete="off">
+      <h3 class="seccion">Datos personales</h3>
+      ${campo('nombre', 'Nombre(s) *', 'required autocapitalize="words"')}
+      ${campo('apellidos', 'Apellidos *', 'required autocapitalize="words"')}
+      <div class="dos">
+        ${campo('fecha_registro', 'Fecha de registro', 'type="date"')}
+        ${campo('telefono', 'Teléfono *', 'type="tel" inputmode="tel" required placeholder="10 dígitos"')}
+      </div>
+      ${campo('correo', 'Correo electrónico', 'type="email" inputmode="email" autocapitalize="off"')}
+      <h3 class="seccion">Domicilio</h3>
+      ${campo('calle', 'Calle *', 'required')}
+      <div class="dos">
+        ${campo('numero', 'Número *', 'required')}
+        ${campo('interior', 'Interior', 'placeholder="Si aplica"')}
+      </div>
+      ${campo('cp', 'Código postal *', 'inputmode="numeric" maxlength="5" required placeholder="5 dígitos"', '<small id="cp-info" class="nota"></small>')}
+      <label>Colonia *
+        <select name="colonia_sel" id="colonia-sel"><option value="">Primero escribe el código postal</option></select>
+        <input name="colonia" id="colonia-txt" value="${esc(c.colonia || '')}" placeholder="Escribe la colonia" hidden>
+      </label>
+      <div class="dos">
+        ${campo('ciudad', 'Ciudad / municipio *', 'required')}
+        ${campo('estado', 'Estado *', 'required')}
+      </div>
+      <label>Referencia de la vivienda<textarea name="referencia" rows="2" placeholder="Ej. casa azul con portón negro, frente a la tienda">${esc(c.referencia || '')}</textarea></label>
+      <button class="btn btn-primario btn-grande" type="submit">${editar ? 'Guardar cambios' : (cajaDestino ? `Guardar y asignar caja ${esc(cajaDestino)}` : 'Registrar clienta')}</button>
+    </form>`;
+  const form = $('#f-clienta');
+  const sel = $('#colonia-sel'), txt = $('#colonia-txt');
+  const usarTexto = v => { sel.hidden = true; txt.hidden = false; if (v != null) txt.value = v; };
+  const llenarColonias = async (cp, inicial) => {
+    const info = $('#cp-info');
+    if (!/^\d{5}$/.test(cp)) { info.textContent = ''; return; }
+    info.textContent = 'Buscando…';
+    const r = await buscarCP(cp);
+    if (!r) { info.textContent = 'No encontramos ese código postal. Escribe la colonia a mano.'; usarTexto(inicial ? undefined : ''); return; }
+    info.textContent = `${r.colonias.length} ${r.colonias.length === 1 ? 'colonia' : 'colonias'} · ${r.municipio}, ${r.estado}`;
+    sel.hidden = false; txt.hidden = true;
+    const actual = inicial ? c.colonia : '';
+    const opciones = r.colonias.map(n => `<option ${n === actual ? 'selected' : ''}>${esc(n)}</option>`).join('');
+    sel.innerHTML = `<option value="">Selecciona la colonia…</option>${opciones}<option value="__otra">Otra (escribir)</option>`;
+    if (actual && !r.colonias.includes(actual)) { sel.value = '__otra'; usarTexto(actual); sel.hidden = false; }
+    else if (r.colonias.length === 1 && !inicial) sel.value = r.colonias[0];
+    if (!inicial || !form.ciudad.value) form.ciudad.value = r.ciudad;
+    if (!inicial || !form.estado.value) form.estado.value = r.estado;
+  };
+  sel.onchange = () => { if (sel.value === '__otra') { txt.hidden = false; txt.value = ''; txt.focus(); } else txt.hidden = true; };
+  form.cp.oninput = () => { form.cp.value = form.cp.value.replace(/\D/g, '').slice(0, 5); if (form.cp.value.length === 5) llenarColonias(form.cp.value, false); };
+  if (c.cp) llenarColonias(c.cp, true);
+
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const f = Object.fromEntries(new FormData(form));
+    const colonia = (sel.hidden || sel.value === '__otra') ? txt.value.trim() : sel.value;
+    const datos = {
+      nombre: f.nombre.trim(), apellidos: f.apellidos.trim(), fecha_registro: f.fecha_registro || fechaISO(),
+      telefono: telLimpio(f.telefono), correo: f.correo.trim().toLowerCase(),
+      calle: f.calle.trim(), numero: f.numero.trim(), interior: f.interior.trim(), cp: f.cp.trim(), colonia,
+      ciudad: f.ciudad.trim(), estado: f.estado.trim(), referencia: f.referencia.trim(),
+    };
+    const faltan = [];
+    if (!datos.nombre) faltan.push('nombre');
+    if (!datos.apellidos) faltan.push('apellidos');
+    if (datos.telefono.length !== 10) faltan.push('teléfono a 10 dígitos');
+    if (datos.correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(datos.correo)) faltan.push('correo válido');
+    if (!datos.calle) faltan.push('calle');
+    if (!datos.numero) faltan.push('número');
+    if (!/^\d{5}$/.test(datos.cp)) faltan.push('código postal');
+    if (!datos.colonia) faltan.push('colonia');
+    if (!datos.ciudad) faltan.push('ciudad');
+    if (!datos.estado) faltan.push('estado');
+    if (faltan.length) { toast(`Falta: ${faltan.join(', ')}.`, 'error'); return; }
+    const repetida = D.clientas.find(x => x.telefono === datos.telefono && (!editar || x.id !== editar.id));
+    if (repetida && !(await confirmar(`Ya existe <b>${esc(nombreCompleto(repetida))}</b> con el teléfono ${esc(datos.telefono)}. ¿Guardar de todos modos?`, { titulo: 'Teléfono repetido', si: 'Guardar' }))) return;
+
+    if (editar) {
+      const ok = await accion(async () => { await store.update('clientas', editar.id, datos); D.cargado = 0; return true; });
+      if (ok) { toast('Datos actualizados'); ir(`clienta/${editar.id}`); }
+      return;
+    }
+    const nueva = await accion(async () => {
+      const n = await store.insert('clientas', { ...datos, creado_por: usuario.nombre, creada_en: new Date().toISOString() });
+      D.clientas.push(n);
+      return n;
+    });
+    if (!nueva) return;
+    if (cajaDestino) {
+      if (!(await confirmar(`¿Asignar la caja <b>${esc(cajaDestino)}</b> a ${esc(nombreCompleto(nueva))}?<br><br>Confirma que <b>ya pagó</b>.`, { titulo: 'Asignar caja', si: 'Sí, ya pagó', no: 'Ahora no' }))) { toast('Clienta registrada'); ir(`clienta/${nueva.id}`); return; }
+      const a = await accion(() => asignarCaja(cajaDestino, nueva.id), 'Asignando…');
+      if (a) { toast(`Clienta registrada en la caja ${cajaDestino}`); ir(`pedido/${encodeURIComponent(cajaDestino)}`); } else ir(`clienta/${nueva.id}`);
+    } else { toast('Clienta registrada'); ir(`clienta/${nueva.id}`); }
+  };
+}
+
+/* ---------- Pedido nuevo ---------- */
+function elegirCajaPedido() {
+  titulo('Pedido nuevo');
+  const ocupadas = cajasOrdenadas().map(c => ({ c, a: idx.activaCaja(c.id) })).filter(x => x.a);
+  vista().innerHTML = `
+    <p class="intro">Escanea la caja de la clienta o elígela de la lista. Si la clienta aún no tiene caja, escanea una caja libre para asignársela.</p>
+    <div class="acciones"><button class="btn btn-primario btn-grande" id="escanear-pedido">${IC.escanear} Escanear caja</button></div>
+    <input type="search" class="buscador" id="buscar" placeholder="Buscar caja o clienta…" autocomplete="off">
+    <div class="lista" id="lista">
+      ${ocupadas.map(({ c, a }) => {
+        const cl = idx.clienta(a.clienta_id);
+        const st = estadoAsig(a);
+        return `<a class="fila" href="#/pedido/${encodeURIComponent(c.id)}" data-busca="${esc(sinAcentos(`${c.id} ${nombreCompleto(cl)}`))}"><span><b>${esc(c.id)} · ${esc(nombreCompleto(cl))}</b><small>${idx.pedidosDe(a.id).length} pedidos</small></span><span class="chip chip-${st.nivel}">Día ${st.dias}</span></a>`;
+      }).join('') || '<p class="nota">No hay cajas ocupadas.</p>'}
+    </div>`;
+  $('#escanear-pedido').onclick = async () => {
+    const c = await escanearQR();
+    if (!c) return;
+    ir(idx.activaCaja(c) ? `pedido/${encodeURIComponent(c)}` : `caja/${encodeURIComponent(c)}`);
+  };
+  $('#buscar').oninput = e => {
+    const q = sinAcentos(e.target.value);
+    $$('#lista .fila').forEach(el => { el.hidden = q && !el.dataset.busca.includes(q); });
+  };
+}
+
+function formPedido(id) {
+  id = id.toUpperCase();
+  const a = idx.activaCaja(id);
+  if (!idx.caja(id)) { ir(`caja/${encodeURIComponent(id)}`); return; }
+  if (!a) { toast(`La caja ${id} está libre. Primero asígnale una clienta.`); ir(`caja/${encodeURIComponent(id)}`); return; }
+  titulo(`Pedido · Caja ${id}`, `caja/${encodeURIComponent(id)}`);
+  const cl = idx.clienta(a.clienta_id);
+  const cats = idx.categorias();
+  const cant = {}; const piezas = {};
+  cats.forEach(c => { cant[c.id] = 0; piezas[c.id] = []; });
+  let video = null;
+  const nombrePieza = c => (c.id === 'calzado' ? 'Par' : 'Pieza');
+
+  vista().innerHTML = `
+    <div class="tarjeta mini-clienta"><b>${esc(nombreCompleto(cl))}</b><small>Caja ${esc(id)} · día ${estadoAsig(a).dias} · ${idx.pedidosDe(a.id).length} pedidos anteriores</small></div>
+    <label class="subir-archivo" id="zona-video">
+      <input type="file" accept="video/*" id="video" hidden>
+      <span id="video-vista">${IC.video}<b>Cargar video de la mercancía</b><small>Graba o elige el video donde se ve lo que seleccionó la clienta.</small></span>
+    </label>
+    <h3 class="seccion">Prendas</h3>
+    <div class="categorias">
+      ${cats.map(c => c.editable ? `
+        <div class="cat cat-editable" data-cat="${c.id}">
+          <div class="cat-fila"><span><b>${esc(c.nombre)}</b><small>Precio por ${nombrePieza(c).toLowerCase()}</small></span>
+          <button type="button" class="btn btn-mini" data-agregar="${c.id}">${IC.mas} Agregar ${nombrePieza(c).toLowerCase()}</button></div>
+          <div class="piezas" id="piezas-${c.id}"></div>
+        </div>` : `
+        <div class="cat" data-cat="${c.id}">
+          <div class="cat-fila"><span><b>${esc(c.nombre)}</b><small>${dinero(c.precio)} c/u</small></span>
+          <div class="contador"><button type="button" data-menos="${c.id}" aria-label="Menos">−</button><input type="number" inputmode="numeric" min="0" value="0" data-cant="${c.id}" aria-label="Cantidad ${esc(c.nombre)}"><button type="button" data-mas="${c.id}" aria-label="Más">+</button></div></div>
+          <small class="subtotal" id="sub-${c.id}"></small>
+        </div>`).join('')}
+    </div>
+    <label class="campo-suelto">Notas (opcional)<textarea id="notas" rows="2"></textarea></label>
+    <div class="pie-total">
+      <div><small id="total-prendas">0 prendas</small><b id="total">$0.00</b></div>
+      <button class="btn btn-primario" id="guardar">Guardar pedido</button>
+    </div>`;
+
+  const pintarPiezas = cid => {
+    const c = cats.find(x => x.id === cid);
+    $(`#piezas-${cid}`).innerHTML = piezas[cid].map((p, i) => `
+      <div class="pieza"><span>${nombrePieza(c)} ${i + 1}</span>
+      <input type="number" inputmode="decimal" step="0.01" min="0" placeholder="Precio" value="${p === '' ? '' : p}" data-pieza="${cid}" data-i="${i}">
+      <button type="button" class="btn-icono-solo" data-quitar="${cid}" data-i="${i}" aria-label="Quitar">${IC.basura}</button></div>`).join('');
+    $$(`[data-pieza="${cid}"]`).forEach(inp => { inp.oninput = () => { piezas[cid][+inp.dataset.i] = inp.value === '' ? '' : Number(inp.value); recalcular(); }; });
+    $$(`[data-quitar="${cid}"]`).forEach(b => { b.onclick = () => { piezas[cid].splice(+b.dataset.i, 1); pintarPiezas(cid); recalcular(); }; });
+  };
+  const armarItems = () => {
+    const items = [];
+    for (const c of cats) {
+      if (c.editable) piezas[c.id].forEach(p => items.push({ cat: c.id, nombre: c.nombre, precio: Number(p) || 0, cantidad: 1, editable: true }));
+      else if (cant[c.id] > 0) items.push({ cat: c.id, nombre: c.nombre, precio: Number(c.precio), cantidad: cant[c.id] });
+    }
+    return items;
+  };
+  const recalcular = () => {
+    cats.filter(c => !c.editable).forEach(c => { $(`#sub-${c.id}`).textContent = cant[c.id] ? `${cant[c.id]} × ${dinero(c.precio)} = ${dinero(cant[c.id] * c.precio)}` : ''; });
+    const items = armarItems();
+    const total = items.reduce((s, i) => s + i.precio * i.cantidad, 0);
+    const prendas = items.reduce((s, i) => s + i.cantidad, 0);
+    $('#total').textContent = dinero(total);
+    $('#total-prendas').textContent = `${prendas} ${prendas === 1 ? 'prenda' : 'prendas'}`;
+    return { items, total, prendas };
+  };
+  const setCant = (cid, n) => { cant[cid] = Math.max(0, Math.floor(Number(n) || 0)); $(`[data-cant="${cid}"]`).value = cant[cid]; recalcular(); };
+  $$('[data-mas]').forEach(b => { b.onclick = () => setCant(b.dataset.mas, cant[b.dataset.mas] + 1); });
+  $$('[data-menos]').forEach(b => { b.onclick = () => setCant(b.dataset.menos, cant[b.dataset.menos] - 1); });
+  $$('[data-cant]').forEach(i => { i.oninput = () => setCant(i.dataset.cant, i.value); i.onfocus = () => i.select(); });
+  $$('[data-agregar]').forEach(b => {
+    b.onclick = () => { piezas[b.dataset.agregar].push(''); pintarPiezas(b.dataset.agregar); recalcular(); const ins = $$(`[data-pieza="${b.dataset.agregar}"]`); ins[ins.length - 1].focus(); };
+  });
+  $('#video').onchange = e => {
+    video = e.target.files[0] || null;
+    if (!video) return;
+    const grande = video.size > LIMITE_VIDEO;
+    $('#video-vista').innerHTML = `<video src="${URL.createObjectURL(video)}" controls playsinline muted></video>
+      <small>${mb(video.size)} MB${grande ? (puedeComprimir() ? ' · se comprimirá antes de subir' : ' · demasiado grande') : ''} · Toca aquí para cambiarlo</small>`;
+    $('#zona-video').classList.remove('invalido');
+  };
+  $('#video-vista').addEventListener('click', e => { if (e.target.tagName === 'VIDEO') e.preventDefault(); });
+
+  $('#guardar').onclick = () => {
+    // Sin "await" antes de iniciar la compresión: el iPhone exige que empiece con el toque.
+    const { items, total, prendas } = recalcular();
+    const sinPrecio = items.filter(i => i.editable && !(i.precio > 0));
+    if (!prendas) { toast('Agrega al menos una prenda.', 'error'); return; }
+    if (sinPrecio.length) { toast(`Escribe el precio de cada ${sinPrecio[0].nombre.toLowerCase() === 'calzado' ? 'par' : 'pieza'}.`, 'error'); return; }
+    if (!video) {
+      confirmar('No cargaste el video de la mercancía. El video sirve como respaldo en caso de reclamo.', { titulo: '¿Guardar sin video?', si: 'Guardar sin video', no: 'Cargar video' })
+        .then(ok => { if (ok) guardarPedido(null, null); else $('#zona-video').classList.add('invalido'); });
+      return;
+    }
+    let compresion = null;
+    if (video.size > LIMITE_VIDEO) {
+      if (!puedeComprimir()) { toast(`El video pesa ${mb(video.size)} MB (máximo ${CFG.limiteVideoMB} MB). Graba uno más corto.`, 'error'); return; }
+      compresion = comprimirVideo(video, 'subida', p => espera.mostrar('Comprimiendo video…', p), { maxBytes: LIMITE_VIDEO * 0.92 });
+    }
+    guardarPedido(video, compresion);
+
+    async function guardarPedido(archivo, compresionEnCurso) {
+      $('#guardar').disabled = true;
+      try {
+        let blob = archivo;
+        if (compresionEnCurso) {
+          espera.mostrar('Comprimiendo video…', 0);
+          espera.nota('Tarda lo que dura el video. No cierres la app ni apagues la pantalla.');
+          blob = await compresionEnCurso;
+          espera.nota('');
+          if (blob.size > LIMITE_VIDEO) throw new Error(`El video sigue pesando ${mb(blob.size)} MB. Graba uno más corto.`);
+        }
+        await refrescar(true);
+        const actual = idx.asig(a.id);
+        if (!actual || actual.estado !== 'activa') throw new Error('Esta caja cambió (fue enviada o reasignada). Revisa de nuevo.');
+        const pid = uid();
+        let ruta = null;
+        if (blob) {
+          ruta = `videos/${pid}.${extensionVideo(blob)}`;
+          espera.mostrar('Subiendo video…', 0);
+          await store.upload(ruta, blob, p => espera.mostrar('Subiendo video…', p));
+        }
+        espera.mostrar('Guardando pedido…');
+        try {
+          await store.insert('pedidos', {
+            id: pid, asignacion_id: a.id, clienta_id: a.clienta_id, caja: actual.caja, fecha: new Date().toISOString(),
+            items, prendas, total, notas: $('#notas').value.trim(), video: ruta, video_mb: blob ? Number(mb(blob.size)) : null,
+            video_comprimido: false, creado_por: usuario.nombre,
+          });
+        } catch (err) { if (ruta) store.removeFile(ruta).catch(() => {}); throw err; }
+        D.cargado = 0;
+        espera.ocultar();
+        toast(`Pedido guardado: ${dinero(total)}`);
+        ir(`caja/${encodeURIComponent(actual.caja)}`);
+      } catch (err) {
+        console.error(err);
+        espera.ocultar();
+        toast(traducirError(err), 'error');
+        const b = $('#guardar');
+        if (b) b.disabled = false;
+      }
+    }
+  };
+  recalcular();
+}
+
+/* ---------- Reportes y cortes ---------- */
+function rangoPeriodo(p, desde, hasta) {
+  const hoy = inicioDia(new Date());
+  const dia = 864e5;
+  if (p === 'hoy') return [hoy, hoy];
+  if (p === 'semana') { const lunes = new Date(hoy.getTime() - ((hoy.getDay() + 6) % 7) * dia); return [lunes, hoy]; }
+  if (p === 'mes') return [new Date(hoy.getFullYear(), hoy.getMonth(), 1), hoy];
+  if (p === 'mesant') return [new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1), new Date(hoy.getFullYear(), hoy.getMonth(), 0)];
+  if (p === 'rango' && desde && hasta) return [aFecha(desde), aFecha(hasta)];
+  return [new Date(hoy.getFullYear(), hoy.getMonth(), 1), hoy];
+}
+function enRango(fecha, [ini, fin]) {
+  const d = inicioDia(fecha);
+  return d >= ini && d <= fin;
+}
+function calcularReporte(rango) {
+  const cats = idx.categorias(true);
+  const pedidos = D.pedidos.filter(p => enRango(p.fecha, rango)).sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
+  const porCat = {};
+  cats.forEach(c => { porCat[c.id] = { nombre: c.nombre, cantidad: 0, importe: 0 }; });
+  for (const p of pedidos) for (const it of p.items || []) {
+    porCat[it.cat] = porCat[it.cat] || { nombre: it.nombre, cantidad: 0, importe: 0 };
+    porCat[it.cat].cantidad += it.cantidad;
+    porCat[it.cat].importe += it.precio * it.cantidad;
+  }
+  const envios = D.asignaciones.filter(a => a.estado === 'enviada' && enRango(a.enviada_en, rango)).sort((a, b) => (a.enviada_en < b.enviada_en ? -1 : 1));
+  const r = resumenPedidos(pedidos);
+  return {
+    pedidos, porCat, envios, total: r.total, prendas: r.prendas,
+    clientas: new Set(pedidos.map(p => p.clienta_id)).size,
+    nuevas: D.clientas.filter(c => c.fecha_registro && enRango(c.fecha_registro, rango)).length,
+    costoEnvios: envios.reduce((s, a) => s + Number(a.costo_envio || 0), 0),
+  };
+}
+
+function vistaReportes(query) {
+  titulo('Reportes');
+  const p = query.get('p') || 'mes';
+  const rango = rangoPeriodo(p, query.get('desde'), query.get('hasta'));
+  const rep = calcularReporte(rango);
+  const activas = D.asignaciones.filter(a => a.estado === 'activa');
+  const pendiente = activas.reduce((s, a) => s + resumenPedidos(idx.pedidosDe(a.id)).total, 0);
+  vista().innerHTML = `
+    <div class="filtros">
+      ${[['hoy', 'Hoy'], ['semana', 'Esta semana'], ['mes', 'Este mes'], ['mesant', 'Mes pasado'], ['rango', 'Otras fechas']].map(([k, t]) => `<a href="#/reportes?p=${k}${k === 'rango' ? `&desde=${fechaISO(rango[0])}&hasta=${fechaISO(rango[1])}` : ''}" class="filtro ${p === k ? 'activo' : ''}">${t}</a>`).join('')}
+    </div>
+    ${p === 'rango' ? `<form class="rango" id="f-rango"><label>Desde<input type="date" name="desde" value="${fechaISO(rango[0])}"></label><label>Hasta<input type="date" name="hasta" value="${fechaISO(rango[1])}"></label><button class="btn btn-secundario">Ver</button></form>` : ''}
+    <p class="periodo">Corte del <b>${fechaCorta(rango[0])}</b> al <b>${fechaCorta(rango[1])}</b></p>
+    <div class="kpis">
+      <div class="kpi kpi-grande"><small>Total vendido</small><b>${dinero(rep.total)}</b></div>
+      <div class="kpi"><small>Pedidos</small><b>${rep.pedidos.length}</b></div>
+      <div class="kpi"><small>Prendas</small><b>${rep.prendas}</b></div>
+      <div class="kpi"><small>Clientas que compraron</small><b>${rep.clientas}</b></div>
+      <div class="kpi"><small>Clientas nuevas</small><b>${rep.nuevas}</b></div>
+      <div class="kpi"><small>Cajas enviadas</small><b>${rep.envios.length}</b></div>
+      <div class="kpi"><small>Costo de envíos</small><b>${dinero(rep.costoEnvios)}</b></div>
+    </div>
+    <h3 class="seccion">Ventas por categoría</h3>
+    <table class="tabla">
+      <thead><tr><th>Categoría</th><th>Prendas</th><th>Importe</th></tr></thead>
+      <tbody>${Object.values(rep.porCat).map(c => `<tr><td>${esc(c.nombre)}</td><td>${c.cantidad}</td><td>${dinero(c.importe)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>Total</td><td>${rep.prendas}</td><td>${dinero(rep.total)}</td></tr></tfoot>
+    </table>
+    <div class="tarjeta"><b>Hoy en cajas (sin enviar)</b><p>${activas.length} cajas ocupadas · ${dinero(pendiente)} en mercancía · <span class="${vencidas().length ? 'texto-vencida' : ''}">${vencidas().length} vencidas</span></p></div>
+    <div class="acciones">
+      <button class="btn btn-primario btn-grande" id="exportar">${IC.excel} Exportar corte a Excel</button>
+      <button class="btn btn-secundario" id="exportar-clientas">${IC.excel} Exportar todas las clientas</button>
+    </div>`;
+  const fr = $('#f-rango');
+  if (fr) fr.onsubmit = e => {
+    e.preventDefault();
+    const d = fr.desde.value, h = fr.hasta.value;
+    if (!d || !h || d > h) { toast('Revisa las fechas.', 'error'); return; }
+    ir(`reportes?p=rango&desde=${d}&hasta=${h}`);
+  };
+  $('#exportar').onclick = () => exportarCorte(rango, rep);
+  $('#exportar-clientas').onclick = exportarClientas;
+}
+
+function hoja(filas, anchos) {
+  const ws = XLSX.utils.json_to_sheet(filas);
+  if (anchos) ws['!cols'] = anchos.map(w => ({ wch: w }));
+  return ws;
+}
+function guardarLibro(wb, nombre) {
+  const datos = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([datos], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  return compartirArchivos([{ blob, nombre }]);
+}
+function filaClienta(c) {
+  const a = idx.activaClienta(c.id);
+  return {
+    Nombre: c.nombre, Apellidos: c.apellidos, 'Fecha de registro': c.fecha_registro ? aFecha(c.fecha_registro) : '', Teléfono: c.telefono, Correo: c.correo,
+    Calle: c.calle, Número: c.numero, Interior: c.interior, Colonia: c.colonia, 'C.P.': c.cp, Ciudad: c.ciudad, Estado: c.estado,
+    Referencia: c.referencia, 'Caja actual': a ? a.caja : '', Registró: c.creado_por,
+  };
+}
+function exportarCorte(rango, rep) {
+  const cats = idx.categorias(true);
+  const wb = XLSX.utils.book_new();
+  const resumen = [
+    { Concepto: 'Periodo', Valor: `${fechaCorta(rango[0])} al ${fechaCorta(rango[1])}` },
+    { Concepto: 'Generado', Valor: `${fechaHora(new Date())} por ${usuario.nombre}` },
+    { Concepto: 'Total vendido', Valor: rep.total },
+    { Concepto: 'Pedidos', Valor: rep.pedidos.length },
+    { Concepto: 'Prendas', Valor: rep.prendas },
+    { Concepto: 'Clientas que compraron', Valor: rep.clientas },
+    { Concepto: 'Clientas nuevas', Valor: rep.nuevas },
+    { Concepto: 'Cajas enviadas', Valor: rep.envios.length },
+    { Concepto: 'Costo de envíos', Valor: rep.costoEnvios },
+    { Concepto: '', Valor: '' },
+    ...Object.values(rep.porCat).flatMap(c => [{ Concepto: `${c.nombre} (prendas)`, Valor: c.cantidad }, { Concepto: `${c.nombre} (importe)`, Valor: c.importe }]),
+  ];
+  XLSX.utils.book_append_sheet(wb, hoja(resumen, [28, 34]), 'Resumen');
+
+  const pedidos = rep.pedidos.map(p => {
+    const a = idx.asig(p.asignacion_id) || {};
+    const cl = idx.clienta(p.clienta_id) || {};
+    const fila = { Fecha: new Date(p.fecha), Caja: a.caja || p.caja, Clienta: nombreCompleto(cl), Teléfono: cl.telefono || '' };
+    for (const c of cats) {
+      const its = (p.items || []).filter(i => i.cat === c.id);
+      fila[c.nombre] = its.reduce((s, i) => s + i.cantidad, 0);
+      if (c.editable) fila[`${c.nombre} importe`] = its.reduce((s, i) => s + i.precio * i.cantidad, 0);
+    }
+    Object.assign(fila, {
+      Prendas: p.prendas, Total: Number(p.total), Estado: a.estado === 'enviada' ? 'Enviado' : 'En caja',
+      'Fecha de envío': a.enviada_en ? new Date(a.enviada_en) : '', Video: p.video ? 'Sí' : 'No', Notas: p.notas || '', Registró: p.creado_por || '',
+    });
+    return fila;
+  });
+  XLSX.utils.book_append_sheet(wb, hoja(pedidos.length ? pedidos : [{ Aviso: 'Sin pedidos en este periodo' }]), 'Pedidos');
+
+  const envios = rep.envios.map(a => {
+    const cl = idx.clienta(a.clienta_id) || {};
+    const ps = idx.pedidosDe(a.id);
+    const r = resumenPedidos(ps);
+    return {
+      'Fecha de envío': new Date(a.enviada_en), Caja: a.caja, Clienta: nombreCompleto(cl), Teléfono: cl.telefono, Dirección: direccion(cl), Referencia: cl.referencia,
+      Paquetería: a.paqueteria, Guía: a.guia, 'Peso (kg)': a.peso_kg, Medidas: a.medidas, 'Costo de envío': a.costo_envio,
+      Pedidos: ps.length, Prendas: r.prendas, 'Total mercancía': r.total, 'Asignada el': new Date(a.asignada_en), 'Días en caja': Math.round((inicioDia(a.enviada_en) - inicioDia(a.asignada_en)) / 864e5), Envió: a.enviada_por,
+    };
+  });
+  XLSX.utils.book_append_sheet(wb, hoja(envios.length ? envios : [{ Aviso: 'Sin envíos en este periodo' }]), 'Envíos');
+
+  const pendientes = D.asignaciones.filter(a => a.estado === 'activa').sort((x, y) => ordenNatural(x.caja, y.caja)).map(a => {
+    const cl = idx.clienta(a.clienta_id) || {};
+    const r = resumenPedidos(idx.pedidosDe(a.id));
+    const st = estadoAsig(a);
+    return { Caja: a.caja, Clienta: nombreCompleto(cl), Teléfono: cl.telefono, 'Asignada el': new Date(a.asignada_en), Días: st.dias, Estado: st.nivel === 'vencida' ? 'VENCIDA' : st.nivel === 'aviso' ? 'Por vencer' : 'En tiempo', Prendas: r.prendas, Total: r.total };
+  });
+  XLSX.utils.book_append_sheet(wb, hoja(pendientes.length ? pendientes : [{ Aviso: 'No hay cajas ocupadas' }]), 'Cajas sin enviar');
+
+  guardarLibro(wb, `Corte ${fechaISO(rango[0])} a ${fechaISO(rango[1])}.xlsx`);
+}
+function exportarClientas() {
+  const wb = XLSX.utils.book_new();
+  const filas = D.clientas.slice().sort((a, b) => ordenNatural(nombreCompleto(a), nombreCompleto(b))).map(filaClienta);
+  XLSX.utils.book_append_sheet(wb, hoja(filas.length ? filas : [{ Aviso: 'Sin clientas' }]), 'Clientas');
+  guardarLibro(wb, `Clientas ${fechaISO()}.xlsx`);
+}
+
+/* ---------- Ajustes ---------- */
+function vistaAjustes() {
+  titulo('Ajustes', 'cajas');
+  const cats = idx.categorias(true);
+  const sinComprimir = D.pedidos.filter(p => p.video && !p.video_comprimido && (idx.asig(p.asignacion_id) || {}).estado === 'enviada');
+  const totalMB = D.pedidos.reduce((s, p) => s + Number(p.video_mb || 0), 0);
+  vista().innerHTML = `
+    <h3 class="seccion">Tu usuario</h3>
+    <div class="tarjeta">
+      <form id="f-nombre" class="en-linea"><label>Tu nombre (aparece en lo que registras)<input name="nombre" value="${esc(usuario.nombre)}" required></label><button class="btn btn-secundario">Guardar</button></form>
+      ${usuario.email ? `<p class="nota">${esc(usuario.email)}</p><button class="btn btn-secundario" id="salir">Cerrar sesión</button>` : ''}
+    </div>
+    <h3 class="seccion">Cajas y códigos QR</h3>
+    <a class="fila" href="#/ajustes/cajas"><span><b>Administrar cajas</b><small>${D.cajas.length} cajas · crear, imprimir QR</small></span>${IC.qr}</a>
+    <h3 class="seccion">Precios por categoría</h3>
+    <div class="tarjeta">
+      ${cats.map(c => `
+        <div class="precio-fila" data-cat="${c.id}">
+          <input class="precio-nombre" value="${esc(c.nombre)}" aria-label="Nombre">
+          ${c.editable ? '<span class="nota">Precio al vender</span>' : `<input class="precio-valor" type="number" step="0.01" min="0" inputmode="decimal" value="${Number(c.precio)}" aria-label="Precio">`}
+          <label class="interruptor"><input type="checkbox" class="precio-activa" ${c.activa !== false ? 'checked' : ''}><span>Activa</span></label>
+        </div>`).join('')}
+      <div class="acciones-fila">
+        <button class="btn btn-secundario" id="nueva-cat">${IC.mas} Nueva categoría</button>
+        <button class="btn btn-primario" id="guardar-precios">Guardar precios</button>
+      </div>
+      <p class="nota">Los cambios de precio aplican a pedidos nuevos; los pedidos ya guardados conservan su precio.</p>
+    </div>
+    <h3 class="seccion">Videos</h3>
+    <div class="tarjeta">
+      <p>Espacio usado por videos: <b>${totalMB.toFixed(0)} MB</b>${store.modo === 'nube' ? ' (el plan gratis de Supabase incluye 1 GB)' : ''}.</p>
+      ${sinComprimir.length ? `<p>${sinComprimir.length} videos de pedidos enviados aún sin comprimir.</p><button class="btn btn-secundario" id="comprimir">Comprimir ahora</button>` : '<p class="nota">Todos los videos de pedidos enviados ya están comprimidos.</p>'}
+    </div>
+    ${store.modo === 'local' ? `
+      <h3 class="seccion">Modo prueba</h3>
+      <div class="tarjeta"><p>Los datos se guardan solo en este dispositivo. Para que las dos personas compartan la información, hay que conectar la base de datos (ver instrucciones).</p>
+      <button class="btn btn-peligro" id="borrar-demo">Borrar todos los datos de prueba</button></div>` : ''}
+    <p class="nota centro">${esc(CFG.nombreNegocio)} · versión ${VERSION} · ${store.modo === 'nube' ? 'conectado a la nube' : 'modo prueba'}</p>`;
+
+  $('#f-nombre').onsubmit = async e => {
+    e.preventDefault();
+    const n = e.target.nombre.value.trim();
+    if (!n) return;
+    const ok = await accion(async () => { await store.cambiarNombre(n); usuario.nombre = n; return true; });
+    if (ok) toast('Nombre guardado');
+  };
+  const salir = $('#salir');
+  if (salir) salir.onclick = async () => { await store.logout(); usuario = null; pantallaLogin(); };
+  $('#nueva-cat').onclick = async () => {
+    const r = await modal({
+      titulo: 'Nueva categoría',
+      html: `<form class="formulario" id="f-cat"><label>Nombre<input name="nombre" required></label>
+        <label class="interruptor"><input type="checkbox" name="editable" id="cat-editable"><span>El precio se escribe en cada venta (como calzado)</span></label>
+        <label id="cat-precio">Precio por pieza<input name="precio" type="number" step="0.01" min="0" inputmode="decimal"></label></form>`,
+      botones: [{ texto: 'Cancelar', valor: null }, { texto: 'Agregar', valor: el => Object.fromEntries(new FormData($('#f-cat', el))) }],
+      alAbrir: el => { $('#cat-editable', el).onchange = e => { $('#cat-precio', el).hidden = e.target.checked; }; },
+    });
+    if (!r || !r.nombre || !r.nombre.trim()) return;
+    const base = sinAcentos(r.nombre).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'cat';
+    let cid = base, n = 2;
+    while (D.categorias.some(c => c.id === cid)) cid = `${base}-${n++}`;
+    const ok = await accion(async () => {
+      await store.insert('categorias', { id: cid, nombre: r.nombre.trim(), precio: r.editable ? 0 : Number(r.precio) || 0, editable: !!r.editable, activa: true, orden: Math.max(0, ...D.categorias.map(c => c.orden || 0)) + 1 });
+      D.cargado = 0;
+      return true;
+    });
+    if (ok) { toast('Categoría agregada'); navegar(); }
+  };
+  $('#guardar-precios').onclick = async () => {
+    const ok = await accion(async () => {
+      for (const fila of $$('.precio-fila')) {
+        const c = D.categorias.find(x => x.id === fila.dataset.cat);
+        const cambios = { nombre: $('.precio-nombre', fila).value.trim() || c.nombre, activa: $('.precio-activa', fila).checked };
+        const pv = $('.precio-valor', fila);
+        if (pv) cambios.precio = Number(pv.value) || 0;
+        if (cambios.nombre !== c.nombre || cambios.activa !== (c.activa !== false) || (pv && cambios.precio !== Number(c.precio))) await store.update('categorias', c.id, cambios);
+      }
+      D.cargado = 0;
+      return true;
+    });
+    if (ok) { toast('Precios guardados'); navegar(); }
+  };
+  const comp = $('#comprimir');
+  if (comp) comp.onclick = () => ofrecerCompresion(sinComprimir);
+  const bd = $('#borrar-demo');
+  if (bd) bd.onclick = async () => {
+    if (!(await confirmar('Se borrarán todas las cajas, clientas y pedidos de prueba de este dispositivo.', { titulo: '¿Borrar datos de prueba?', si: 'Borrar todo', peligro: true }))) return;
+    await accion(async () => { await store.borrarTodo(); D.cargado = 0; }, 'Borrando…');
+    toast('Datos borrados');
+    ir('cajas');
+  };
+}
+
+/* ---------- Administrar cajas y QR ---------- */
+function vistaAdminCajas() {
+  titulo('Cajas y QR', 'ajustes');
+  const cajas = cajasOrdenadas();
+  vista().innerHTML = `
+    <div class="tarjeta">
+      <b>Crear cajas</b>
+      <form id="f-crear" class="formulario">
+        <div class="dos"><label>Letra desde<input name="l1" maxlength="1" value="A" autocapitalize="characters"></label><label>Letra hasta<input name="l2" maxlength="1" value="${cajas.length ? 'A' : 'B'}" autocapitalize="characters"></label></div>
+        <div class="dos"><label>Número desde<input name="n1" type="number" min="0" inputmode="numeric" value="1"></label><label>Número hasta<input name="n2" type="number" min="0" inputmode="numeric" value="10"></label></div>
+        <p class="nota" id="vista-previa"></p>
+        <button class="btn btn-primario">Crear cajas</button>
+      </form>
+      <form id="f-una" class="en-linea"><label>O una sola caja<input name="codigo" placeholder="Ej. C7" autocapitalize="characters"></label><button class="btn btn-secundario">Crear</button></form>
+    </div>
+    <h3 class="seccion">Etiquetas QR</h3>
+    <p class="nota">Selecciona las cajas y genera sus etiquetas. "Imprimir" abre la impresión del teléfono; "Guardar como imagen" crea hojas tamaño carta que puedes mandar a imprimir desde Fotos o la computadora.</p>
+    <div class="acciones-fila">
+      <label class="interruptor"><input type="checkbox" id="todas"><span>Seleccionar todas</span></label>
+    </div>
+    <div class="rejilla">${cajas.map(c => {
+      const a = idx.activaCaja(c.id);
+      const usada = D.asignaciones.some(x => x.caja === c.id);
+      return `<label class="caja-card seleccionable ${a ? 'nivel-ok' : 'nivel-libre'}"><input type="checkbox" class="sel-caja" value="${esc(c.id)}"><span class="caja-codigo">${esc(c.id)}</span><span class="caja-nombre ${a ? '' : 'libre'}">${a ? 'Ocupada' : 'Libre'}</span>${usada ? '' : `<button type="button" class="borrar-caja" data-borrar="${esc(c.id)}" aria-label="Borrar caja ${esc(c.id)}">${IC.basura}</button>`}</label>`;
+    }).join('') || '<p class="nota">Aún no hay cajas.</p>'}</div>
+    <div class="pie-total">
+      <div><small id="n-sel">0 seleccionadas</small></div>
+      ${CFG.vistaPrevia ? '' : '<button class="btn btn-secundario" id="imprimir">Imprimir</button>'}
+      <button class="btn btn-primario" id="imagen">Guardar como imagen</button>
+    </div>`;
+
+  const f = $('#f-crear');
+  const codigosRango = () => {
+    const l1 = (f.l1.value || 'A').toUpperCase().charCodeAt(0), l2 = (f.l2.value || f.l1.value || 'A').toUpperCase().charCodeAt(0);
+    const n1 = parseInt(f.n1.value, 10), n2 = parseInt(f.n2.value, 10);
+    if (!(l1 >= 65 && l1 <= 90 && l2 >= l1 && l2 <= 90 && n2 >= n1 && n1 >= 0) || (l2 - l1 + 1) * (n2 - n1 + 1) > 500) return [];
+    const out = [];
+    for (let l = l1; l <= l2; l++) for (let n = n1; n <= n2; n++) out.push(String.fromCharCode(l) + n);
+    return out;
+  };
+  const previa = () => {
+    const cs = codigosRango();
+    const nuevas = cs.filter(c => !idx.caja(c));
+    $('#vista-previa').textContent = cs.length ? `${cs[0]} a ${cs[cs.length - 1]}: ${nuevas.length} cajas nuevas${cs.length - nuevas.length ? ` (${cs.length - nuevas.length} ya existen)` : ''}` : 'Revisa el rango (máximo 500 cajas).';
+  };
+  f.oninput = previa; previa();
+  const crear = async codigos => {
+    const nuevas = codigos.filter(c => !idx.caja(c));
+    if (!nuevas.length) { toast('Esas cajas ya existen.', 'error'); return; }
+    const ok = await accion(async () => {
+      let i = 0;
+      for (const c of nuevas) { espera.mostrar('Creando cajas…', i++ / nuevas.length); await store.insert('cajas', { id: c, creada_en: new Date().toISOString() }); }
+      D.cargado = 0;
+      return true;
+    }, 'Creando cajas…');
+    if (ok) { toast(`${nuevas.length} cajas creadas`); navegar(); }
+  };
+  f.onsubmit = e => { e.preventDefault(); crear(codigosRango()); };
+  $('#f-una').onsubmit = e => {
+    e.preventDefault();
+    const c = e.target.codigo.value.trim().toUpperCase();
+    if (!/^[A-Z0-9-]{1,12}$/.test(c)) { toast('Usa solo letras y números (ej. C7).', 'error'); return; }
+    crear([c]);
+  };
+  $$('[data-borrar]').forEach(b => {
+    b.onclick = async e => {
+      e.preventDefault(); e.stopPropagation();
+      const id = b.dataset.borrar;
+      if (!(await confirmar(`¿Borrar la caja ${esc(id)}? Nunca se ha usado.`, { titulo: 'Borrar caja', si: 'Borrar', peligro: true }))) return;
+      const ok = await accion(async () => { await store.remove('cajas', id); D.cargado = 0; return true; }, 'Borrando…');
+      if (ok) { toast(`Caja ${id} borrada`); navegar(); }
+    };
+  });
+  const seleccion = () => $$('.sel-caja').filter(x => x.checked).map(x => x.value);
+  const contar = () => { $('#n-sel').textContent = `${seleccion().length} seleccionadas`; };
+  $$('.sel-caja').forEach(x => { x.onchange = contar; });
+  $('#todas').onchange = e => { $$('.sel-caja').forEach(x => { x.checked = e.target.checked; }); contar(); };
+  if ($('#imprimir')) $('#imprimir').onclick = () => { const s = seleccion(); if (!s.length) return toast('Selecciona al menos una caja.', 'error'); imprimirEtiquetas(s); };
+  $('#imagen').onclick = () => { const s = seleccion(); if (!s.length) return toast('Selecciona al menos una caja.', 'error'); guardarEtiquetasImagen(s); };
+}
+
+function imprimirEtiquetas(codigos) {
+  let area = $('#zona-impresion');
+  if (!area) { area = document.createElement('div'); area.id = 'zona-impresion'; document.body.appendChild(area); }
+  area.innerHTML = codigos.map(c => `<div class="etiqueta"><img src="icons/logo-claro.png" alt="">${qrSVG(textoQR(c), 300)}<b>${esc(c)}</b></div>`).join('');
+  setTimeout(() => window.print(), 100);
+}
+const LOGO_ETIQUETA = new Image();
+LOGO_ETIQUETA.src = 'icons/logo-claro.png';
+function guardarEtiquetasImagen(codigos) {
+  // Hojas tamaño carta a 150 ppp: 3 columnas × 4 filas = 12 etiquetas por hoja.
+  const W = 1275, H = 1650, cols = 3, filas = 4, margen = 60;
+  const cw = (W - margen * 2) / cols, ch = (H - margen * 2) / filas;
+  const archivos = [];
+  for (let i = 0; i < codigos.length; i += cols * filas) {
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    codigos.slice(i, i + cols * filas).forEach((cod, j) => {
+      const x = margen + (j % cols) * cw, y = margen + Math.floor(j / cols) * ch;
+      ctx.strokeStyle = '#bbb'; ctx.setLineDash([8, 8]); ctx.lineWidth = 2; ctx.strokeRect(x + 6, y + 6, cw - 12, ch - 12); ctx.setLineDash([]);
+      let arriba = 22;
+      if (LOGO_ETIQUETA.complete && LOGO_ETIQUETA.naturalWidth) {
+        const lw = cw * 0.42, lh = lw * LOGO_ETIQUETA.naturalHeight / LOGO_ETIQUETA.naturalWidth;
+        ctx.drawImage(LOGO_ETIQUETA, x + (cw - lw) / 2, y + 18, lw, lh);
+        arriba = 18 + lh + 6;
+      }
+      const q = ch - arriba - 78;
+      dibujarQR(ctx, textoQR(cod), x + (cw - q) / 2, y + arriba, q);
+      ctx.fillStyle = '#000'; ctx.textAlign = 'center';
+      ctx.font = 'bold 60px -apple-system, Helvetica, Arial, sans-serif';
+      ctx.fillText(cod, x + cw / 2, y + arriba + q + 58);
+    });
+    archivos.push({ blob: dataUrlABlob(c.toDataURL('image/png')), nombre: `Etiquetas QR ${Math.floor(i / (cols * filas)) + 1}.png` });
+  }
+  compartirArchivos(archivos);
+}
+
+/* ---------- Inicio de sesión ---------- */
+function pantallaLogin() {
+  document.title = CFG.nombreNegocio;
+  $('#app').innerHTML = `
+    <div class="login-fondo"><div class="login">
+      <img class="login-logo" src="icons/logo-oscuro.png" alt="${esc(CFG.nombreNegocio)}">
+      <form id="f-login" class="formulario">
+        <label>Correo<input name="email" type="email" inputmode="email" autocomplete="username" autocapitalize="off" required></label>
+        <label>Contraseña<input name="password" type="password" autocomplete="current-password" required></label>
+        <button class="btn btn-primario btn-grande">Entrar</button>
+      </form>
+    </div></div>`;
+  $('#f-login').onsubmit = async e => {
+    e.preventDefault();
+    const f = e.target;
+    const u = await accion(() => store.login(f.email.value.trim(), f.password.value), 'Entrando…');
+    if (u) { usuario = u; arrancar(); }
+  };
+}
+
+async function arrancar() {
+  montarShell();
+  await navegar();
+  revisarAlertas();
+}
+
+async function iniciar() {
+  try {
+    const nube = CFG.supabaseUrl && CFG.supabaseAnonKey;
+    store = nube ? new SupaStore(CFG.supabaseUrl, CFG.supabaseAnonKey) : new LocalStore();
+    try { await store.init(); } catch (e) {
+      if (nube) throw e;
+      store = new MemStore();
+      await store.init();
+    }
+    if (window.sembrarEjemplo) await window.sembrarEjemplo(store);
+    usuario = await store.usuario();
+  } catch (e) {
+    console.error(e);
+    $('#app').innerHTML = `<div class="vacio">${IC.alerta}<p>No se pudo iniciar la app: ${esc(traducirError(e))}</p><button class="btn btn-primario" onclick="location.reload()">Reintentar</button></div>`;
+    return;
+  }
+  window.addEventListener('hashchange', navegar);
+  if (CFG.vistaPrevia) {
+    document.addEventListener('click', e => {
+      const a = e.target.closest('a[href^="#"]');
+      if (!a || e.defaultPrevented || a.getAttribute('href') === '#') return;
+      e.preventDefault();
+      ir(a.getAttribute('href').replace(/^#\/?/, ''));
+    });
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || !usuario || !$('#vista')) return;
+    D.cargado = 0;
+    if (rutaRecargable && !$('.modal-fondo') && !$('.espera')) navegar().then(() => { if (Date.now() - ultimaAlerta > 3 * 3600e3) revisarAlertas(); });
+  });
+  if (!usuario) pantallaLogin(); else arrancar();
+
+  if (!CFG.vistaPrevia && 'serviceWorker' in navigator && window.self === window.top && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+}
+document.addEventListener('DOMContentLoaded', iniciar);
+
+</script>
+
+</body></html>
