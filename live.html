@@ -6,6 +6,9 @@
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="OP Live">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/app-180.png">
+<link rel="icon" type="image/png" href="icons/app-192.png">
 <title>Outlet Prime Live</title>
 <style>
 :root {
@@ -272,6 +275,7 @@ function traducirError(err) {
   if (/live_config_check/.test(m)) return 'Las horas deben ir en orden: recordatorio, luego límite de pago, luego liberar.';
   if (/lives_uno_activo/.test(m)) return 'Ya hay un live en curso.';
   if (/does not exist|schema cache/i.test(m)) return 'Falta instalar el sistema de lives en la base de datos.';
+  if (/Registration failed|push service|applicationServerKey/i.test(m)) return 'El teléfono no pudo registrarse para recibir avisos. Revisa que las notificaciones estén permitidas para el panel y vuelve a intentar.';
   return m;
 }
 let ocupado = false;
@@ -941,10 +945,95 @@ conectar.whatsapp = raiz => {
 };
 
 /* ---------- Ajustes ---------- */
+/* ---------- Avisos en el teléfono (notificaciones) ---------- */
+const esIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const instalada = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const soportaPush = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+function b64aBytes(s) {
+  const t = s.replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(t + '='.repeat((4 - (t.length % 4)) % 4)), c => c.charCodeAt(0));
+}
+function nombreDispositivo() {
+  const ua = navigator.userAgent;
+  if (/iPhone/.test(ua)) return 'iPhone';
+  if (/iPad/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'iPad';
+  if (/Android/.test(ua)) return 'Android';
+  if (/Mac/.test(ua)) return 'Mac';
+  if (/Windows/.test(ua)) return 'Windows';
+  return 'Navegador';
+}
+async function estadoAvisos() {
+  if (!soportaPush()) return { modo: esIOS && !instalada() ? 'instalar' : 'nosoporta' };
+  if (Notification.permission === 'denied') return { modo: 'bloqueado' };
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && await reg.pushManager.getSubscription();
+    return { modo: sub ? 'activo' : 'inactivo', sub };
+  } catch (e) { return { modo: 'inactivo' }; }
+}
+async function activarAvisos() {
+  // El permiso se pide primero, directo del toque, como exige el iPhone
+  const permiso = await Notification.requestPermission();
+  if (permiso !== 'granted') throw new Error('No se dio permiso de notificaciones. Actívalo en Ajustes del teléfono → Notificaciones.');
+  const reg = await navigator.serviceWorker.register('sw.js');
+  await navigator.serviceWorker.ready;
+  const { data, error } = await sb.functions.invoke('avisos', { body: { accion: 'llave' } });
+  if (error || !data || !data.llave) throw new Error('Falta publicar la función de avisos en Supabase.');
+  const llave = b64aBytes(data.llave);
+  let sub = await reg.pushManager.getSubscription();
+  if (sub) {
+    const actual = sub.options && sub.options.applicationServerKey ? new Uint8Array(sub.options.applicationServerKey) : null;
+    if (actual && (actual.length !== llave.length || actual.some((b, i) => b !== llave[i]))) { await sub.unsubscribe(); sub = null; }
+  }
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: llave });
+  const j = sub.toJSON();
+  await q(sb.from('avisos_dispositivos').upsert({
+    endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth,
+    nombre: `${usuario.nombre} · ${nombreDispositivo()}`, activo: true, ultimo_error: null,
+  }, { onConflict: 'endpoint' }).select('id'));
+  return true;
+}
+async function desactivarAvisos() {
+  const reg = await navigator.serviceWorker.getRegistration();
+  const sub = reg && await reg.pushManager.getSubscription();
+  if (sub) {
+    await q(sb.from('avisos_dispositivos').delete().eq('endpoint', sub.endpoint).select('id'));
+    await sub.unsubscribe();
+  }
+  return true;
+}
+async function htmlAvisos() {
+  const [est, resumen] = await Promise.all([estadoAvisos(), rpc('avisos_resumen').catch(() => null)]);
+  const MSG = {
+    instalar: `<div class="banner banner-info">${IC.info}<span><b>Primero instala el panel en tu iPhone:</b> en Safari toca <b>Compartir</b> → <b>Agregar a pantalla de inicio</b>. Luego abre el panel desde ese ícono y vuelve aquí para activar los avisos.</span></div>`,
+    nosoporta: `<div class="banner banner-aviso">${IC.alerta}<span>Este navegador no puede recibir avisos. Usa Chrome en Android, o Safari en iPhone con el panel agregado a la pantalla de inicio.</span></div>`,
+    bloqueado: `<div class="banner banner-aviso">${IC.alerta}<span>Las notificaciones están bloqueadas para el panel. Actívalas en los ajustes del teléfono (Notificaciones → OP Live) y vuelve a entrar.</span></div>`,
+    inactivo: `<p>Este teléfono <b>no recibe avisos</b> todavía.</p><button class="btn btn-marca" id="avisos-activar">🔔 Activar avisos en este teléfono</button>`,
+    activo: `<p class="banner banner-ok" style="margin:0">${IC.ok}<span>Este teléfono <b>recibe avisos</b>.</span></p>
+      <div class="fila-botones"><button class="btn btn-secundario" id="avisos-prueba">Mandar aviso de prueba</button><button class="btn btn-secundario" id="avisos-desactivar">Desactivar aquí</button></div>`,
+  };
+  const ultimos = resumen && resumen.ultimos && resumen.ultimos.length
+    ? `<details class="plegable"><summary>Últimos avisos</summary><div class="lista-simple">${resumen.ultimos.map(a => `<div><b>${esc(a.titulo)}</b><br>${esc(a.cuerpo)}<br><small>${fechaHora(a.creado_en)} · ${a.enviado ? `llegó a ${a.enviados} ${a.enviados === 1 ? 'teléfono' : 'teléfonos'}` : 'pendiente'}</small></div>`).join('')}</div></details>` : '';
+  return `<div class="tarjeta" id="avisos">
+      <h3 class="seccion" style="margin:0">Avisos en el celular</h3>
+      <p class="nota">Llegan como notificación, sin abrir el panel: pago recibido (mover a caja), pago incompleto, apartado vencido (regresar a racks) y caja lista para empacar.</p>
+      ${MSG[est.modo]}
+      ${resumen ? `<small>${resumen.dispositivos ? `Reciben avisos: ${resumen.nombres.map(esc).join(', ')}` : 'Nadie del equipo ha activado los avisos todavía.'}</small>` : ''}
+      ${ultimos}
+    </div>`;
+}
+function conectarAvisos(raiz) {
+  const a = $('#avisos-activar', raiz), p = $('#avisos-prueba', raiz), d = $('#avisos-desactivar', raiz);
+  if (a) a.onclick = async () => { if (await accion(activarAvisos, 'Listo: este teléfono recibirá los avisos')) { await rpc('avisos_prueba').catch(() => {}); pintar(); } };
+  if (p) p.onclick = async () => { await accion(() => rpc('avisos_prueba'), 'En unos segundos te llega el aviso de prueba'); };
+  if (d) d.onclick = async () => { if (await accion(desactivarAvisos, 'Este teléfono ya no recibirá avisos')) pintar(); };
+}
+
 async function vistaAjustes() {
-  const [c] = await q(sb.from('live_config').select('*').limit(1));
+  const [[c], avisos] = await Promise.all([q(sb.from('live_config').select('*').limit(1)), htmlAvisos()]);
   const v = c || {};
   return `
+    ${avisos}
     <form class="tarjeta formulario" id="f-ajustes">
       <h3 class="seccion" style="margin:0">Cobro</h3>
       <label>CLABE para recibir pagos<input name="clabe" inputmode="numeric" maxlength="18" pattern="[0-9]{18}" value="${esc(v.clabe || '')}" placeholder="18 dígitos"></label>
@@ -973,6 +1062,11 @@ async function vistaAjustes() {
       </div>
       <label>Enlace del video para insertar (opcional)<input name="prime_video_url" type="url" inputmode="url" value="${esc(v.prime_video_url || '')}" placeholder="https://tu-servidor/embed/video"></label>
       <p class="nota">Precio y máximo son los valores por omisión al programar un Prime Live. "Espera" son los segundos entre que publicas la foto y se activa el botón, para que todas lo reciban al mismo tiempo. El enlace del video (por ejemplo, el "embed" de Owncast) se muestra arriba en la página de las mayoristas.</p>
+      <h3 class="seccion">Aviso de caja lista</h3>
+      <div class="dos">
+        <label>A los (días)<input name="dias_caja" type="number" min="1" step="1" value="${v.dias_caja ?? 20}"></label>
+        <label>O al llegar a (prendas)<input name="caja_llena_prendas" type="number" min="1" step="1" value="${v.caja_llena_prendas ?? ''}" placeholder="Sin límite"></label>
+      </div>
       <button class="btn btn-primario btn-grande">Guardar ajustes</button>
     </form>
     <div class="tarjeta">
@@ -981,6 +1075,7 @@ async function vistaAjustes() {
     </div>`;
 }
 conectar.ajustes = raiz => {
+  conectarAvisos(raiz);
   $('#f-ajustes', raiz).onsubmit = async e => {
     e.preventDefault();
     const f = e.target;
@@ -993,6 +1088,7 @@ conectar.ajustes = raiz => {
       mensaje_sin_live: f.mensaje_sin_live.value.trim() || 'Ahorita no hay live en curso.', actualizado_en: new Date().toISOString(),
       prime_precio: +f.prime_precio.value || 89, prime_limite: f.prime_limite.value ? +f.prime_limite.value : null,
       prime_retraso: Math.max(0, Math.min(30, +f.prime_retraso.value || 0)), prime_video_url: f.prime_video_url.value.trim() || null,
+      dias_caja: Math.max(1, +f.dias_caja.value || 20), caja_llena_prendas: f.caja_llena_prendas.value ? +f.caja_llena_prendas.value : null,
     };
     if (datos.prime_video_url && !/^https:\/\//i.test(datos.prime_video_url)) { toast('El enlace del video debe empezar con https://', 'error'); return; }
     if (!(datos.horas_recordatorio < datos.horas_limite && datos.horas_limite <= datos.horas_liberar)) {

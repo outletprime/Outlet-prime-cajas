@@ -38,6 +38,8 @@ Las dos usan el mismo correo y contraseña de Supabase → Authentication → Us
 | `supabase/esquema.sql` | Estructura original de la base de Cajas (referencia, sin datos). |
 | `supabase/migrations/` | Cambios a la base, en orden: `…_sistema_lives.sql` (bot y casilleros) y `…_prime_live.sql` (mayoristas). |
 | `supabase/functions/whatsapp/` | Conector con WhatsApp Business (se activa cuando haya número del bot). |
+| `supabase/functions/avisos/` | Envía los avisos al celular del equipo (notificaciones). |
+| `sw.js`, `manifest.webmanifest` | Permiten instalar el panel como app y recibir notificaciones. |
 | `docs/WHATSAPP.md` | Pasos para conectar el número de WhatsApp del bot. |
 
 ## Cómo funciona el live
@@ -64,6 +66,18 @@ Las dos usan el mismo correo y contraseña de Supabase → Authentication → Us
    A todas les aparece al mismo tiempo; tras unos segundos se activa **Apartar** y gana la primera.
 4. **Cerrar**: cada mayorista ve en su página su total, la CLABE y su folio. Lo demás (registrar pago,
    caja fija, liberar a las 3 h) es igual que en redes.
+
+## Avisos al celular del equipo
+
+Sin abrir el panel, le llega una notificación al equipo cuando:
+- ✅ se registra un **pago** → "Mover C-007 → caja B3 · piezas 0023, 0310"
+- ⚠️ un **pago está incompleto** → "Faltan $89 · revisar con la clienta"
+- ⏰ un **apartado vence** → "Regresar 0932 a racks"
+- 📦 una **caja está lista** → a los 20 días (como Cajas) o al llegar a N prendas (Ajustes del panel)
+
+Cada persona lo activa una vez en **Panel → Ajustes → Activar avisos**. En iPhone primero hay que
+agregar el panel a la pantalla de inicio (Safari → Compartir → Agregar a pantalla de inicio) y abrirlo
+desde ese ícono (iOS 16.4 o más reciente).
 
 Toda la lógica vive en la base de datos (funciones `bot_mensaje`, `live_cerrar`, `live_registrar_pago`,
 `live_revisar_vencimientos`…), así que el bot real y el simulador se comportan igual.
