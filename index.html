@@ -419,6 +419,7 @@ class LocalStore {
   }
 
   async usuario() { return { nombre: localStorage.getItem('demo-nombre') || 'Prueba', email: '' }; }
+  async rol() { return 'duena'; }
   async login() { return this.usuario(); }
   async logout() {}
   async cambiarNombre(n) { localStorage.setItem('demo-nombre', n); }
@@ -501,13 +502,26 @@ class SupaStore {
     return data;
   }
   async update(t, id, patch) {
-    const { data, error } = await this.sb.from(t).update(patch).eq('id', id).select().single();
+    const { data, error } = await this.sb.from(t).update(patch).eq('id', id).select();
     if (error) throw error;
-    return data;
+    // Si el nivel de acceso no permite el cambio, la base no cambia ninguna fila
+    if (!data.length) throw new Error('Tu nivel de acceso no permite hacer este cambio.');
+    return data[0];
   }
   async remove(t, id) {
-    const { error } = await this.sb.from(t).delete().eq('id', id);
+    const { data, error } = await this.sb.from(t).delete().eq('id', id).select('id');
     if (error) throw error;
+    if (!data.length) throw new Error('Tu nivel de acceso no permite borrar esto.');
+  }
+  // Nivel de acceso: duena, supervisor, operacion o null (sin acceso)
+  async rol() {
+    const { data, error } = await this.sb.rpc('mi_rol');
+    if (error) {
+      // Si la base todavía no tiene niveles instalados, todos siguen como antes
+      if (error.code === 'PGRST202' || /mi_rol|schema cache|does not exist/i.test(error.message || '')) return 'duena';
+      throw error;
+    }
+    return data;
   }
 
   async upload(path, blob, onProgress) {
@@ -560,6 +574,7 @@ function traducirError(err) {
   if (/Invalid login credentials/i.test(m)) return 'Correo o contraseña incorrectos.';
   if (/JWT|session/i.test(m)) return 'Tu sesión expiró. Cierra y vuelve a entrar.';
   if (/foreign key/i.test(m)) return 'No se puede borrar porque tiene historial asociado.';
+  if (/row-level security|permission denied/i.test(m)) return 'Tu nivel de acceso no permite hacer esto.';
   return m;
 }
 
@@ -1173,13 +1188,14 @@ function montarShell() {
       <a class="btn-icono" href="#/ajustes" aria-label="Ajustes">${IC.ajustes}</a>
     </header>
     ${CFG.vistaPrevia ? '<div class="aviso-demo">Vista previa con datos de ejemplo. Lo que hagas aquí se queda solo en este navegador.</div>' : store.modo !== 'nube' ? '<div class="aviso-demo">Modo prueba: los datos solo se guardan en este dispositivo.</div>' : ''}
+    ${ROL === 'supervisor' ? '<div class="aviso-demo">Modo monitor: puedes ver todo, pero no cambiar nada.</div>' : ''}
     <main id="vista"></main>
     <nav class="tabs">
       <a href="#/cajas" data-tab="cajas">${IC.cajas}<span>Cajas</span></a>
       <a href="#/clientas" data-tab="clientas">${IC.clientas}<span>Clientas</span></a>
       <a href="#" data-tab="escanear" class="tab-escanear" id="tab-escanear"><b>${IC.escanear}</b><span>Escanear</span></a>
-      <a href="#/pedido" data-tab="pedido">${IC.pedido}<span>Pedido nuevo</span></a>
-      <a href="#/reportes" data-tab="reportes">${IC.reportes}<span>Reportes</span></a>
+      ${ROL === 'supervisor' ? '<span></span>' : `<a href="#/pedido" data-tab="pedido">${IC.pedido}<span>Pedido nuevo</span></a>`}
+      ${ROL === 'operacion' ? '<span></span>' : `<a href="#/reportes" data-tab="reportes">${IC.reportes}<span>Reportes</span></a>`}
     </nav>`;
   $('#tab-escanear').onclick = async e => {
     e.preventDefault();
@@ -1228,6 +1244,7 @@ async function navegar() {
   const ruta = RUTAS.find(r => r[0].test(path));
   if (!ruta) { ir('cajas'); return; }
   const [re, fn, tab, recargable] = ruta;
+  if (tab === 'reportes' && ROL === 'operacion') { ir('cajas'); return; }
   const args = path.match(re).slice(1).filter(x => x !== undefined && x !== 'cajas').map(decodeURIComponent);
   $$('.tabs a').forEach(a => a.classList.toggle('activa', a.dataset.tab === tab));
   rutaRecargable = recargable;
@@ -2335,10 +2352,24 @@ function pantallaLogin() {
   };
 }
 
+let ROL = null;
 async function arrancar() {
+  try { ROL = await store.rol(); } catch (e) { console.error(e); ROL = null; }
+  if (!ROL) return pantallaSinAcceso();
   montarShell();
   await navegar();
   revisarAlertas();
+}
+function pantallaSinAcceso() {
+  $('#app').innerHTML = `
+    <div class="login-fondo"><div class="login">
+      <img class="login-logo" src="icons/logo-oscuro.png" alt="${esc(CFG.nombreNegocio)}">
+      <p style="color:#fff;text-align:center;font-size:18px"><b>Tu cuenta todavía no tiene acceso</b></p>
+      <p style="color:#bdbdbd;text-align:center">${esc(usuario.email || '')}<br>Pídele a una dueña que te asigne un nivel en el panel del live → Ajustes → Equipo.</p>
+      <button class="btn btn-primario btn-grande" onclick="location.reload()">Volver a revisar</button>
+      <button class="btn btn-secundario" id="salir-sa">Cerrar sesión</button>
+    </div></div>`;
+  $('#salir-sa').onclick = async () => { await store.logout(); location.reload(); };
 }
 
 async function iniciar() {

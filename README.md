@@ -26,6 +26,26 @@ Publicadas en GitHub Pages: https://outletprime.github.io/Outlet-prime-cajas/
 (el panel del live está en `…/live.html`, o desde Cajas → Ajustes → Panel del live).
 Las dos usan el mismo correo y contraseña de Supabase → Authentication → Users.
 
+### Niveles de acceso del equipo
+
+| Puede… | Dueña | Supervisor (monitor) | Operación |
+|---|---|---|---|
+| Ver live, casilleros, cajas y clientas; recibir avisos | ✅ | ✅ | ✅ |
+| Ver reportes de ventas | ✅ | ✅ | ❌ |
+| Iniciar/cerrar lives, capturar, liberar, mover prendas, registrar clientas y pedidos | ✅ | ❌ | ✅ |
+| Registrar pagos | ✅ | ❌ | ❌ |
+| Programar Prime Live e invitar mayoristas | ✅ | ❌ | ❌ |
+| Cambiar CLABE, precios, tiempos y categorías | ✅ | ❌ | ❌ |
+| Borrar cualquier cosa | ✅ | ❌ | ❌ |
+| Dar o quitar accesos | ✅ | ❌ | ❌ |
+
+- Las reglas están **en la base de datos** (`…_niveles_acceso.sql`); esconder botones es solo comodidad.
+- Para agregar a alguien: Supabase → Authentication → Users → **Add user** (Auto Confirm) y después
+  **Panel → Ajustes → Equipo** para asignarle nivel. Sin nivel no ve nada.
+- Siempre queda al menos una dueña. Pagos, cambios de ajustes, borrados y cambios de nivel quedan
+  en la **bitácora** (Panel → Ajustes → Equipo → Historial de cambios).
+- Operación sí ve teléfono y dirección de las clientas porque los necesita para empacar y enviar.
+
 ## Contenido
 
 | Archivo / carpeta | Qué es |
