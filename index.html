@@ -359,8 +359,20 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 </style>
 <div id="app"><div class="cargando"><div class="spinner"></div></div></div>
 <script>
-window.APP_CONFIG = { nombreNegocio: 'Outlet Prime', supabaseUrl: '', supabaseAnonKey: '', diasAlerta: 20, diasAviso: 15, limiteVideoMB: 48, vistaPrevia: true };
+/* Conexión con la base de datos de Supabase (proyecto "outlet-prime").
+ * La llave "anon" es pública: solo deja entrar a quien inicia sesión con su correo y contraseña.
+ * NUNCA pongas aquí la llave "service_role". */
+window.APP_CONFIG = {
+  nombreNegocio: 'Outlet Prime',
+  supabaseUrl: 'https://fjafsvirllfuzrzonovy.supabase.co',
+  supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqYWZzdmlybGxmdXpyem9ub3Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQxMTM5NzEsImV4cCI6MjEwOTY4OTk3MX0.rN7gVhHbiy3T0mSStHKPWzUH1YD9qoTv9VYmUAbDYJI',
+  diasAlerta: 20,
+  diasAviso: 15,
+  limiteVideoMB: 48,
+  vistaPrevia: false,
+};
 </script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.mini.min.js"></script>
@@ -2339,7 +2351,8 @@ async function iniciar() {
       store = new MemStore();
       await store.init();
     }
-    if (window.sembrarEjemplo) await window.sembrarEjemplo(store);
+    // Los datos de ejemplo solo se usan en la vista previa; nunca se escriben en la base real.
+    if (window.sembrarEjemplo && CFG.vistaPrevia && store.modo !== 'nube') await window.sembrarEjemplo(store);
     usuario = await store.usuario();
   } catch (e) {
     console.error(e);

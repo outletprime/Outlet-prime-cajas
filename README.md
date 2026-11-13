@@ -24,17 +24,27 @@ python3 -m http.server 8000
 
 También se puede publicar tal cual en GitHub Pages, Netlify, Vercel o Hostinger.
 
-## Modo prueba y modo real
+## Dónde vive cada cosa
 
-En `index.html` está la configuración `APP_CONFIG`:
+| Qué | Dónde | Se pierde al actualizar la app? |
+|---|---|---|
+| El programa (código) | Este repositorio de GitHub | No: cada cambio queda guardado como una versión nueva. |
+| Los datos (cajas, clientas, pedidos, fotos, videos) | Supabase, proyecto **outlet-prime** | No: el código solo los lee y escribe, actualizarlo no los toca. |
 
-- Si `supabaseUrl` y `supabaseAnonKey` están vacíos, la app funciona en **modo prueba**:
-  los datos se guardan solo en el navegador del dispositivo.
-- Si se llenan con los datos de un proyecto de Supabase, la app usa la **base de datos
-  compartida** (tablas `cajas`, `categorias`, `clientas`, `asignaciones`, `pedidos` y el
-  bucket de almacenamiento `archivos`).
+La app está **conectada a Supabase** (ver `APP_CONFIG` al inicio de `index.html`).
+Para entrar se usa el correo y la contraseña de un usuario creado en
+Supabase → Authentication → Users.
 
-No subas aquí contraseñas ni la llave `service_role` de Supabase; la llave `anon` sí es pública.
+### Reglas para no perder datos
+
+- Cambia el código aquí en GitHub con toda libertad: los datos siguen en Supabase.
+- **No borres ni cambies** las tablas `cajas`, `categorias`, `clientas`, `asignaciones`,
+  `pedidos` ni el bucket `archivos` desde el panel de Supabase.
+- No pongas en `vistaPrevia: true`: eso activa el modo de demostración.
+- La llave `anon` que está en `index.html` es pública y es seguro que esté aquí.
+  **Nunca** subas la llave `service_role` ni contraseñas.
+- La carpeta `supabase/esquema.sql` guarda la estructura de la base (sin datos),
+  por si algún día hay que reconstruirla en otro proyecto.
 
 ## Origen
 
