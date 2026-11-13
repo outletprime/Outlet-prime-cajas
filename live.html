@@ -162,6 +162,33 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primario); 
 .modal h2 { font-size: 19px; }
 .modal-botones { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 10px; margin-top: 6px; }
 
+.segmentos { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 12px; background: var(--superficie-2); }
+.segmentos button { min-height: 40px; border: 0; border-radius: 9px; background: none; color: var(--texto-2); font: 600 14px/1.2 inherit; font-family: inherit; cursor: pointer; }
+.segmentos button[aria-pressed="true"] { background: var(--superficie); color: var(--texto); box-shadow: var(--sombra); }
+.punto-rojo { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--marca); margin-right: 6px; vertical-align: 1px; }
+.chip-prime { background: #1d1d1d; color: #f5c94c; }
+.plegable > summary { cursor: pointer; color: var(--texto-2); font-weight: 600; padding: 8px 0; }
+.lista-invitadas { display: grid; gap: 8px; }
+.invitada { display: grid; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--superficie-2); }
+.invitada:not(.si) { grid-template-columns: 1fr auto; align-items: center; }
+.invitada b, .invitada small { display: block; overflow-wrap: anywhere; }
+.invitada .codigo { display: inline; font-family: ui-monospace, Menlo, monospace; letter-spacing: 1px; color: var(--texto); }
+.invitada .ok { color: var(--ok); font-weight: 600; }
+.btn-wa { background: #25d366; color: #0b3d1f; }
+.video-prime { position: relative; aspect-ratio: 16 / 9; border-radius: var(--radio); overflow: hidden; background: #000; }
+.video-prime iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.capturar { cursor: pointer; }
+.pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.ptile { border-radius: 12px; overflow: hidden; background: var(--superficie); border: 1px solid var(--borde); display: grid; align-content: start; }
+.ptile img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; background: var(--superficie-2); display: block; }
+.ptile-in { padding: 8px 10px 10px; display: grid; gap: 6px; }
+.ptile-in .chip { justify-self: start; }
+.cas-mini { color: var(--marca); }
+.foto-previa { width: 100%; max-height: 50vh; object-fit: contain; border-radius: 12px; background: #000; }
+.tallas { display: flex; flex-wrap: wrap; gap: 6px; }
+.talla { min-width: 44px; min-height: 40px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--borde); background: var(--superficie); color: var(--texto); font: 600 14px/1 inherit; font-family: inherit; cursor: pointer; }
+.talla[aria-pressed="true"] { background: var(--texto); color: var(--fondo); border-color: var(--texto); }
+
 .login-fondo { min-height: 100vh; background: #000; }
 .login { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 24px; max-width: 420px; margin: 0 auto; }
 .login img { width: 100%; max-width: 300px; margin: 0 auto; display: block; }
@@ -262,14 +289,16 @@ let usuario = null;
 async function q(consulta) { const { data, error } = await consulta; if (error) throw error; return data; }
 async function rpc(fn, args) { const { data, error } = await sb.rpc(fn, args); if (error) throw error; return data; }
 
-const D = { live: null, cfg: null, feed: [], tablero: [], vistos: new Set(), primeraCarga: true };
+const D = { live: null, prime: null, primeProg: [], cfg: null, feed: [], tablero: [], vistos: new Set(), primeraCarga: true };
 async function cargar() {
   const [lives, cfg, tablero] = await Promise.all([
-    q(sb.from('lives').select('*').eq('estado', 'activo').limit(1)),
+    q(sb.from('lives').select('*').in('estado', ['activo', 'programado']).order('programado_para', { ascending: true }).limit(50)),
     q(sb.from('live_config').select('*').limit(1)),
     q(sb.from('live_tablero').select('*').or('casillero_liberado_en.is.null,estado.in.(por_pagar,pago_incompleto)').order('folio', { ascending: true }).limit(1000)),
   ]);
-  D.live = lives[0] || null;
+  D.live = lives.find(l => l.tipo === 'redes' && l.estado === 'activo') || null;
+  D.prime = lives.find(l => l.tipo === 'prime' && l.estado === 'activo') || null;
+  D.primeProg = lives.filter(l => l.tipo === 'prime' && l.estado === 'programado');
   D.cfg = cfg[0] || {};
   D.tablero = tablero;
   D.feed = D.live
@@ -337,8 +366,17 @@ function posicionesEspera(feed) {
   Object.values(porPrenda).forEach(l => l.sort((a, b) => new Date(a.mensaje_en) - new Date(b.mensaje_en) || new Date(a.creado_en) - new Date(b.creado_en)).forEach((a, i) => pos[a.id] = i + 1));
   return pos;
 }
+let modoVivo = null;
 async function vistaVivo() {
   await cargar();
+  if (!modoVivo) modoVivo = (D.prime && !D.live) ? 'prime' : 'redes';
+  const seg = `<div class="segmentos" role="group" aria-label="Tipo de live">
+      <button type="button" data-modo="redes" aria-pressed="${modoVivo === 'redes'}">${D.live ? '<span class="punto-rojo"></span>' : ''}Redes · bot</button>
+      <button type="button" data-modo="prime" aria-pressed="${modoVivo === 'prime'}">${D.prime ? '<span class="punto-rojo"></span>' : ''}Prime Live · mayoristas</button>
+    </div>`;
+  return seg + (modoVivo === 'prime' ? await vistaPrime() : vistaRedes());
+}
+function vistaRedes() {
   const sinClabe = !(D.cfg.clabe || '').trim();
   if (!D.live) {
     const porCobrar = D.tablero.filter(c => ['por_pagar', 'pago_incompleto'].includes(c.estado));
@@ -406,13 +444,293 @@ conectar.vivo = raiz => {
     if (r !== null) irA('casilleros');
   };
   $$('[data-liberar]', raiz).forEach(b => b.onclick = async () => {
-    if (!(await confirmar(`¿Liberar la ${num4(b.dataset.num)}?`, '<p>Se quita a esta clienta. Si alguien está en espera, pasa automáticamente a la primera y le avisa el bot.</p>', 'Liberar'))) return;
+    const prime = /^#/.test(b.dataset.num);
+    if (!(await confirmar(`¿Liberar la ${prime ? b.dataset.num : num4(b.dataset.num)}?`, prime
+      ? '<p>Se le quita a esta mayorista y la prenda vuelve a estar disponible para las demás.</p>'
+      : '<p>Se quita a esta clienta. Si alguien está en espera, pasa automáticamente a la primera y le avisa el bot.</p>', 'Liberar'))) return;
     if (await accion(() => rpc('live_liberar_apartado', { p_apartado: b.dataset.liberar }), 'Prenda liberada')) pintar();
   });
   $$('[data-quitar]', raiz).forEach(b => b.onclick = async () => {
     if (await accion(() => rpc('live_liberar_apartado', { p_apartado: b.dataset.quitar }), 'Quitada de la lista de espera')) pintar();
   });
+  $$('[data-modo]', raiz).forEach(b => b.onclick = () => { modoVivo = b.dataset.modo; pintar(); });
+  conectarPrime(raiz);
 };
+
+/* ---------- Prime Live (mayoristas) ---------- */
+const fotoUrl = ruta => ruta ? `${CFG.supabaseUrl}/storage/v1/object/public/prime/${String(ruta).split('/').map(encodeURIComponent).join('/')}` : '';
+const codigoBonito = c => c ? `${c.slice(0, 4)}-${c.slice(4)}` : '';
+const fechaLarga = v => v ? new Date(v).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' }) : '';
+const TALLAS = ['CH', 'M', 'G', 'XG', '2', '4', '6', '8', '10', '12', '14', 'Única'];
+let primeSel = null;          // live programado que se está preparando
+let verInvitadas = false;     // sección de invitadas abierta durante el live
+let capturandoDesde = 0;      // la cámara está abierta: no refrescar la pantalla
+
+async function datosInvitaciones(liveId) {
+  const [mayoristas, invs] = await Promise.all([
+    q(sb.from('clientas').select('id,nombre,apellidos,telefono,correo,mayorista').eq('mayorista', true).order('nombre', { ascending: true }).limit(1000)),
+    q(sb.from('prime_invitaciones').select('*').eq('live_id', liveId).limit(1000)),
+  ]);
+  return { mayoristas, invs };
+}
+function mensajeInvitacion(l, cl, inv) {
+  const url = new URL('prime.html', location.href);
+  url.search = ''; url.hash = '';
+  url.searchParams.set('c', inv.codigo);
+  const cuando = l.programado_para ? `\n📅 ${fechaLarga(l.programado_para)}` : '';
+  return `Hola ${(cl.nombre || '').split(' ')[0]} 👋 Estás invitada a *${l.titulo || 'Prime Live'}* de Outlet Prime${cuando}\n\n` +
+    `Entra aquí: ${url.href}\nTu contraseña (solo para este live): *${codigoBonito(inv.codigo)}*\n\nEs personal, no la compartas. 💕`;
+}
+function htmlInvitaciones(l, { mayoristas, invs }) {
+  const porClienta = Object.fromEntries(invs.map(i => [i.clienta_id, i]));
+  const activas = invs.filter(i => i.activa);
+  const entraron = activas.filter(i => i.primer_acceso).length;
+  const filas = mayoristas.map(m => {
+    const inv = porClienta[m.id];
+    const nombre = `${m.nombre || ''} ${m.apellidos || ''}`.trim();
+    if (!inv || !inv.activa) {
+      return `<div class="invitada"><div><b>${esc(nombre)}</b><small>${telBonito(m.telefono)}${m.correo ? ' · ' + esc(m.correo) : ''}</small></div>
+        <button class="btn btn-mini btn-primario" data-invitar="${m.id}">Invitar</button></div>`;
+    }
+    const msg = mensajeInvitacion(l, m, inv);
+    const tel = String(m.telefono || '').replace(/\D/g, '');
+    return `<div class="invitada si"><div><b>${esc(nombre)}</b>
+        <small>Contraseña <b class="codigo">${codigoBonito(inv.codigo)}</b> · ${inv.primer_acceso ? `<span class="ok">✓ entró ${hora(inv.ultimo_acceso)}</span>` : 'no ha entrado'}</small></div>
+      <div class="fila-botones">
+        ${tel.length === 10 ? `<a class="btn btn-mini btn-wa" target="_blank" rel="noopener" href="https://wa.me/52${tel}?text=${encodeURIComponent(msg)}">WhatsApp</a>` : ''}
+        ${m.correo ? `<a class="btn btn-mini btn-secundario" href="mailto:${encodeURIComponent(m.correo)}?subject=${encodeURIComponent('Tu acceso a Prime Live · Outlet Prime')}&body=${encodeURIComponent(msg.replace(/\*/g, ''))}">Correo</a>` : ''}
+        <button class="btn btn-mini btn-secundario" data-copiar="${esc(msg)}">Copiar</button>
+        <button class="btn btn-mini btn-secundario" data-revocar="${inv.id}" aria-label="Quitar invitación">Quitar</button>
+      </div></div>`;
+  }).join('');
+  const sinInvitar = mayoristas.filter(m => !(porClienta[m.id] && porClienta[m.id].activa)).length;
+  return `
+    <div class="tarjeta">
+      <div class="cas-cab"><h3 style="font-size:17px">Mayoristas invitadas</h3><span class="chip">${activas.length} invitadas · ${entraron} entraron</span></div>
+      <p class="nota">Cada una recibe una contraseña que solo sirve para este Prime Live. Mándasela con el botón de WhatsApp o Correo.</p>
+      ${mayoristas.length ? `<div class="lista-invitadas">${filas}</div>` : '<p class="nota">Todavía no hay mayoristas. Agrégalas abajo.</p>'}
+      ${sinInvitar > 1 ? `<button class="btn btn-secundario" data-invitar-todas="1">Invitar a las ${sinInvitar} que faltan</button>` : ''}
+      <details class="plegable"><summary>Agregar mayorista</summary>
+        <form class="formulario" id="f-mayorista" style="margin-top:10px">
+          <label>Nombre<input name="nombre" required maxlength="60" autocomplete="off"></label>
+          <div class="dos">
+            <label>WhatsApp<input name="tel" inputmode="tel" required placeholder="10 dígitos" autocomplete="off"></label>
+            <label>Correo<input name="correo" type="email" inputmode="email" autocomplete="off" placeholder="opcional"></label>
+          </div>
+          <button class="btn btn-primario">Agregar e invitar</button>
+          <p class="nota">Si ese WhatsApp ya es clienta, se marca como mayorista sin duplicarla.</p>
+        </form>
+      </details>
+    </div>`;
+}
+
+async function vistaPrime() {
+  if (D.prime) return vistaPrimeActivo(D.prime);
+  if (primeSel && !D.primeProg.some(l => l.id === primeSel)) primeSel = null;
+  const l = D.primeProg.find(x => x.id === primeSel) || D.primeProg[0];
+  const manana = new Date(Date.now() + 864e5); manana.setHours(17, 0, 0, 0);
+  const valorFecha = d => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
+  let detalle = '';
+  if (l) {
+    const datos = await datosInvitaciones(l.id);
+    detalle = `
+      <div class="tarjeta">
+        <div class="cas-cab"><h3 style="font-size:19px">${esc(l.titulo || 'Prime Live')}</h3><span class="chip chip-info">Programado</span></div>
+        <p>${l.programado_para ? esc(fechaLarga(l.programado_para)) : 'Sin fecha'} · ${dinero(l.precio)} por prenda · ${l.limite ? `máximo ${l.limite} por mayorista` : 'sin límite'}</p>
+        <div class="fila-botones">
+          <button class="btn btn-marca" data-prime-iniciar="${l.id}">${IC.vivo} Iniciar Prime Live</button>
+          <button class="btn btn-secundario" data-prime-cancelar="${l.id}">Cancelar</button>
+        </div>
+      </div>
+      ${htmlInvitaciones(l, datos)}`;
+  }
+  return `
+    ${D.primeProg.length > 1 ? `<div class="filtros">${D.primeProg.map(x => `<button type="button" class="filtro" data-prime-sel="${x.id}" aria-pressed="${x.id === (l && l.id)}">${esc(x.titulo || 'Prime Live')} <b>${x.programado_para ? new Date(x.programado_para).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : ''}</b></button>`).join('')}</div>` : ''}
+    ${detalle || `<div class="vacio">${IC.vivo}<h2>No hay Prime Live programado</h2><p>Prográmalo, invita a tus mayoristas y mándales su contraseña.</p></div>`}
+    <details class="plegable"${l ? '' : ' open'}><summary>Programar un Prime Live</summary>
+      <form class="tarjeta formulario" id="f-prime-programar" style="margin-top:10px">
+        <label>Nombre<input name="titulo" maxlength="60" placeholder="Ej. Prime Live jueves" autocomplete="off"></label>
+        <label>Fecha y hora<input name="cuando" type="datetime-local" value="${valorFecha(manana)}" required></label>
+        <div class="dos">
+          <label>Precio por prenda<input name="precio" type="number" min="1" step="1" value="${Number(D.cfg.prime_precio || 89)}"></label>
+          <label>Máximo por mayorista<input name="limite" type="number" min="1" step="1" value="${D.cfg.prime_limite ?? ''}" placeholder="Sin límite"></label>
+        </div>
+        <button class="btn btn-primario">Programar</button>
+      </form>
+    </details>`;
+}
+
+async function vistaPrimeActivo(l) {
+  const [prendas, datos] = await Promise.all([
+    q(sb.from('prime_tablero').select('*').eq('live_id', l.id).neq('estado', 'quitada').order('num', { ascending: false }).limit(500)),
+    datosInvitaciones(l.id),
+  ]);
+  const apartadas = prendas.filter(p => p.apartado_id);
+  const total = apartadas.reduce((s, p) => s + Number(p.precio || 0), 0);
+  const activas = datos.invs.filter(i => i.activa);
+  const siguiente = (prendas[0] ? prendas[0].num : 0) + 1;
+  const ahora = Date.now();
+  const tile = p => {
+    const falta = Math.ceil((new Date(p.disponible_en) - ahora) / 1000);
+    const estado = p.apartado_id
+      ? `<span class="chip ${p.apartado_estado === 'pagada' ? 'chip-ok' : 'chip-aviso'}">${p.apartado_estado === 'pagada' ? 'Pagada' : 'Apartada'}</span><small><b>${esc(p.clienta)}</b> → <b class="cas-mini">${esc(p.casillero || 'SIN CASILLERO')}</b></small>`
+      : `<span class="chip chip-ok">${falta > 0 ? `Sale en ${falta} s` : 'Disponible'}</span>`;
+    return `<div class="ptile">
+      <img src="${esc(fotoUrl(p.foto))}" alt="Prenda #${p.num}" loading="lazy">
+      <div class="ptile-in">
+        <div class="cas-cab"><b>#${p.num}</b><span>${esc(p.talla || '')}</span></div>
+        ${estado}
+        <div class="fila-botones">
+          ${p.apartado_id && p.apartado_estado === 'apartada' ? `<button class="btn btn-mini btn-secundario" data-liberar="${p.apartado_id}" data-num="#${p.num}">Liberar</button>` : ''}
+          ${!p.apartado_id ? `<button class="btn btn-mini btn-secundario" data-quitar-prenda="${p.id}">Quitar</button>` : ''}
+        </div>
+      </div></div>`;
+  };
+  return `
+    <div class="fila-botones" style="justify-content:space-between;align-items:center">
+      <span class="chip chip-vivo"><span class="punto-vivo"></span>PRIME EN VIVO desde ${hora(l.iniciado_en)}</span>
+      <small>${esc(l.titulo || '')}</small>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><small>Mostradas</small><b>${prendas.length}</b></div>
+      <div class="kpi"><small>Apartadas</small><b>${apartadas.length}</b></div>
+      <div class="kpi"><small>Total</small><b>${dinero(total)}</b></div>
+      <div class="kpi"><small>Entraron</small><b>${activas.filter(i => i.primer_acceso).length}/${activas.length}</b></div>
+    </div>
+    ${l.video_url ? `<div class="video-prime"><iframe src="${esc(l.video_url)}" title="Transmisión" allow="autoplay; fullscreen" allowfullscreen></iframe></div>` : ''}
+    <label class="btn btn-marca btn-grande capturar" id="capturar">📷 Capturar prenda #${siguiente}
+      <input type="file" accept="image/*" capture="environment" hidden id="foto-prime">
+    </label>
+    <p class="nota">Toma la foto cuando la prenda esté bien a cuadro. Al publicarla, a todas las mayoristas les aparece al mismo tiempo con su botón "Apartar" (${dinero(l.precio)}).</p>
+    <h3 class="seccion">Prendas mostradas</h3>
+    ${prendas.length ? `<div class="pgrid">${prendas.map(tile).join('')}</div>` : '<div class="vacio"><p>Todavía no se ha mostrado ninguna prenda.</p></div>'}
+    <details class="plegable" id="det-invitadas"${verInvitadas ? ' open' : ''}><summary>Mayoristas invitadas (${activas.length})</summary>${htmlInvitaciones(l, datos)}</details>
+    <button class="btn btn-peligro btn-grande" id="cerrar-prime">Cerrar Prime Live y mandar cobros</button>
+    <p class="nota">Al cerrar, cada mayorista ve en su página su total, la CLABE y su folio. Tiene ${horas(D.cfg.horas_limite)} para pagar.</p>`;
+}
+
+async function reducirFoto(file, maxLado = 1100, calidad = 0.82) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('No se pudo leer la foto.')); i.src = url; });
+    const k = Math.min(1, maxLado / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise(res => c.toBlob(res, 'image/jpeg', calidad));
+  } finally { URL.revokeObjectURL(url); }
+}
+async function publicarFoto(l, file, num) {
+  capturandoDesde = Date.now();
+  let blob;
+  try { blob = await reducirFoto(file); } catch (e) { toast(traducirError(e), 'error'); capturandoDesde = 0; return; }
+  const vista = URL.createObjectURL(blob);
+  let talla = null;
+  const ok = await modal({
+    titulo: `Publicar prenda #${num}`,
+    html: `<img src="${vista}" alt="Prenda capturada" class="foto-previa">
+      <p class="nota">Talla (opcional):</p>
+      <div class="tallas">${TALLAS.map(t => `<button type="button" class="talla" data-talla="${t}" aria-pressed="false">${t}</button>`).join('')}</div>`,
+    botones: [{ texto: 'Otra foto', valor: false }, { texto: `Publicar #${num}`, valor: true, clase: 'btn-marca' }],
+    alAbrir: el => $$('.talla', el).forEach(b => b.onclick = () => {
+      const ya = b.getAttribute('aria-pressed') === 'true';
+      $$('.talla', el).forEach(x => x.setAttribute('aria-pressed', 'false'));
+      b.setAttribute('aria-pressed', String(!ya)); talla = ya ? null : b.dataset.talla;
+    }),
+  });
+  URL.revokeObjectURL(vista);
+  if (!ok) { capturandoDesde = 0; return; }
+  const r = await accion(async () => {
+    const ruta = `${l.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const { error } = await sb.storage.from('prime').upload(ruta, await blob.arrayBuffer(), { contentType: 'image/jpeg', upsert: false });
+    if (error) throw error;
+    return rpc('prime_publicar', { p_live: l.id, p_foto: ruta, p_talla: talla, p_usuario: usuario.nombre });
+  }, p => `Prenda #${p.num} publicada. Ya la ven todas.`);
+  capturandoDesde = 0;
+  if (r) pintar();
+}
+
+function conectarPrime(raiz) {
+  $$('[data-prime-sel]', raiz).forEach(b => b.onclick = () => { primeSel = b.dataset.primeSel; pintar(); });
+  const fp = $('#f-prime-programar', raiz);
+  if (fp) fp.onsubmit = async e => {
+    e.preventDefault();
+    const cuando = fp.cuando.value ? new Date(fp.cuando.value) : null;
+    const l = await accion(() => rpc('prime_programar', {
+      p_titulo: fp.titulo.value, p_programado_para: cuando ? cuando.toISOString() : null,
+      p_precio: +fp.precio.value || null, p_limite: fp.limite.value ? +fp.limite.value : null, p_usuario: usuario.nombre,
+    }), 'Prime Live programado. Ahora invita a tus mayoristas.');
+    if (l) { primeSel = l.id; pintar(); }
+  };
+  const liveId = (D.prime && D.prime.id) || (D.primeProg.find(x => x.id === primeSel) || D.primeProg[0] || {}).id;
+  const invitar = async ids => {
+    for (const id of ids) {
+      const r = await accion(() => rpc('prime_invitar', { p_live: liveId, p_clienta: id, p_usuario: usuario.nombre }));
+      if (!r) break;
+    }
+    pintar();
+  };
+  $$('[data-invitar]', raiz).forEach(b => b.onclick = () => invitar([b.dataset.invitar]));
+  $$('[data-invitar-todas]', raiz).forEach(b => b.onclick = () => invitar($$('[data-invitar]', raiz).map(x => x.dataset.invitar)));
+  $$('[data-revocar]', raiz).forEach(b => b.onclick = async () => {
+    if (!(await confirmar('¿Quitar la invitación?', '<p>Su contraseña deja de funcionar. Puedes volver a invitarla y se reactiva la misma.</p>', 'Quitar'))) return;
+    if (await accion(() => rpc('prime_revocar', { p_invitacion: b.dataset.revocar }), 'Invitación quitada')) pintar();
+  });
+  $$('[data-copiar]', raiz).forEach(b => b.onclick = async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copiar); toast('Mensaje copiado'); }
+    catch (e) { await modal({ titulo: 'Copia el mensaje', html: `<textarea readonly style="min-height:160px">${esc(b.dataset.copiar)}</textarea>`, botones: [{ texto: 'Listo', valor: true }] }); }
+  });
+  const fm = $('#f-mayorista', raiz);
+  if (fm) fm.onsubmit = async e => {
+    e.preventDefault();
+    const tel = fm.tel.value.replace(/\D/g, '').slice(-10);
+    if (tel.length !== 10) { toast('El WhatsApp debe tener 10 dígitos.', 'error'); return; }
+    const correo = fm.correo.value.trim().toLowerCase();
+    const r = await accion(async () => {
+      const [ya] = await q(sb.from('clientas').select('id,correo').eq('telefono', tel).limit(1));
+      let id;
+      if (ya) {
+        await q(sb.from('clientas').update({ mayorista: true, ...(correo && !ya.correo ? { correo } : {}) }).eq('id', ya.id).select('id'));
+        id = ya.id;
+      } else {
+        const [n] = await q(sb.from('clientas').insert({
+          id: crypto.randomUUID ? crypto.randomUUID() : undefined, nombre: fm.nombre.value.trim(), telefono: tel, correo: correo || null,
+          mayorista: true, creado_por: usuario.nombre, fecha_registro: new Date().toISOString().slice(0, 10),
+        }).select('id'));
+        id = n.id;
+      }
+      if (liveId) await rpc('prime_invitar', { p_live: liveId, p_clienta: id, p_usuario: usuario.nombre });
+      return id;
+    }, liveId ? 'Mayorista agregada e invitada' : 'Mayorista agregada');
+    if (r) pintar();
+  };
+  $$('[data-prime-iniciar]', raiz).forEach(b => b.onclick = async () => {
+    if (!(await confirmar('¿Iniciar el Prime Live?', '<p>Las mayoristas invitadas verán la transmisión y podrán apartar en cuanto publiques la primera prenda.</p>', 'Iniciar'))) return;
+    if (await accion(() => rpc('prime_iniciar', { p_live: b.dataset.primeIniciar, p_usuario: usuario.nombre }), 'Prime Live en curso')) pintar();
+  });
+  $$('[data-prime-cancelar]', raiz).forEach(b => b.onclick = async () => {
+    if (!(await confirmar('¿Cancelar este Prime Live?', '<p>Se borra la programación y las contraseñas dejan de funcionar.</p>', 'Cancelar live', true))) return;
+    if (await accion(() => rpc('prime_cancelar', { p_live: b.dataset.primeCancelar }), 'Prime Live cancelado')) { primeSel = null; pintar(); }
+  });
+  const det = $('#det-invitadas', raiz);
+  if (det) det.ontoggle = () => { verInvitadas = det.open; };
+  const cap = $('#capturar', raiz), inp = $('#foto-prime', raiz);
+  if (cap && inp && D.prime) {
+    const l = D.prime, num = parseInt(cap.textContent.replace(/\D/g, ''), 10) || 1;
+    cap.addEventListener('click', () => { capturandoDesde = Date.now(); });
+    inp.onchange = () => { const f = inp.files[0]; inp.value = ''; if (f) publicarFoto(l, f, num); else capturandoDesde = 0; };
+  }
+  $$('[data-quitar-prenda]', raiz).forEach(b => b.onclick = async () => {
+    if (!(await confirmar('¿Quitar esta prenda?', '<p>Deja de verse para las mayoristas. Úsalo si la foto salió mal.</p>', 'Quitar'))) return;
+    if (await accion(() => rpc('prime_editar_prenda', { p_prenda: b.dataset.quitarPrenda, p_quitar: true }), 'Prenda quitada')) pintar();
+  });
+  const cp = $('#cerrar-prime', raiz);
+  if (cp && D.prime) cp.onclick = async () => {
+    if (!(await confirmar('¿Cerrar el Prime Live?', '<p>Ya no se podrá apartar. Cada mayorista verá su total y cómo pagar.</p>', 'Cerrar y cobrar', true))) return;
+    const r = await accion(() => rpc('live_cerrar', { p_live: D.prime.id, p_usuario: usuario.nombre }), r => `Prime Live cerrado. ${r} ${r === 1 ? 'mayorista tiene' : 'mayoristas tienen'} cobro.`);
+    if (r !== null) irA('casilleros');
+  };
+}
 
 /* ---------- Casilleros ---------- */
 let filtroCas = 'todos';
@@ -456,8 +774,8 @@ function tarjetaCasillero(c) {
     <div class="cas-id">${esc(c.casillero || '—')}<small>${folio(c.folio)}</small></div>
     <div class="cas-cuerpo">
       <div class="cas-cab"><b>${esc(c.clienta)}</b><span class="chip ${s.chip[0]}">${esc(s.chip[1])}</span></div>
-      <small>${telBonito(c.telefono)} · ${c.piezas} ${c.piezas === 1 ? 'prenda' : 'prendas'} · ${dinero(c.total)}</small>
-      <div class="piezas">${(c.prendas || []).map(num4).join(' · ') || '<span class="nota">Sin prendas</span>'}</div>
+      <small>${c.tipo === 'prime' ? '<span class="chip chip-prime">Prime</span> ' : ''}${telBonito(c.telefono)} · ${c.piezas} ${c.piezas === 1 ? 'prenda' : 'prendas'} · ${dinero(c.total)}</small>
+      <div class="piezas">${esc(c.piezas_txt || '') || '<span class="nota">Sin prendas</span>'}</div>
       <p class="paso">${s.paso}</p>
       <div class="fila-botones">
         ${s.accion ? `<button class="btn btn-mini btn-primario" data-${s.accion}="${c.id}">${esc(s.boton)}</button>` : ''}
@@ -647,6 +965,14 @@ async function vistaAjustes() {
         <label>Máximo por clienta y live<input name="limite_por_clienta" type="number" min="1" step="1" value="${v.limite_por_clienta ?? ''}" placeholder="Sin límite"></label>
       </div>
       <label>Mensaje cuando no hay live<textarea name="mensaje_sin_live" maxlength="400">${esc(v.mensaje_sin_live || '')}</textarea></label>
+      <h3 class="seccion">Prime Live (mayoristas)</h3>
+      <div class="tres">
+        <label>Precio<input name="prime_precio" type="number" min="1" step="1" value="${v.prime_precio ?? 89}"></label>
+        <label>Máximo<input name="prime_limite" type="number" min="1" step="1" value="${v.prime_limite ?? ''}" placeholder="Sin límite"></label>
+        <label>Espera (seg.)<input name="prime_retraso" type="number" min="0" max="30" step="1" value="${v.prime_retraso ?? 2}"></label>
+      </div>
+      <label>Enlace del video para insertar (opcional)<input name="prime_video_url" type="url" inputmode="url" value="${esc(v.prime_video_url || '')}" placeholder="https://tu-servidor/embed/video"></label>
+      <p class="nota">Precio y máximo son los valores por omisión al programar un Prime Live. "Espera" son los segundos entre que publicas la foto y se activa el botón, para que todas lo reciban al mismo tiempo. El enlace del video (por ejemplo, el "embed" de Owncast) se muestra arriba en la página de las mayoristas.</p>
       <button class="btn btn-primario btn-grande">Guardar ajustes</button>
     </form>
     <div class="tarjeta">
@@ -665,7 +991,10 @@ conectar.ajustes = raiz => {
       horas_recordatorio: +f.horas_recordatorio.value, horas_limite: +f.horas_limite.value, horas_liberar: +f.horas_liberar.value,
       precio: +f.precio.value, limite_por_clienta: f.limite_por_clienta.value ? +f.limite_por_clienta.value : null,
       mensaje_sin_live: f.mensaje_sin_live.value.trim() || 'Ahorita no hay live en curso.', actualizado_en: new Date().toISOString(),
+      prime_precio: +f.prime_precio.value || 89, prime_limite: f.prime_limite.value ? +f.prime_limite.value : null,
+      prime_retraso: Math.max(0, Math.min(30, +f.prime_retraso.value || 0)), prime_video_url: f.prime_video_url.value.trim() || null,
     };
+    if (datos.prime_video_url && !/^https:\/\//i.test(datos.prime_video_url)) { toast('El enlace del video debe empezar con https://', 'error'); return; }
     if (!(datos.horas_recordatorio < datos.horas_limite && datos.horas_limite <= datos.horas_liberar)) {
       toast('Las horas deben ir en orden: recordatorio, luego límite de pago, luego liberar.', 'error'); return;
     }
@@ -710,6 +1039,7 @@ async function arrancar() {
 /* Se actualiza sola cada 4 segundos (sin interrumpir si alguien está escribiendo o hay una ventana abierta). */
 setInterval(() => {
   if (!usuario || document.visibilityState !== 'visible' || ocupado || $('.modal-fondo')) return;
+  if (capturandoDesde && Date.now() - capturandoDesde < 120000) return; // la cámara está abierta
   const foco = document.activeElement;
   if (foco && /INPUT|TEXTAREA|SELECT/.test(foco.tagName)) return;
   if (['vivo', 'casilleros', 'whatsapp'].includes(vista)) pintar();

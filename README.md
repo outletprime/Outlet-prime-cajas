@@ -6,7 +6,21 @@ y **una sola lista de clientas** (una clienta = un número de WhatsApp):
 | App | Archivo | Para qué |
 |---|---|---|
 | **Cajas** | `index.html` | Caja fija de cada clienta, pedidos por categoría, QR, envíos y reportes. |
-| **Panel del live** | `live.html` | Apartados por WhatsApp, casilleros, cobros y paso automático a la caja fija. |
+| **Panel del live** (equipo) | `live.html` | Lives de redes (bot de WhatsApp) y Prime Live (mayoristas), casilleros, cobros y paso automático a la caja fija. |
+| **Prime Live** (mayoristas) | `prime.html` | Página exclusiva donde cada mayorista invitada entra con su contraseña y aparta con un botón. |
+
+### Dos canales, una sola base de clientas
+
+| | Lives en redes (TikTok / Facebook) | Prime Live |
+|---|---|---|
+| Para quién | Público: captación de clientas nuevas | Solo mayoristas invitadas |
+| Cómo apartan | Mandan el número de la etiqueta al **bot de WhatsApp** | Botón **Apartar** sobre la foto de cada prenda, en `prime.html` |
+| Acceso | Cualquiera con WhatsApp | Contraseña única por mayorista, válida solo para ese live |
+| Cobro, casilleros, 3 h para pagar, caja fija | Igual | Igual (categoría **Prime Live** en Cajas) |
+
+Las mayoristas **no tienen usuario de Supabase**: su contraseña solo les deja ver las prendas
+de ese live y su propio carrito (funciones `prime_acceso`, `prime_estado` y `prime_apartar`).
+Nunca ven datos de otras clientas.
 
 Publicadas en GitHub Pages: https://outletprime.github.io/Outlet-prime-cajas/
 (el panel del live está en `…/live.html`, o desde Cajas → Ajustes → Panel del live).
@@ -22,7 +36,7 @@ Las dos usan el mismo correo y contraseña de Supabase → Authentication → Us
 | `icons/` | Logos de Outlet Prime. |
 | `cp/` | Catálogo de códigos postales de México (SEPOMEX). |
 | `supabase/esquema.sql` | Estructura original de la base de Cajas (referencia, sin datos). |
-| `supabase/migrations/` | Cambios a la base, en orden. `…_sistema_lives.sql` agrega todo el sistema del live. |
+| `supabase/migrations/` | Cambios a la base, en orden: `…_sistema_lives.sql` (bot y casilleros) y `…_prime_live.sql` (mayoristas). |
 | `supabase/functions/whatsapp/` | Conector con WhatsApp Business (se activa cuando haya número del bot). |
 | `docs/WHATSAPP.md` | Pasos para conectar el número de WhatsApp del bot. |
 
@@ -40,6 +54,16 @@ Las dos usan el mismo correo y contraseña de Supabase → Authentication → Us
    (categoría **Live**). Si no tenía caja, se le asigna la primera libre.
 7. **Sin pago.** Recordatorio a la hora, límite a las 2 h y a las 3 h se libera solo; la prenda pasa
    a la primera de la lista de espera. El panel indica "Regresar a racks".
+
+## Cómo funciona Prime Live
+
+1. **Programar** (Panel → En vivo → Prime Live): nombre, fecha, precio por prenda y máximo por mayorista.
+2. **Invitar**: agrega mayoristas (nombre, WhatsApp, correo) e invítalas. Cada una recibe una contraseña
+   única para ese live; se la mandas con los botones **WhatsApp** o **Correo**.
+3. **Iniciar** y **capturar**: el equipo toma la foto de cada prenda y la publica (talla opcional).
+   A todas les aparece al mismo tiempo; tras unos segundos se activa **Apartar** y gana la primera.
+4. **Cerrar**: cada mayorista ve en su página su total, la CLABE y su folio. Lo demás (registrar pago,
+   caja fija, liberar a las 3 h) es igual que en redes.
 
 Toda la lógica vive en la base de datos (funciones `bot_mensaje`, `live_cerrar`, `live_registrar_pago`,
 `live_revisar_vencimientos`…), así que el bot real y el simulador se comportan igual.

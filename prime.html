@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Prime Live">
+<meta name="robots" content="noindex">
+<title>Outlet Prime Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Página exclusiva para mayoristas: tema oscuro de la marca (como el live original). */
+:root {
+  --bg: #0b0b0a; --surface: #161512; --surface-2: #201f1b; --line: #33322c;
+  --red: #e2231a; --white: #f7f5f0; --muted: #a19c8f; --yellow: #d8c948; --green: #7fae67; --photo: #2a2620;
+  --display: 'Oswald', 'Arial Narrow', Impact, sans-serif;
+  --body: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --sup: env(safe-area-inset-top, 0px); --inf: env(safe-area-inset-bottom, 0px);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--white); font: 15px/1.45 var(--body); -webkit-font-smoothing: antialiased; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; letter-spacing: .01em; line-height: 1.1; margin: 0; }
+p { margin: 0; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+.top { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line); padding: calc(var(--sup) + 10px) 16px 10px; }
+.top-in, .page { max-width: 1040px; margin: 0 auto; }
+.top-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { font-family: var(--display); font-weight: 700; font-size: 20px; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+.brand span { color: var(--red); }
+.hola { color: var(--muted); font-size: 13px; text-align: right; }
+.page { padding: 16px 16px calc(var(--inf) + 40px); display: grid; gap: 18px; }
+
+.grid { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 860px) { .grid { grid-template-columns: 400px minmax(0, 1fr); align-items: start; } }
+.col { display: grid; gap: 14px; }
+
+.video { position: relative; aspect-ratio: 9 / 16; max-height: 52vh; width: 100%; margin-inline: auto; border-radius: 14px; overflow: hidden; background: #000; border: 1px solid var(--line); }
+.video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.onair { position: absolute; top: 10px; left: 10px; z-index: 2; background: var(--red); color: #fff; border-radius: 6px; padding: 3px 8px; font-size: 12px; font-weight: 700; letter-spacing: .06em; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; display: inline-block; margin-right: 5px; animation: blink 1.4s infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+
+.current { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: grid; grid-template-columns: 140px minmax(0, 1fr); }
+.current .foto { width: 100%; height: 100%; aspect-ratio: 3 / 4; object-fit: cover; background: var(--photo); }
+.current .info { padding: 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.eyebrow { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.current h2 { font-size: 30px; }
+.meta { font-size: 14px; color: var(--muted); }
+.meta b { color: var(--white); }
+.price { font-family: var(--display); font-size: 24px; font-weight: 600; }
+.cta { grid-column: 1 / -1; margin: 0 14px 14px; border: 0; border-radius: 12px; padding: 18px 14px; font-family: var(--display); font-size: 22px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; background: var(--red); color: #fff; transition: transform .08s ease; }
+.cta:active:not(:disabled) { transform: scale(.98); }
+.cta:disabled { cursor: default; }
+.cta.wait { background: var(--surface-2); color: var(--muted); }
+.cta.won { background: var(--green); color: #0b0b0a; }
+.cta.lost { background: var(--surface-2); color: var(--muted); text-decoration: line-through; }
+.cta-note { grid-column: 1 / -1; margin: -6px 14px 14px; font-size: 13px; color: var(--muted); }
+
+.empty { border: 1px dashed var(--line); border-radius: 14px; padding: 24px 16px; text-align: center; color: var(--muted); display: grid; gap: 6px; }
+.empty strong { color: var(--white); font-family: var(--display); font-size: 20px; font-weight: 600; }
+.sec-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.sec-h h3 { font-size: 20px; }
+.sec-h span { color: var(--muted); font-size: 13px; }
+.shown { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: grid; align-content: start; }
+.tile img { background: var(--photo); aspect-ratio: 3 / 4; width: 100%; object-fit: cover; display: block; }
+.tile .t-in { padding: 8px 10px 10px; display: grid; gap: 6px; }
+.tile .t-top { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; }
+.tile .t-top b { font-family: var(--display); font-weight: 600; font-size: 17px; }
+.chip { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border-radius: 5px; padding: 3px 7px; justify-self: start; }
+.chip.apar { background: var(--surface-2); color: var(--muted); }
+.chip.mia { background: var(--yellow); color: #0b0b0a; }
+.chip.pag { background: rgba(127, 174, 103, .16); color: var(--green); }
+.chip.pend { background: rgba(216, 201, 72, .14); color: var(--yellow); }
+.mini { border: 1px solid var(--red); background: none; color: var(--white); border-radius: 8px; padding: 8px; font-weight: 600; font-size: 13px; }
+.mini:disabled { border-color: var(--line); color: var(--muted); }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
+.card h3 { font-size: 22px; }
+.sub { color: var(--muted); font-size: 14px; }
+label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); font-weight: 500; }
+input[type=text] { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 14px; color: var(--white); font-size: 22px; width: 100%; text-align: center; letter-spacing: 3px; text-transform: uppercase; font-family: ui-monospace, Menlo, monospace; }
+.btn { border: 0; border-radius: 12px; padding: 15px 16px; font-weight: 700; background: var(--red); color: #fff; font-size: 16px; }
+.btn.ghost { background: none; border: 1px solid var(--line); color: var(--white); }
+.btn.small { padding: 9px 12px; font-size: 13px; font-weight: 600; }
+.err { color: #ff8f88; font-size: 14px; }
+
+.cart { display: grid; gap: 10px; }
+.line { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px; }
+.line img { width: 64px; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 8px; background: var(--photo); }
+.line b { font-family: var(--display); font-weight: 600; font-size: 17px; }
+.total { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 4px; border-top: 1px solid var(--line); }
+.total b { font-family: var(--display); font-size: 28px; font-weight: 600; }
+.pago { display: grid; gap: 10px; }
+.dato { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 12px; border-radius: 10px; background: var(--surface-2); }
+.dato small { display: block; color: var(--muted); font-size: 12px; }
+.dato b { font-family: ui-monospace, Menlo, monospace; font-size: 16px; letter-spacing: .5px; overflow-wrap: anywhere; }
+.aviso { border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; color: var(--muted); font-size: 14px; }
+.aviso strong { color: var(--white); }
+.grande { font-family: var(--display); font-size: 40px; font-weight: 600; text-align: center; }
+.reglas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.regla { background: var(--surface-2); border-radius: 10px; padding: 10px; text-align: center; }
+.regla b { display: block; font-family: var(--display); font-size: 20px; font-weight: 600; }
+.regla small { color: var(--muted); font-size: 12px; }
+
+.login { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 24px; max-width: 420px; margin: 0 auto; }
+.login img { width: 100%; max-width: 280px; margin: 0 auto; display: block; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + var(--inf)); z-index: 40; background: var(--white); color: #0b0b0a; font-weight: 600; border-radius: 10px; padding: 12px 16px; max-width: calc(100% - 32px); box-shadow: 0 8px 30px rgba(0, 0, 0, .4); }
+.toast.bad { background: var(--red); color: #fff; }
+.cargando { display: grid; place-items: center; min-height: 60vh; }
+.spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--red); animation: gira .8s linear infinite; }
+@keyframes gira { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .dot, .spinner { animation: none; } .cta { transition: none; } }
+</style>
+</head>
+<body>
+<div id="app"><div class="cargando"><div class="spinner"></div></div></div>
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script>
+/* Prime Live · página de las mayoristas.
+ * No hay usuario de Supabase: la mayorista entra con la contraseña de este live y la página
+ * solo puede pedir a la base lo suyo (prime_acceso, prime_estado, prime_apartar). */
+const CFG = window.APP_CONFIG || {};
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = n => '$' + Number(n || 0).toLocaleString('es-MX');
+const hora = v => v ? new Date(v).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' }) : '';
+const fechaLarga = v => v ? new Date(v).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' }) : '';
+const fotoUrl = ruta => ruta ? `${CFG.supabaseUrl}/storage/v1/object/public/prime/${String(ruta).split('/').map(encodeURIComponent).join('/')}` : '';
+const limpiar = c => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const ls = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) { /* sin almacenamiento */ } },
+};
+let toastT;
+function toast(msg, bad) {
+  const t = $('#toast');
+  t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 3200);
+}
+
+// Sesión aparte y sin guardar: esta página nunca usa la sesión del equipo
+const sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, { auth: { persistSession: false, autoRefreshToken: false, storageKey: 'prime-mayorista' } });
+async function rpc(fn, args) { const { data, error } = await sb.rpc(fn, args); if (error) throw error; return data; }
+
+const S = { codigo: null, e: null, desfase: 0, apartando: {}, resultado: {}, timer: null, ultimoActual: null };
+const ahora = () => Date.now() + S.desfase;
+
+function mensajeError(e) {
+  const m = (e && e.message) || String(e);
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Sin conexión. Revisa tu internet.';
+  return m;
+}
+
+/* ---------- Entrar ---------- */
+function pantallaEntrar(error) {
+  clearTimeout(S.timer);
+  $('#app').innerHTML = `<div class="login">
+    <img src="icons/logo-oscuro.png" alt="Outlet Prime">
+    <form class="card" id="f-entrar">
+      <h3>Prime Live</h3>
+      <p class="sub">Acceso exclusivo para mayoristas. Escribe la contraseña que te enviamos por WhatsApp o correo.</p>
+      <label>Contraseña<input type="text" name="c" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="XXXX-XXXX" value="${esc(S.codigo ? S.codigo.slice(0, 4) + '-' + S.codigo.slice(4) : '')}"></label>
+      <p class="err" ${error ? '' : 'hidden'}>${esc(error || '')}</p>
+      <button class="btn">Entrar</button>
+    </form></div>`;
+  $('#f-entrar').onsubmit = e => { e.preventDefault(); entrar(limpiar(e.target.c.value)); };
+}
+async function entrar(codigo) {
+  if (!codigo || codigo.length !== 8) return pantallaEntrar('La contraseña tiene 8 letras y números.');
+  $('#app').innerHTML = '<div class="cargando"><div class="spinner"></div></div>';
+  try {
+    const e = await rpc('prime_acceso', { p_codigo: codigo });
+    S.codigo = codigo; ls.set('prime-codigo', codigo);
+    recibir(e);
+    ciclo();
+  } catch (err) {
+    ls.set('prime-codigo', null); S.codigo = codigo;
+    pantallaEntrar(mensajeError(err));
+  }
+}
+function recibir(e) {
+  S.desfase = new Date(e.ahora).getTime() - Date.now();
+  S.e = e;
+  pintar();
+}
+async function ciclo() {
+  clearTimeout(S.timer);
+  const espera = S.e && S.e.live.estado === 'activo' ? 1500 : 15000;
+  S.timer = setTimeout(async () => {
+    if (document.visibilityState === 'visible') {
+      try { recibir(await rpc('prime_estado', { p_codigo: S.codigo })); }
+      catch (err) { if (/válida|venció/.test(mensajeError(err))) { ls.set('prime-codigo', null); return pantallaEntrar(mensajeError(err)); } }
+    }
+    ciclo();
+  }, espera);
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.codigo && S.e) { clearTimeout(S.timer); rpc('prime_estado', { p_codigo: S.codigo }).then(recibir).catch(() => {}).finally(ciclo); } });
+
+/* ---------- Pintar ---------- */
+function mias() { return S.e.prendas.filter(p => p.estado === 'mia'); }
+function estadoBoton(p) {
+  const l = S.e.live;
+  if (S.apartando[p.id]) return { cls: 'wait', text: 'Apartando…', dis: true };
+  if (p.estado === 'mia') return { cls: 'won', text: '¡Es tuya!', dis: true, note: 'Ya está en tu carrito.' };
+  if (p.estado === 'apartada') return { cls: 'lost', text: 'Apartada', dis: true, note: S.resultado[p.id] === 'tomada' ? 'Otra clienta llegó primero. Atenta a la siguiente.' : 'Otra clienta la apartó.' };
+  if (l.estado !== 'activo') return { cls: 'wait', text: 'Live terminado', dis: true };
+  const falta = Math.ceil((new Date(p.disponible_en).getTime() - ahora()) / 1000);
+  if (falta > 0) return { cls: 'wait', text: `Disponible en ${falta} s`, dis: true, note: 'Todas reciben el botón al mismo tiempo.' };
+  if (l.limite && mias().length >= l.limite) return { cls: 'wait', text: 'Llegaste a tu límite', dis: true, note: `Puedes apartar hasta ${l.limite} prendas en este live.` };
+  return { cls: '', text: `Apartar · ${money(p.precio)}`, dis: false };
+}
+async function apartar(id) {
+  if (S.apartando[id]) return;
+  S.apartando[id] = true; pintar();
+  let r;
+  try { r = await rpc('prime_apartar', { p_codigo: S.codigo, p_prenda: id }); } catch (e) { r = 'error'; toast(mensajeError(e), true); }
+  delete S.apartando[id];
+  S.resultado[id] = r;
+  const MSG = { ok: ['¡Apartada! Está en tu carrito'], mia: ['Ya era tuya'], tomada: ['Otra clienta llegó primero', true], espera: ['Todavía no: espera la cuenta regresiva', true], limite: [`Ya llegaste a tu límite de ${S.e.live.limite} prendas`, true], cerrado: ['El live ya terminó', true], no_existe: ['Esa prenda ya no está disponible', true] };
+  if (MSG[r]) toast(MSG[r][0], MSG[r][1]);
+  try { recibir(await rpc('prime_estado', { p_codigo: S.codigo })); } catch (e) { pintar(); }
+}
+
+function tarjetaActual(p) {
+  const st = estadoBoton(p);
+  return `<article class="current" aria-live="polite">
+    <img class="foto" src="${esc(fotoUrl(p.foto))}" alt="Prenda ${p.num}">
+    <div class="info">
+      <span class="eyebrow">En pantalla ahora</span>
+      <h2 class="num">Prenda #${p.num}</h2>
+      <div class="meta">${p.talla ? `Talla <b>${esc(p.talla)}</b>` : 'La talla la dicen en el video'}</div>
+      <div class="price num">${money(p.precio)}</div>
+    </div>
+    <button class="cta ${st.cls}" type="button" data-apartar="${p.id}" ${st.dis ? 'disabled' : ''}>${esc(st.text)}</button>
+    ${st.note ? `<p class="cta-note">${esc(st.note)}</p>` : ''}
+  </article>`;
+}
+function tile(p) {
+  const st = estadoBoton(p);
+  return `<div class="tile">
+    <img src="${esc(fotoUrl(p.foto))}" alt="Prenda ${p.num}" loading="lazy">
+    <div class="t-in">
+      <div class="t-top"><b class="num">#${p.num}</b><span>${p.talla ? esc(p.talla) + ' · ' : ''}${money(p.precio)}</span></div>
+      ${p.estado === 'mia' ? '<span class="chip mia">Tuya</span>' : p.estado === 'apartada' ? '<span class="chip apar">Apartada</span>' : ''}
+      ${p.estado === 'disponible' && S.e.live.estado === 'activo' ? `<button class="mini" type="button" data-apartar="${p.id}" ${st.dis ? 'disabled' : ''}>${st.dis ? esc(st.text) : 'Apartar'}</button>` : ''}
+    </div></div>`;
+}
+function carrito() {
+  const ps = mias();
+  if (!ps.length) return `<div class="empty"><strong>Tu carrito está vacío</strong><span>Cuando apartes una prenda, aparece aquí con su foto.</span></div>`;
+  const total = ps.reduce((s, p) => s + Number(p.precio || 0), 0);
+  return `<div class="cart">
+    ${ps.map(p => `<div class="line"><img src="${esc(fotoUrl(p.foto))}" alt="Prenda ${p.num}"><div><b>Prenda #${p.num}</b><br><span class="sub">${esc(p.talla || 'Talla en video')}</span></div><b class="num">${money(p.precio)}</b></div>`).join('')}
+    <div class="total"><span>Total</span><b class="num">${money(total)}</b></div>
+  </div>`;
+}
+function bloquePago() {
+  const c = S.e.cuenta;
+  if (!c) return `<div class="card"><h3>Gracias por acompañarnos 💕</h3><p class="sub">En este Prime Live no apartaste prendas. Te esperamos en el próximo.</p></div>`;
+  if (c.estado === 'pagada') return `<div class="card"><h3>✅ Pago recibido</h3><p class="sub">Tus ${c.piezas} ${c.piezas === 1 ? 'prenda va' : 'prendas van'} a tu caja. Te avisamos cuando la enviemos.</p></div>`;
+  if (c.estado === 'vencida' || c.estado === 'cancelada') return `<div class="card"><h3>Tu apartado venció</h3><p class="sub">Las prendas se liberaron porque no recibimos el pago a tiempo.</p></div>`;
+  const falta = Number(c.total) - Number(c.monto_pagado || 0);
+  return `<div class="card pago">
+    <h3>${c.estado === 'pago_incompleto' ? 'Pago incompleto' : 'Tu total'}</h3>
+    <div class="grande num">${money(c.estado === 'pago_incompleto' ? falta : c.total)}</div>
+    <p class="sub" style="text-align:center">${c.estado === 'pago_incompleto' ? `Recibimos ${money(c.monto_pagado)}; te faltan ${money(falta)}.` : `${c.piezas} ${c.piezas === 1 ? 'prenda' : 'prendas'}`}</p>
+    ${c.clabe ? `
+      <div class="dato"><div><small>CLABE${c.banco ? ' · ' + esc(c.banco) : ''}</small><b>${esc(c.clabe)}</b></div><button class="btn small ghost" type="button" data-copiar="${esc(c.clabe)}">Copiar</button></div>
+      ${c.titular ? `<div class="dato"><div><small>A nombre de</small><b>${esc(c.titular)}</b></div></div>` : ''}
+      <div class="dato"><div><small>En el concepto pon</small><b>${esc(c.folio)}</b></div><button class="btn small ghost" type="button" data-copiar="${esc(c.folio)}">Copiar</button></div>`
+      : '<p class="aviso">En un momento te mandamos los datos para pagar.</p>'}
+    <p class="aviso">Paga antes de las <strong>${hora(c.limite_pago)}</strong>; a las ${hora(c.liberar_en)} las prendas sin pago se liberan para otras clientas.</p>
+  </div>`;
+}
+
+let cuentaRegresiva = null;
+function pintar() {
+  if (!S.e) return;
+  const { live: l, prendas } = S.e;
+  const header = `<header class="top"><div class="top-in"><div class="brand">Outlet <span>Prime</span> Live</div><div class="hola">Hola, ${esc(S.e.clienta)}<br><a href="#" id="salir" style="color:inherit">Salir</a></div></div></header>`;
+  const reglas = `<div class="reglas">
+      <div class="regla"><b class="num">${money(l.precio)}</b><small>por prenda</small></div>
+      <div class="regla"><b>${l.limite ? l.limite : '∞'}</b><small>máximo por clienta</small></div>
+      <div class="regla"><b>3 h</b><small>para pagar al terminar</small></div>
+    </div>`;
+  let cuerpo;
+  if (l.estado === 'programado') {
+    cuerpo = `<div class="card" style="text-align:center">
+        <span class="eyebrow">Estás invitada</span>
+        <h3>${esc(l.titulo || 'Prime Live')}</h3>
+        <p class="sub">${l.programado_para ? 'Empieza el ' + esc(fechaLarga(l.programado_para)) : 'Te avisamos cuando empiece.'}</p>
+        <div class="grande num" id="faltan"></div>
+      </div>${reglas}
+      <p class="aviso">Deja esta página abierta: en cuanto empiece verás la transmisión y las prendas con su botón <strong>Apartar</strong>.</p>`;
+  } else if (l.estado === 'activo') {
+    const actual = prendas.find(p => p.id === l.actual);
+    const resto = prendas.filter(p => p.id !== l.actual);
+    cuerpo = `<div class="grid">
+      <div class="col">
+        ${l.video_url ? `<div class="video"><span class="onair"><span class="dot"></span>EN VIVO</span><iframe src="${esc(l.video_url)}" title="Transmisión en vivo" allow="autoplay; fullscreen" allowfullscreen></iframe></div>` : ''}
+        ${actual ? tarjetaActual(actual) : `<div class="empty"><strong>Prepárate</strong><span>En cuanto mostremos una prenda, aparece aquí con su botón para apartar.</span></div>`}
+        ${reglas}
+      </div>
+      <div class="col">
+        <section><div class="sec-h"><h3>Ya mostradas</h3><span class="num">${resto.filter(p => p.estado === 'disponible').length} disponibles</span></div>
+          ${resto.length ? `<div class="shown">${resto.map(tile).join('')}</div>` : '<div class="empty"><span>Las prendas que ya pasaron aparecen aquí. Las que nadie apartó se pueden apartar después.</span></div>'}
+        </section>
+        <section><div class="sec-h"><h3>Mi carrito</h3><span class="num">${mias().length}${l.limite ? ' de ' + l.limite : ''}</span></div>${carrito()}</section>
+      </div></div>`;
+  } else {
+    cuerpo = `<div class="grid"><div class="col">${bloquePago()}</div>
+      <div class="col"><section><div class="sec-h"><h3>Lo que apartaste</h3></div>${carrito()}</section></div></div>`;
+  }
+  const foco = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.apartar : null;
+  $('#app').innerHTML = header + `<main class="page">${cuerpo}</main>`;
+  if (foco) { const b = document.querySelector(`[data-apartar="${foco}"]`); if (b && !b.disabled) b.focus({ preventScroll: true }); }
+  document.querySelectorAll('[data-apartar]').forEach(b => b.onclick = () => apartar(b.dataset.apartar));
+  document.querySelectorAll('[data-copiar]').forEach(b => b.onclick = async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copiar); toast('Copiado'); } catch (e) { toast('No se pudo copiar: mantén presionado el texto para copiarlo.', true); }
+  });
+  $('#salir').onclick = e => { e.preventDefault(); ls.set('prime-codigo', null); S.e = null; pantallaEntrar(); };
+  // Cuenta regresiva: se actualiza sola cada segundo sin pedir datos
+  clearInterval(cuentaRegresiva);
+  cuentaRegresiva = setInterval(() => {
+    if (!S.e) return;
+    const f = $('#faltan');
+    if (f && S.e.live.programado_para) {
+      const s = Math.max(0, Math.round((new Date(S.e.live.programado_para).getTime() - ahora()) / 1000));
+      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
+      f.textContent = s ? (h ? `${h} h ${m} min` : `${m}:${String(x).padStart(2, '0')}`) : 'En unos momentos';
+    }
+    document.querySelectorAll('[data-apartar]').forEach(b => {
+      const p = S.e.prendas.find(x => x.id === b.dataset.apartar);
+      if (!p) return;
+      const st = estadoBoton(p);
+      const esCta = b.classList.contains('cta');
+      const texto = esCta || st.dis ? st.text : 'Apartar';
+      if (b.textContent !== texto) b.textContent = texto;
+      if (b.disabled !== st.dis) b.disabled = st.dis;
+      if (esCta) b.className = `cta ${st.cls}`;
+    });
+  }, 250);
+}
+
+/* ---------- Arranque ---------- */
+(function () {
+  const url = new URL(location.href);
+  const deUrl = limpiar(url.searchParams.get('c'));
+  if (deUrl) { url.searchParams.delete('c'); history.replaceState(null, '', url.pathname + url.search + url.hash); }
+  const codigo = deUrl || limpiar(ls.get('prime-codigo'));
+  if (codigo) entrar(codigo); else pantallaEntrar();
+})();
+</script>
+</body>
+</html>
