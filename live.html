@@ -334,11 +334,13 @@ async function accion(fn, okMsg) {
 
 /* ---------- Nivel de acceso ---------- */
 let ROL = null;
-const NIVELES = { duena: 'Dueña', supervisor: 'Supervisor · solo ver', operacion: 'Operación', live: 'Operación live · acomodo' };
+const NIVELES = { duena: 'Dueña', supervisor: 'Supervisor · ver y ligar DMs', operacion: 'Operación', live: 'Operación live · acomodo' };
 const puede = {
   operar: () => ROL === 'duena' || ROL === 'operacion',
   duena: () => ROL === 'duena',
   acomodar: () => ['duena', 'operacion', 'live'].includes(ROL),
+  // Supervisor solo cambia esto: ligar a una clienta que mandó su WhatsApp por DM
+  ligar: () => ['duena', 'operacion', 'supervisor'].includes(ROL),
 };
 
 /* ---------- Datos ---------- */
@@ -404,13 +406,16 @@ function tarjetaDM(d) {
   return `<div class="dm${d.pedido_en ? ' pedido' : ''}">
     <div class="dm-cab"><span class="chip chip-red">${esc(RED[d.red] || d.red)}</span><b>@${esc(d.usuario)}</b>${d.pedido_en ? '<span class="chip chip-aviso">DM pedido</span>' : ''}<span class="dm-tiempo" data-fin="${fin}">${mmss(d.segundos)}</span></div>
     <div>${pidio.join(' · ') || 'Sin prendas'}${d.provisionales.length ? ' <small>(deja la prenda en la charola de pendientes)</small>' : ''}</div>
-    ${d.sugerida_id && puede.operar() ? `<div class="banner banner-info"><span>¿Es <b>${esc(d.sugerida)}</b>?</span><button type="button" class="btn btn-mini btn-primario" data-dm-sug="${d.id}">Sí, es ella</button></div>` : ''}
+    ${d.sugerida_id && puede.ligar() ? `<div class="banner banner-info"><span>¿Es <b>${esc(d.sugerida)}</b>?</span><button type="button" class="btn btn-mini btn-primario" data-dm-sug="${d.id}">Sí, es ella</button></div>` : ''}
     ${puede.operar() ? `<div class="fila-botones">
       ${d.pedido_en ? '' : `<button type="button" class="btn btn-mini btn-marca" data-dm-pedido="${d.id}">Ya se lo pedí</button>`}
       <button type="button" class="btn btn-mini btn-secundario" data-dm-copiar="${d.id}">Copiar mensaje</button>
       <button type="button" class="btn btn-mini btn-secundario" data-dm-ligar="${d.id}">Ligar a mano</button>
       <button type="button" class="btn btn-mini btn-secundario" data-dm-mas="${d.id}">+${Number(D.cfg.minutos_registro) || 10} min</button>
-      <button type="button" class="btn btn-mini btn-secundario" data-dm-soltar="${d.id}">Soltar</button></div>` : ''}
+      <button type="button" class="btn btn-mini btn-secundario" data-dm-soltar="${d.id}">Soltar</button></div>`
+    : puede.ligar() ? `<div class="fila-botones">
+      <button type="button" class="btn btn-mini btn-marca" data-dm-ligar="${d.id}">Ligar con su WhatsApp</button>
+      <button type="button" class="btn btn-mini btn-secundario" data-dm-copiar="${d.id}">Copiar mensaje</button></div>` : ''}
   </div>`;
 }
 function htmlDMs() {
@@ -460,26 +465,21 @@ async function ligarAMano(d) {
     } }],
   });
   if (!datos) return;
-  await accion(async () => {
-    let [cl] = await q(sb.from('clientas').select('id,nombre').eq('telefono', datos.tel).limit(1));
-    if (!cl) {
-      if (!datos.nombre) throw new Error('No hay clienta con ese WhatsApp: escribe su nombre para registrarla.');
-      [cl] = await q(sb.from('clientas').insert({ nombre: datos.nombre, telefono: datos.tel, fecha_registro: new Date().toISOString().slice(0, 10), creado_por: usuario.nombre }).select('id,nombre'));
-    }
-    return ligarRed(cl, d);
-  });
+  await accion(() => ligarDM(d, { p_telefono: datos.tel, p_nombre: datos.nombre || null }));
   pintar();
 }
-async function ligarRed(cl, d) {
-  let r = await rpc('live_ligar_red', { p_clienta: cl.id, p_red: d.red, p_usuario: d.usuario, p_por: usuario.nombre, p_forzar: false, p_avisar: true });
+// Liga el @usuario del aviso a una clienta (por su WhatsApp o porque ya se sabe quién es)
+async function ligarDM(d, quien) {
+  const args = { p_dm: d.id, p_por: usuario.email, p_forzar: false, ...quien };
+  let r = await rpc('live_dm_ligar', args);
   if (r.conflicto) {
     ocupado = false;
-    const ok = await confirmar('Ese usuario ya está ligado', `<p>@${esc(d.usuario)} está ligado a <b>${esc(r.clienta_actual)}</b>. ¿Cambiarlo a <b>${esc(cl.nombre)}</b>?</p>`, 'Sí, cambiar');
+    const ok = await confirmar('Ese usuario ya está ligado', `<p>@${esc(d.usuario)} está ligado a <b>${esc(r.clienta_actual)}</b>. ¿Cambiarlo a <b>${esc(r.clienta)}</b>?</p>`, 'Sí, cambiar');
     ocupado = true;
     if (!ok) return null;
-    r = await rpc('live_ligar_red', { p_clienta: cl.id, p_red: d.red, p_usuario: d.usuario, p_por: usuario.nombre, p_forzar: true, p_avisar: true });
+    r = await rpc('live_dm_ligar', { ...args, p_forzar: true });
   }
-  toast(`@${d.usuario} ligada a ${cl.nombre}${r.tuyas?.length ? ' · ' + r.tuyas.map(num4).join(', ') + ' a su casillero' : ''}`);
+  toast(`@${d.usuario} ligada a ${r.clienta}${r.tuyas?.length ? ' · ' + r.tuyas.map(num4).join(', ') + ' a su casillero' : ''}`);
   return r;
 }
 function conectarDMs(raiz) {
@@ -495,7 +495,7 @@ function conectarDMs(raiz) {
   $$('[data-dm-ligar]', raiz).forEach(b => b.onclick = () => ligarAMano(dm(b.dataset.dmLigar)));
   $$('[data-dm-sug]', raiz).forEach(b => b.onclick = async () => {
     const d = dm(b.dataset.dmSug);
-    if (await accion(() => ligarRed({ id: d.sugerida_id, nombre: d.sugerida }, d))) pintar();
+    if (await accion(() => ligarDM(d, { p_clienta: d.sugerida_id }))) pintar();
   });
   $$('[data-dm-mas]', raiz).forEach(b => b.onclick = async () => {
     if (await accion(() => rpc('live_dm_extender', { p_dm: b.dataset.dmMas }), 'Le diste más tiempo')) pintar();
@@ -1353,7 +1353,7 @@ async function htmlEquipo() {
     ]);
   } catch (e) { return `<div class="tarjeta"><p class="nota">${esc(traducirError(e))}</p></div>`; }
   const pendientes = gente.filter(g => !g.rol).length;
-  const opciones = r => [['duena', 'Dueña'], ['supervisor', 'Supervisor · solo ver'], ['operacion', 'Operación'], ['live', 'Operación live · acomodo'], ['', 'Sin acceso']]
+  const opciones = r => [['duena', 'Dueña'], ['supervisor', 'Supervisor · ver y ligar DMs'], ['operacion', 'Operación'], ['live', 'Operación live · acomodo'], ['', 'Sin acceso']]
     .map(([v, t]) => `<option value="${v}" ${(r || '') === v ? 'selected' : ''}>${t}</option>`).join('');
   const DESC = {
     'pago registrado': d => `${d.folio} · ${dinero(d.monto_pagado)}${d.caja ? ' → caja ' + d.caja : ''}`,

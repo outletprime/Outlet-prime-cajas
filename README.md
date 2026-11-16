@@ -34,6 +34,7 @@ Las dos usan el mismo correo y contraseña de Supabase → Authentication → Us
 | Ver live, casilleros y prendas; recibir avisos | ✅ | ✅ | ✅ | ✅ |
 | Marcar prendas acomodadas en su casillero o regresadas al rack (pestaña **Acomodo**) | ✅ | ❌ | ✅ | ✅ |
 | Ver clientas, teléfonos y la app de Cajas | ✅ | ✅ | ✅ | ❌ |
+| **Ligar a mano** a una clienta que mandó su WhatsApp por DM (aviso "Pide DM") | ✅ | ✅ | ✅ | ❌ |
 | Ver reportes de ventas | ✅ | ✅ | ❌ | ❌ |
 | Iniciar/cerrar lives, capturar, liberar, ligar usuarios, registrar clientas y pedidos | ✅ | ❌ | ✅ | ❌ |
 | Registrar pagos | ✅ | ❌ | ❌ | ❌ |
@@ -41,6 +42,10 @@ Las dos usan el mismo correo y contraseña de Supabase → Authentication → Us
 | Cambiar CLABE, precios, tiempos y categorías | ✅ | ❌ | ❌ | ❌ |
 | Borrar cualquier cosa | ✅ | ❌ | ❌ | ❌ |
 | Dar o quitar accesos | ✅ | ❌ | ❌ | ❌ |
+
+**Supervisor** solo ve, con una excepción: atiende los DMs. Cuando una clienta nueva le manda su
+WhatsApp por mensaje directo, en el aviso "Pide DM" toca **Ligar con su WhatsApp**, escribe el número (y el
+nombre si es nueva) y listo: lo que pidió pasa a su casillero y le llega la confirmación por WhatsApp.
 
 **Acomodo** (para quien lleva las prendas del live a los casilleros): lista "Llevar a su casillero"
 (`0023 → C-007`), "Regresar al rack" (prendas liberadas) y "Charola de pendientes" (clientas nuevas que

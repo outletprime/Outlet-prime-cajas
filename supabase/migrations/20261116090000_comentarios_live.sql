@@ -1138,3 +1138,55 @@ revoke all on function public.puede_acomodar(), public.equipo_asignar(uuid, text
   public.live_acomodar(uuid, text, boolean), public.live_regresar_rack(uuid, text, boolean) from public, anon;
 grant execute on function public.puede_acomodar(), public.equipo_asignar(uuid, text),
   public.live_acomodar(uuid, text, boolean), public.live_regresar_rack(uuid, text, boolean) to authenticated, service_role;
+
+-- =====================================================================
+-- 14. Ligar a mano desde un aviso "Pide DM" (cuando la clienta manda su WhatsApp por DM)
+--     Lo puede hacer Dueña, Operación y también Supervisor: es lo único que Supervisor
+--     cambia en todo el sistema. Operación live (acomodo) no.
+-- =====================================================================
+create or replace function public.live_dm_ligar(
+  p_dm uuid,
+  p_telefono text default null,     -- WhatsApp que mandó por DM (o p_clienta si ya se sabe quién es)
+  p_nombre text default null,       -- obligatorio solo si ese WhatsApp no está registrado
+  p_clienta uuid default null,
+  p_forzar boolean default false,   -- el @usuario ya estaba ligado a otra clienta: cambiarlo
+  p_por text default null
+) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  d live_dm;
+  v_tel text;
+  v_cl clientas;
+  v_cfg live_config;
+  v_por text := coalesce(nullif(trim(p_por), ''), (select email from equipo where usuario_id = auth.uid()));
+begin
+  if auth.uid() is not null and not exists (select 1 from equipo where usuario_id = auth.uid()
+                                             and rol in ('duena', 'operacion', 'supervisor')) then
+    raise exception 'Tu nivel de acceso no permite hacer esto.';
+  end if;
+  select * into d from live_dm where id = p_dm;
+  if not found then raise exception 'Ese aviso ya no existe.'; end if;
+
+  if p_clienta is not null then
+    select * into v_cl from clientas where id = p_clienta;
+    if not found then raise exception 'No existe esa clienta.'; end if;
+  else
+    v_tel := live_tel10(p_telefono);
+    if length(v_tel) <> 10 then raise exception 'El WhatsApp debe tener 10 dígitos.'; end if;
+    select * into v_cl from clientas where telefono = v_tel;
+    if not found then
+      if nullif(trim(p_nombre), '') is null then
+        raise exception 'No hay clienta con ese WhatsApp: escribe su nombre para registrarla.';
+      end if;
+      select * into v_cfg from live_config limit 1;
+      insert into clientas (nombre, telefono, fecha_registro, creado_por)
+      values (initcap(trim(p_nombre)), v_tel, (now() at time zone v_cfg.zona_horaria)::date, coalesce(v_por, 'Panel'))
+      returning * into v_cl;
+    end if;
+  end if;
+
+  return live_ligar_red(v_cl.id, d.red, d.usuario, v_por, p_forzar, true)
+         || jsonb_build_object('clienta', trim(v_cl.nombre || coalesce(' ' || v_cl.apellidos, '')));
+end $$;
+revoke all on function public.live_dm_ligar(uuid, text, text, uuid, boolean, text) from public, anon;
+grant execute on function public.live_dm_ligar(uuid, text, text, uuid, boolean, text) to authenticated, service_role;
