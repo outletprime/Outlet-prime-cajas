@@ -15,7 +15,7 @@ y **una sola lista de clientas** (una clienta = un número de WhatsApp):
 | | Lives en redes (TikTok / Facebook) | Prime Live |
 |---|---|---|
 | Para quién | Público: captación de clientas nuevas | Solo mayoristas invitadas |
-| Cómo apartan | **Comentan el número en el live** (el agente lo lee). También pueden mandarlo al bot de WhatsApp: gana quien llegue primero | Botón **Apartar** sobre la foto de cada prenda, en `prime.html` |
+| Cómo apartan | **Comentan la clave en el live** (el agente la lee). También pueden mandarla al bot de WhatsApp: gana quien llegue primero | Botón **Apartar** sobre la foto de cada prenda, en `prime.html` |
 | Acceso | Cualquiera: la primera vez se registra por WhatsApp con su @usuario | Contraseña única por mayorista, válida solo para ese live |
 | Cobro, casilleros, 3 h para pagar, caja fija | Igual | Igual (categoría **Prime Live** en Cajas) |
 
@@ -74,7 +74,7 @@ aún no se registran). Cada prenda se palomea con ✓; si se equivoca, puede des
 | `icons/` | Logos de Outlet Prime. |
 | `cp/` | Catálogo de códigos postales de México (SEPOMEX). |
 | `supabase/esquema.sql` | Estructura original de la base de Cajas (referencia, sin datos). |
-| `supabase/migrations/` | Cambios a la base, en orden: `…_sistema_lives.sql` (bot y casilleros), `…_prime_live.sql` (mayoristas), `…_avisos_equipo.sql` (avisos), `…_niveles_acceso.sql` (niveles) y `…_comentarios_live.sql` (comentarios y pide DM). |
+| `supabase/migrations/` | Cambios a la base (todos ya aplicados en Supabase el 16 nov), en orden: `…_sistema_lives.sql` (bot y casilleros), `…_prime_live.sql` (mayoristas), `…_avisos_equipo.sql` (avisos), `…_niveles_acceso.sql` (niveles), `…_comentarios_live.sql` (comentarios y pide DM) y `…_claves_un_solo_sistema.sql` (claves A1–ZY98 y un solo bot). |
 | `agente/` | Agente que lee los comentarios del live (Node.js). Instrucciones en `agente/LEEME.md`. |
 | `supabase/functions/whatsapp/` | Conector con WhatsApp Business (se activa cuando haya número del bot). |
 | `supabase/functions/avisos/` | Envía los avisos al celular del equipo (notificaciones). |
@@ -83,14 +83,14 @@ aún no se registran). Cada prenda se palomea con ✓; si se equivoca, puede des
 
 ## Cómo funciona el live con comentarios (agente con IA)
 
-1. **La clienta comenta el número** en el live ("23", "la 23 porfa", "me llevo la veintitrés").
+1. **La clienta comenta la clave** en el live ("A23", "la a23 porfa", "me llevo la A veintitrés").
 2. **El agente lo lee** y busca su @usuario en Supabase:
    - **Registrada** → la prenda se le aparta al momento y va a **su casillero**. Si ya estaba apartada,
      queda en espera con su lugar según la hora del comentario.
    - **Nueva** → la prenda queda **provisional 10 minutos** y en el panel sale **"🙋 Pide DM a @usuaria"**.
      La host le pide mensaje directo. La respuesta automática del DM (Ajustes → Mensaje de bienvenida
      del DM) le da el WhatsApp del bot.
-3. **La clienta escribe al bot**: *"Soy Ana López, mi usuario es @ana_23, quiero la 23"*. El bot la
+3. **La clienta escribe al bot**: *"Soy Ana López, mi tiktok es @ana_23, quiero la A23"*. El bot la
    registra y liga **@usuario ↔ WhatsApp ↔ clienta**. El provisional se vuelve definitivo y va a su casillero.
 4. **Lo que comente después** (en este live y en los siguientes) cae solo en su casillero.
 5. Si no se registra en 10 minutos, la prenda pasa a la siguiente en espera o vuelve a estar disponible.
@@ -105,12 +105,14 @@ En el panel:
 
 ## Cómo funciona el live (cobro y caja)
 
-1. **Etiquetar.** Cada prenda tiene un número fijo (Prendas → Registrar rango, p. ej. 3001–3200), a $89.
+1. **Etiquetar.** Cada prenda tiene una **clave** fija (Prendas → Registrar rango, p. ej. A1 → A98), a $89.
+   Claves de **A1 a ZY98**, pensadas para no confundirse: letras sin O, I, L ni Ñ; dos letras siempre
+   distintas (AB sí, AA no); números del 1 al 98 sin dígitos repetidos (11, 22 … 88 no existen).
 2. **Iniciar live** en el panel.
-3. **Apartar.** La clienta comenta el número en el live (ver arriba) o lo manda por WhatsApp (`23` o
-   `23 45 310`). Gana el primero; si ya está apartada, queda en lista de espera con su lugar.
+3. **Apartar.** La clienta comenta la clave en el live (ver arriba) o la manda por WhatsApp (`A23` o
+   `A23 B7 AB15`). Gana la primera; si ya está apartada, queda en lista de espera con su lugar.
 4. **Casillero.** Al primer apartado se le asigna un casillero (C-001 a C-100). El panel muestra
-   `0023 → C-007` y el ayudante deja ahí la prenda.
+   `A23 → C-007` y quien hace el acomodo deja ahí la prenda.
 5. **Cerrar live.** El bot manda a cada clienta su total, la CLABE y su folio.
 6. **Pago.** Se registra en Casilleros (a mano por ahora; automático cuando haya CLABE por pedido).
    Al pagar completo, las prendas pasan solas a su **caja fija** y se crea el pedido en Cajas

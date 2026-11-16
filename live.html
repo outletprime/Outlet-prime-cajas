@@ -260,7 +260,45 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtDinero = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
 const dinero = n => fmtDinero.format(Number(n) || 0);
-const num4 = n => String(n).padStart(4, '0');
+/* Claves de prenda: A1 … ZY98 (sin O, I, L, Ñ; dos letras distintas; sin 11, 22 … 88 ni 99).
+   Igual que clave_a_num / num_a_clave en la base. Cada clave es un número interno 1..52371. */
+const LETRAS_CLAVE = 'ABCDEFGHJKMNPQRSTUVWXYZ';
+function claveANum(texto) {
+  const m = String(texto ?? '').toUpperCase().replace(/[\s#-]/g, '').match(/^([A-Z]{1,2})([0-9]{1,2})$/);
+  if (!m) return null;
+  const n = parseInt(m[2], 10);
+  if (n < 1 || n > 98 || n % 11 === 0) return null;
+  const a = LETRAS_CLAVE.indexOf(m[1][0]);
+  if (a < 0) return null;
+  if (m[1].length === 1) return a * 99 + n;
+  let b = LETRAS_CLAVE.indexOf(m[1][1]);
+  if (b < 0 || b === a) return null;
+  if (b > a) b -= 1;
+  return 2277 + (a * 22 + b) * 99 + n;
+}
+function numAClave(p) {
+  p = Number(p);
+  if (!Number.isInteger(p) || p < 1 || p > 52371) return null;
+  if (p <= 2277) return LETRAS_CLAVE[Math.floor((p - 1) / 99)] + ((p - 1) % 99 + 1);
+  let k = p - 2278;
+  const n = (k % 99) + 1;
+  k = Math.floor(k / 99);
+  const a = Math.floor(k / 22);
+  let b = k % 22;
+  if (b >= a) b += 1;
+  return LETRAS_CLAVE[a] + LETRAS_CLAVE[b] + n;
+}
+// Claves escritas en un texto ("A23 ab7 AB-12") → números internos; también avisa las que no existen
+function clavesDe(t) {
+  const txt = String(t ?? '');
+  const nums = [], malas = [];
+  for (const m of txt.matchAll(/(?<![\p{L}\p{N}_])([A-Za-z]{1,2})[\s-]?([0-9]{1,3})(?![\p{L}\p{N}_])/gu)) {
+    const n = claveANum(m[1] + m[2]);
+    if (n) { if (!nums.includes(n)) nums.push(n); } else malas.push((m[1] + m[2]).toUpperCase());
+  }
+  return { nums, malas };
+}
+const num4 = n => numAClave(n) || String(n).padStart(4, '0');
 const hora = v => v ? new Date(v).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' }) : '';
 const horaSeg = v => v ? new Date(v).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit', second: '2-digit' }) : '';
 const fechaHora = v => v ? new Date(v).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '';
@@ -380,7 +418,6 @@ let TIENE_COMENTARIOS = false;   // se activa cuando la base ya tiene 2026111609
 const RED = { tiktok: 'TikTok', facebook: 'Facebook', instagram: 'Instagram', youtube: 'YouTube', whatsapp: 'WhatsApp', simulador: 'Simulador', otra: 'Otra' };
 const ESTADO_AG = { conectado: 'leyendo', esperando: 'esperando live', error: 'error', apagado: 'apagado' };
 const mmss = seg => { const s = Math.max(0, Math.round(seg)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-const numerosDe = t => [...new Set((String(t).match(/(?<![0-9])[0-9]{1,5}(?![0-9])/g) || []).map(Number).filter(n => n > 0))];
 const nombreCorto = n => String(n || '').split(' ').slice(0, 2).join(' ');
 function textoDM(usuarioRed) {
   return String(D.cfg.mensaje_dm || '')
@@ -433,7 +470,7 @@ function htmlCaptura() {
         <label>Red<select name="red">${['tiktok', 'facebook', 'instagram', 'youtube'].map(r => `<option value="${r}" ${r === (D.cfg.red_principal || 'tiktok') ? 'selected' : ''}>${RED[r]}</option>`).join('')}</select></label>
         <label>Usuario<input name="usuario" placeholder="@usuaria" autocomplete="off" autocapitalize="none" required></label>
       </div>
-      <label>Número(s) de prenda<input name="nums" inputmode="numeric" placeholder="23 45" autocomplete="off" required></label>
+      <label>Clave(s) de prenda<input name="nums" placeholder="A23 AB7" autocomplete="off" autocapitalize="characters" required></label>
       <button class="btn btn-primario">Apartar</button>
     </form></details>`;
 }
@@ -508,8 +545,9 @@ function conectarDMs(raiz) {
   const f = $('#f-captura', raiz);
   if (f) f.onsubmit = async e => {
     e.preventDefault();
-    const nums = numerosDe(f.nums.value);
-    if (!nums.length) { toast('Escribe el número de la prenda.', 'error'); return; }
+    const { nums, malas } = clavesDe(f.nums.value);
+    if (malas.length) { toast(`${malas.join(', ')} no es una clave válida (de A1 a ZY98, sin O, I, L, sin letras repetidas ni 11, 22…).`, 'error'); return; }
+    if (!nums.length) { toast('Escribe la clave de la prenda, por ejemplo A23.', 'error'); return; }
     const r = await accion(() => rpc('live_comentario', { p_red: f.red.value, p_usuario: f.usuario.value, p_texto: `(capturado a mano) ${f.nums.value}`, p_prendas: nums, p_interpretado_por: 'manual', p_nombre: null }));
     if (r) { avisoResultado(r); f.usuario.value = ''; f.nums.value = ''; f.usuario.blur(); f.nums.blur(); pintar(); }
   };
@@ -695,7 +733,7 @@ function vistaRedes() {
   if (!D.live) {
     const porCobrar = D.tablero.filter(c => ['por_pagar', 'pago_incompleto'].includes(c.estado));
     return `
-      <div class="vacio">${IC.vivo}<h2>No hay live en curso</h2><p>${TIENE_COMENTARIOS ? 'Al iniciar, el agente aparta lo que comenten en el live y el bot lo que manden por WhatsApp. Si el agente está encendido, el live se inicia solo al empezar a transmitir.' : 'Al iniciar, el bot de WhatsApp empieza a apartar por número de etiqueta.'}</p></div>
+      <div class="vacio">${IC.vivo}<h2>No hay live en curso</h2><p>${TIENE_COMENTARIOS ? 'Al iniciar, el agente aparta lo que comenten en el live y el bot lo que manden por WhatsApp. Si el agente está encendido, el live se inicia solo al empezar a transmitir.' : 'Al iniciar, el bot de WhatsApp empieza a apartar por clave de prenda.'}</p></div>
       ${htmlAgente()}
       ${sinClabe ? `<div class="banner banner-aviso">${IC.alerta}<span>Falta la CLABE para cobrar. <a href="#ajustes" data-ir="ajustes">Ponla en Ajustes</a> antes de cerrar el live.</span></div>` : ''}
       ${puede.operar() ? `<form class="tarjeta" id="f-iniciar">
@@ -731,7 +769,7 @@ function vistaRedes() {
     ${sinClabe ? `<div class="banner banner-aviso">${IC.alerta}<span>Falta la CLABE: los cobros saldrían sin datos de pago. <a href="#ajustes" data-ir="ajustes">Ponla en Ajustes</a>.</span></div>` : ''}
     <h3 class="seccion">Apartados al momento</h3>
     ${D.feed.length ? `<div class="feed">${D.feed.map(a => filaFeed(a, pos, nuevos.has(a.id))).join('')}</div>`
-      : `<div class="vacio"><p>Aún no hay apartados. Cuando una clienta ${TIENE_COMENTARIOS ? 'comente un número en el live o lo mande' : 'mande un número'} por WhatsApp aparece aquí con su casillero.</p></div>`}
+      : `<div class="vacio"><p>Aún no hay apartados. Cuando una clienta ${TIENE_COMENTARIOS ? 'comente una clave en el live o la mande' : 'mande una clave'} por WhatsApp aparece aquí con su casillero.</p></div>`}
     ${htmlCaptura()}
     ${puede.operar() ? '<button class="btn btn-peligro btn-grande" id="cerrar-live">Cerrar live y mandar cobros</button>' : ''}
     <p class="nota">Al cerrar, cada clienta recibe por WhatsApp su total y cómo pagar. Tiene ${horas(D.cfg.horas_limite)} para pagar; a las ${horas(D.cfg.horas_liberar)} lo no pagado se libera solo.</p>`;
@@ -1152,7 +1190,7 @@ async function vistaPrendas() {
   let detalle = '';
   if (buscada != null) {
     const [p] = await q(sb.from('prendas').select('*').eq('numero', buscada));
-    if (!p) detalle = `<div class="tarjeta"><b>${num4(buscada)}</b><p class="nota">Esa etiqueta no está registrada. Regístrala con el rango de arriba.</p></div>`;
+    if (!p) detalle = `<div class="tarjeta"><b>${num4(buscada)}</b><p class="nota">Esa clave no está registrada. Regístrala con el rango de arriba.</p></div>`;
     else {
       const hist = await q(sb.from('live_feed').select('*').eq('prenda', buscada).order('creado_en', { ascending: false }).limit(30));
       const ET = { disponible: ['chip-ok', 'Disponible'], apartada: ['chip-aviso', 'Apartada'], pagada: ['chip-info', 'Vendida'], enviada: ['chip', 'Enviada'], baja: ['chip-vencida', 'Baja'] };
@@ -1174,16 +1212,16 @@ async function vistaPrendas() {
     ${puede.operar() ? `<h3 class="seccion">Registrar etiquetas nuevas</h3>
     <form class="tarjeta formulario" id="f-rango">
       <div class="tres">
-        <label>Desde<input name="desde" type="number" inputmode="numeric" min="1" max="99999" required placeholder="3001"></label>
-        <label>Hasta<input name="hasta" type="number" inputmode="numeric" min="1" max="99999" required placeholder="3200"></label>
+        <label>Desde<input name="desde" required placeholder="A1" autocomplete="off" autocapitalize="characters"></label>
+        <label>Hasta<input name="hasta" required placeholder="A98" autocomplete="off" autocapitalize="characters"></label>
         <label>Precio<input name="precio" type="number" inputmode="decimal" min="1" value="${Number((cfg[0] || {}).precio || 89)}"></label>
       </div>
       <button class="btn btn-primario">Registrar rango</button>
-      <p class="nota">Los números que ya existían no se tocan. Lo que no se vende en un live sigue disponible para el siguiente.</p>
+      <p class="nota">Claves de A1 a ZY98: letras sin O, I, L ni Ñ; dos letras siempre distintas (AB sí, AA no); números del 1 al 98 sin 11, 22 … 88. Las claves que no existen se saltan solas (A1 a A98 son 90 prendas). Las que ya existían no se tocan.</p>
     </form>` : ''}
     <h3 class="seccion">Buscar una prenda</h3>
     <form class="enviar" id="f-buscar">
-      <input name="n" type="number" inputmode="numeric" min="1" max="99999" placeholder="Número de etiqueta" value="${buscada ?? ''}" aria-label="Número de etiqueta">
+      <input name="n" placeholder="Clave, por ejemplo A23" value="${buscada != null ? num4(buscada) : ''}" autocomplete="off" autocapitalize="characters" aria-label="Clave de la prenda">
       <button class="btn btn-primario">Buscar</button>
     </form>
     ${detalle}`;
@@ -1192,15 +1230,25 @@ conectar.prendas = raiz => {
   if ($('#f-rango', raiz)) $('#f-rango', raiz).onsubmit = async e => {
     e.preventDefault();
     const f = e.target;
-    const desde = +f.desde.value, hasta = +f.hasta.value;
-    if (hasta < desde) { toast('El segundo número debe ser mayor o igual al primero.', 'error'); return; }
-    const n = await accion(() => rpc('live_registrar_prendas', { p_desde: desde, p_hasta: hasta, p_precio: +f.precio.value || null, p_usuario: usuario.nombre }));
+    const desde = claveANum(f.desde.value), hasta = claveANum(f.hasta.value);
+    if (!desde || !hasta) { toast(`${!desde ? f.desde.value : f.hasta.value} no es una clave válida (de A1 a ZY98, sin O, I, L, sin letras repetidas ni 11, 22…).`, 'error'); return; }
+    if (hasta < desde) { toast('La segunda clave debe ir después de la primera (por ejemplo A1 → A98, o AB1 → AB98).', 'error'); return; }
+    const n = await accion(() => rpc('live_registrar_claves', { p_desde: numAClave(desde), p_hasta: numAClave(hasta), p_precio: +f.precio.value || null, p_usuario: usuario.nombre }));
     if (n === null) return;
-    const total = hasta - desde + 1, nuevas = n === true ? 0 : n;
+    let total = 0;
+    for (let i = desde; i <= hasta; i++) { const r = (i - 1) % 99 + 1; if (r <= 98 && r % 11) total++; }
+    const nuevas = n === true ? 0 : n;
     toast(nuevas === total ? `${nuevas} prendas registradas` : `${nuevas} nuevas; ${total - nuevas} ya existían`);
     pintar();
   };
-  $('#f-buscar', raiz).onsubmit = e => { e.preventDefault(); const n = parseInt(e.target.n.value, 10); buscada = n > 0 ? n : null; pintar(); };
+  $('#f-buscar', raiz).onsubmit = e => {
+    e.preventDefault();
+    const v = e.target.n.value.trim();
+    const n = claveANum(v);
+    if (v && !n) { toast(`${v} no es una clave válida.`, 'error'); return; }
+    buscada = n || null;
+    pintar();
+  };
 };
 
 /* ---------- WhatsApp (simulador) ---------- */
@@ -1218,13 +1266,13 @@ async function vistaWhatsApp() {
     <label>Clienta de prueba<select id="sim-tel">${PRUEBAS.map(p => `<option value="${p.tel}" ${p.tel === simTel ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></label>
     <div class="chat" id="chat" aria-live="polite">
       ${chat.length ? chat.map(m => `<div class="burbuja ${m.direccion}">${esc(m.texto).replace(/\*(.+?)\*/g, '<b>$1</b>')}<time>${hora(m.creado_en)}</time></div>`).join('')
-        : '<div class="chat-vacio">Manda un número de etiqueta, por ejemplo <b>23</b>, o varios: <b>23 45 310</b>.</div>'}
+        : '<div class="chat-vacio">Manda una clave, por ejemplo <b>A23</b>, o varias: <b>A23 B7 AB15</b>.</div>'}
     </div>
     ${puede.operar() ? `<form class="enviar" id="f-sim">
       <input name="texto" placeholder="Mensaje" autocomplete="off" enterkeyhint="send" aria-label="Mensaje">
       <button class="btn btn-marca" aria-label="Enviar">${IC.enviar}</button>
     </form>
-    <div class="atajos">${['Hola', '1', '2 3', '5 6 7'].map(t => `<button type="button" class="btn btn-mini btn-secundario" data-atajo="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+    <div class="atajos">${['Hola', 'A1', 'A2 A3', 'B5 B6 AB7'].map(t => `<button type="button" class="btn btn-mini btn-secundario" data-atajo="${esc(t)}">${esc(t)}</button>`).join('')}</div>
     ${TIENE_COMENTARIOS ? `<h3 class="seccion">Simular comentario del live</h3>
     <form class="tarjeta formulario" id="f-sim-com">
       <p class="nota">Como si alguien comentara en el live (el live debe estar iniciado). Las usuarias de prueba quedan como <b>sim_…</b>. Para registrarte como ella, manda arriba desde la clienta de prueba: <b>soy Ana, mi usuario es @sim_${esc(simUsuario)}</b>.</p>
@@ -1232,7 +1280,7 @@ async function vistaWhatsApp() {
         <label>Red<select name="red">${['tiktok', 'instagram', 'facebook', 'youtube'].map(r => `<option value="${r}">${RED[r]}</option>`).join('')}</select></label>
         <label>Usuario<input name="usuario" value="${esc(simUsuario)}" autocomplete="off" autocapitalize="none"></label>
       </div>
-      <label>Comentario<input name="texto" placeholder="quiero la 23" autocomplete="off"></label>
+      <label>Comentario<input name="texto" placeholder="quiero la A23" autocomplete="off"></label>
       <button class="btn btn-secundario">Comentar</button>
     </form>` : ''}
     <h3 class="seccion">Pruebas</h3>
@@ -1265,8 +1313,8 @@ conectar.whatsapp = raiz => {
   if (fc) fc.onsubmit = async e => {
     e.preventDefault();
     simUsuario = fc.usuario.value.trim().replace(/^@/, '') || 'ana_23';
-    const nums = numerosDe(fc.texto.value);
-    if (!nums.length) { toast('El agente solo aparta comentarios con número de prenda.', 'error'); return; }
+    const { nums, malas } = clavesDe(fc.texto.value);
+    if (!nums.length) { toast(malas.length ? `${malas.join(', ')} no es una clave válida.` : 'El agente solo aparta comentarios con clave de prenda (ej. A23).', 'error'); return; }
     const r = await accion(() => rpc('live_comentario', { p_red: fc.red.value, p_usuario: simUsuario, p_texto: fc.texto.value, p_prendas: nums, p_simulado: true, p_comentario_id: 'panel-' + Date.now() }));
     if (r) { avisoResultado(r); fc.texto.value = ''; }
   };

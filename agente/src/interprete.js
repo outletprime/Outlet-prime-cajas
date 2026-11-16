@@ -1,19 +1,20 @@
-// Decide si un comentario del live es un pedido y qué números de prenda pide.
+// Decide si un comentario del live es un pedido y qué prendas pide (claves A1 … ZY98).
 //
-// 1. Reglas (al instante): comentarios claros como "23", "la 23", "quiero la 23 y 45", "#0310 porfa".
-// 2. IA (Claude): lo que no es tan claro ("me llevo la veintitrés", "yo la 45 y la de al lado no",
-//    "¿la 23 qué talla es?"). Solo se le pregunta si el comentario trae números o números con letra.
+// 1. Reglas (al instante): comentarios claros como "A23", "la A23 porfa", "quiero AB7 y C15", "#B5".
+// 2. IA (Claude): lo que no es tan claro ("me llevo la A veintitrés", "¿la A23 qué talla es?",
+//    "ya no quiero la B5"). Solo se le pregunta si el comentario trae una clave o algo parecido.
 // 3. Todo lo demás ("hola", "qué bonito") se ignora sin gastar.
+import { claveANum, clavesEnTexto } from './claves.js';
 
 const RELLENO = new Set([
   'la', 'el', 'las', 'los', 'lo', 'yo', 'quiero', 'quisiera', 'me', 'llevo', 'mia', 'mio', 'mias', 'mios',
   'porfa', 'porfavor', 'por', 'favor', 'pf', 'plis', 'pls', 'please', 'aparta', 'apartame', 'apartar',
-  'aparto', 'apartado', 'apartada', 'dame', 'pido', 'y', 'e', 'tambien', 'numero', 'num', 'nro',
+  'aparto', 'apartado', 'apartada', 'dame', 'pido', 'y', 'e', 'tambien', 'clave', 'claves', 'numero', 'num',
   'prenda', 'prendas', 'mi', 'si', 'sii', 'siii', 'va', 'ok', 'ya', 'ahi', 'aqui', 'a', 'de', 'del', 'para',
   'gracias', 'hola', 'amiga', 'reina', 'hermosa', 'bella', 'linda', 'guapa', 'nena',
 ]);
 
-const NUMEROS_LETRA = /\b(cero|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieci\w*|veint\w*|treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa|cien|ciento|\w+cientos|quinientos|setecientos|novecientos|mil)\b/;
+const NUMEROS_LETRA = /\b(uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieci\w*|veint\w*|treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa)\b/;
 
 export function normalizar(texto) {
   return String(texto ?? '')
@@ -23,55 +24,57 @@ export function normalizar(texto) {
     .trim();
 }
 
-// Números de 1 a 5 cifras que aparecen escritos con dígitos (sin teléfonos ni cantidades enormes)
-export function numerosEnTexto(texto) {
-  const t = normalizar(texto);
-  const out = [];
-  for (const m of t.matchAll(/(?<![0-9])([0-9]{1,5})(?![0-9])/g)) {
-    const n = parseInt(m[1], 10);
-    if (n >= 1 && n <= 99999 && !out.includes(n)) out.push(n);
-  }
-  return out;
-}
-
 export function tieneNumeroConLetra(texto) {
   return NUMEROS_LETRA.test(normalizar(texto));
 }
 
-// { tipo: 'apartar' | 'ignorar' | 'dudoso', prendas: [] }
+// { tipo: 'apartar' | 'ignorar' | 'dudoso' | 'sin_clave', prendas: [números internos], claves: ['A23'] }
 export function interpretarReglas(texto) {
   const t = normalizar(texto);
-  if (!t) return { tipo: 'ignorar', prendas: [] };
-  const nums = numerosEnTexto(t);
+  if (!t) return { tipo: 'ignorar', prendas: [], claves: [] };
+  const encontradas = clavesEnTexto(t);
 
-  if (nums.length === 0) {
-    return tieneNumeroConLetra(t) ? { tipo: 'dudoso', prendas: [] } : { tipo: 'ignorar', prendas: [] };
+  if (encontradas.length === 0) {
+    // ¿Algo que parece clave pero no es válida (A11, O5, AA3) o una clave dicha con palabras?
+    // (una letra suelta + número, "a 23", sí puede ser clave; "la 23" no)
+    const parecida = [...t.matchAll(/(?<![a-z0-9])([a-z]{1,2})(\s?-?)(\d{1,3})(?![a-z0-9])/g)]
+      .some(m => m[1].length === 1 || !m[2].includes(' ') || !RELLENO.has(m[1]));
+    if (parecida || tieneNumeroConLetra(t)) {
+      return { tipo: 'dudoso', prendas: [], claves: [] };
+    }
+    // Solo números ("23"): le faltó la letra
+    if (/\d/.test(t)) return { tipo: 'sin_clave', prendas: [], claves: [] };
+    return { tipo: 'ignorar', prendas: [], claves: [] };
   }
-  // Preguntas, precios, tallas, horas, teléfonos o cantidades: que lo vea la IA
-  if (/[?¿$]|talla|cuanto|cuesta|precio|hora|whats|tel|cel|\d\s*:\s*\d|\d{6,}|x\s*\d|\d\s*(pz|piezas|pzas|kg|cm|mx|mxn|pesos)\b/.test(t)) {
-    return { tipo: 'dudoso', prendas: [] };
+  const resultado = { prendas: encontradas.map(x => x.num).slice(0, 10), claves: encontradas.map(x => x.clave).slice(0, 10) };
+
+  // Preguntas, precios, tallas, horas, teléfonos, cancelaciones: que lo vea la IA
+  if (/[?¿$]|talla|cuanto|cuesta|precio|hora|whats|tel|cel|\d\s*:\s*\d|\d{6,}|\bno\b|cancel|ya no|otra|otro|para mi (hija|mama|hermana|amiga)|(^|\s)x\s?\d/.test(t)) {
+    return { tipo: 'dudoso', ...resultado };
   }
-  // Separa "la23" → "la 23" y quita signos y emojis
-  const tokens = t
-    .replace(/([a-z])([0-9])/g, '$1 $2').replace(/([0-9])([a-z])/g, '$1 $2')
-    .replace(/[#,;.!¡+&/\-_*()"'“”]/g, ' ')
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-    .split(' ').filter(Boolean);
-  const claro = tokens.every(w => /^[0-9]{1,5}$/.test(w) || RELLENO.has(w) || /^(j|a|e)+$/.test(w));
-  return claro ? { tipo: 'apartar', prendas: nums.slice(0, 10) } : { tipo: 'dudoso', prendas: [] };
+  // ¿Todo lo que queda, quitando las claves, son palabras de relleno o emojis?
+  let resto = t;
+  for (const x of encontradas) resto = resto.replaceAll(x.texto.toLowerCase(), ' ');
+  const tokens = resto.replace(/[#,;.!¡+&/\-_*()"'“”]/g, ' ').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(' ').filter(Boolean);
+  const claro = tokens.every(w => RELLENO.has(w) || /^(j|a|e)+$/.test(w));
+  return claro ? { tipo: 'apartar', ...resultado } : { tipo: 'dudoso', ...resultado };
 }
 
-// Lo que diga la IA solo vale si los números están en el comentario (o venían escritos con letra):
+// Lo que diga la IA solo vale si la clave está escrita en el comentario (o venía dicha con palabras):
 // así un comentario tramposo no puede apartar prendas que no escribió.
 export function validarRespuestaIA(texto, respuesta) {
-  if (!respuesta || respuesta.tipo !== 'apartar' || !Array.isArray(respuesta.prendas)) return [];
-  const escritos = numerosEnTexto(texto);
-  const conLetra = tieneNumeroConLetra(texto);
+  if (!respuesta || respuesta.tipo !== 'apartar' || !Array.isArray(respuesta.claves)) return [];
+  const compacto = normalizar(texto).toUpperCase().replace(/[\s#.\-_]/g, '');
+  const conPalabras = tieneNumeroConLetra(texto);
   const ok = [];
-  for (const x of respuesta.prendas) {
-    const n = Number(x);
-    if (!Number.isInteger(n) || n < 1 || n > 99999 || ok.includes(n)) continue;
-    if (escritos.includes(n) || conLetra) ok.push(n);
+  for (const c of respuesta.claves) {
+    const num = claveANum(c);
+    if (!num || ok.includes(num)) continue;
+    const clave = String(c).toUpperCase().replace(/[\s#-]/g, '');
+    const letras = clave.replace(/[0-9]/g, '');
+    const escrita = compacto.includes(clave);
+    const letrasSueltas = new RegExp(`(^|[^a-z])${letras.toLowerCase()}([^a-z]|$)`).test(normalizar(texto));
+    if (escrita || (conPalabras && letrasSueltas)) ok.push(num);
   }
   return ok.slice(0, 10);
 }

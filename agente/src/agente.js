@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import { interpretarReglas, validarRespuestaIA } from './interprete.js';
 import { crearIA } from './ia.js';
+import { numAClave } from './claves.js';
 import { esperar } from './redes/comun.js';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -25,7 +26,7 @@ const rutaCfg = args.includes('--config') ? args[args.indexOf('--config') + 1] :
 // ---------- Pantalla ----------
 const C = { gris: '\x1b[90m', verde: '\x1b[32m', amarillo: '\x1b[33m', rojo: '\x1b[31m', rosa: '\x1b[95m', azul: '\x1b[36m', neg: '\x1b[1m', fin: '\x1b[0m' };
 const hora = () => new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-const num = n => String(n).padStart(4, '0');
+const num = n => numAClave(Number(n)) || String(n);
 const lista = a => a.map(num).join(', ');
 let archivoRegistro = null;
 function anotar(txt) {
@@ -82,6 +83,7 @@ function crearFila({ ia, enviar }) {
     agregar(c) {
       const r = interpretarReglas(c.texto);
       if (r.tipo === 'ignorar') return false;
+      if (r.tipo === 'sin_clave') { decir(C.amarillo, `🔢 @${c.usuario} escribió "${c.texto}" sin letra: falta la clave completa (ej. A23)`); return false; }
       let promesa;
       if (r.tipo === 'apartar') promesa = Promise.resolve({ prendas: r.prendas, por: 'reglas' });
       else if (!ia) promesa = Promise.resolve({ prendas: [], por: 'reglas', nota: 'la IA está apagada' });
@@ -98,6 +100,7 @@ function crearFila({ ia, enviar }) {
 async function probar(texto, cfg) {
   const r = interpretarReglas(texto);
   console.log('Reglas:', r);
+  if (r.claves?.length) console.log('Claves:', r.claves.join(', '));
   if (r.tipo === 'dudoso') {
     const ia = crearIA(cfg?.ia);
     if (!ia) return console.log('IA apagada en config.json');
@@ -228,7 +231,7 @@ async function principal() {
   if (MODO_SIM) {
     const { crearSimulador } = await import('./redes/simulador.js');
     redes.push(crearSimulador(eventos));
-    decir(C.azul, 'Modo simulador: escribe  red usuario comentario  (por ejemplo: tiktok ana_23 quiero la 23)');
+    decir(C.azul, 'Modo simulador: escribe  red usuario comentario  (por ejemplo: tiktok ana_23 quiero la A23)');
   } else {
     const r = cfg.redes || {};
     if (r.tiktok?.activa) redes.push((await import('./redes/tiktok.js')).crearTikTok(r.tiktok, eventos));

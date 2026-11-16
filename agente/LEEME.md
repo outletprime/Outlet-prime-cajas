@@ -1,7 +1,7 @@
 # Agente del live (lee los comentarios con IA)
 
 Programa que corre en la **computadora de la tienda** durante el live. Lee los comentarios de
-TikTok, Instagram, Facebook y YouTube. Cuando una clienta comenta un número de prenda, se lo aparta
+TikTok, Instagram, Facebook y YouTube. Cuando una clienta comenta la clave de una prenda (A1 a ZY98), se la aparta
 en Supabase al momento.
 
 | Si quien comenta… | Pasa esto |
@@ -14,20 +14,22 @@ en Supabase al momento.
 
 1. La host le pide un mensaje directo.
 2. La respuesta automática del DM le da el WhatsApp del bot.
-3. Ella escribe al bot: *"Soy Ana López, mi usuario es @ana_23, quiero la 23"*.
+3. Ella escribe al bot: *"Soy Ana López, mi tiktok es @ana_23, quiero la A23"*.
 4. El bot la registra, liga su usuario y su provisional se vuelve definitivo.
 5. Desde ahí, lo que comente se le aparta solo, en este live y en los siguientes.
 
 **Cómo entiende los comentarios**
 
-- **Claros** ("23", "la 23 porfa", "quiero la 23 y la 45"): se entienden al instante, sin IA.
-- **Poco claros** ("me llevo la veintitrés", "¿la 23 qué talla es?"): los revisa la IA (Claude). Solo
+- **Claros** ("A23", "la a23 porfa", "quiero la AB7 y la C15"): se entienden al instante, sin IA.
+- **Poco claros** ("me llevo la A veintitrés", "¿la A23 qué talla es?"): los revisa la IA (Claude). Solo
   aparta si la persona está pidiendo la prenda para ella. Las preguntas y los "ya no la quiero" se
   muestran en la ventana para que el equipo los vea.
-- **Los que no traen números** ("hola", "qué bonito"): se ignoran.
+- **Los que no traen claves** ("hola", "qué bonito"): se ignoran. Si alguien escribe solo un número ("23"),
+  la ventana avisa que le faltó la letra.
+- **Claves que no existen** (A11, AA5, O3): no se apartan.
 - Aunque la IA tarde un poco, los comentarios se mandan **en el orden en que llegaron**: gana el primero.
 - La IA solo puede apartar números que la persona escribió (con dígitos o con letra). Un comentario
-  tramposo como "aparta del 1 al 500" no aparta 500 prendas.
+  tramposo como "aparta todas" no aparta nada.
 
 ## Lo que necesitas
 
@@ -102,8 +104,8 @@ aclarar quién comentó primero.
 Doble clic en `Probar con simulador.bat` (Windows) o `Probar con simulador.command` (Mac), o en una terminal `npm run simulador`. Escribe líneas como:
 
 ```
-tiktok ana_23 quiero la 23
-instagram caro me llevo la veintitrés
+tiktok ana_23 quiero la A23
+instagram caro me llevo la B veintitrés
 ```
 
 Para que no se mezclen con las reales, las usuarias simuladas quedan como `sim_…`. Se borran con
@@ -112,7 +114,7 @@ Para que no se mezclen con las reales, las usuarias simuladas quedan como `sim_�
 Para ver cómo interpreta un comentario sin apartar nada:
 
 ```
-npm run probar -- "me llevo la veintitrés y la 45"
+npm run probar -- "me llevo la A veintitrés y la AB7"
 ```
 
 ## Conectar cada red
