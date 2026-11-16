@@ -14,8 +14,8 @@
   "iniciarLiveSolo": true,
   "redes": {
     "tiktok": { "activa": true, "usuario": "outletprime", "signApiKey": "" },
-    "facebook": { "activa": false, "paginaId": "", "token": "", "version": "v21.0" },
-    "instagram": { "activa": false, "cuentaId": "", "token": "", "version": "v21.0" },
+    "facebook": { "activa": false, "paginaId": "", "token": "", "version": "" },
+    "instagram": { "activa": false, "cuentaId": "", "token": "", "version": "" },
     "youtube": { "activa": false, "apiKey": "", "canalId": "" }
   }
 }

@@ -117,17 +117,44 @@ Para ver cómo interpreta un comentario sin apartar nada:
 npm run probar -- "me llevo la A veintitrés y la AB7"
 ```
 
+## Conectar Facebook (live al mismo tiempo que TikTok)
+
+El agente lee los dos lives a la vez y todo cae en el **mismo live del panel** (mismos casilleros y avisos).
+Facebook se conecta una sola vez, con su API oficial:
+
+1. **Crea una app de Meta.**
+   1. Entra a **developers.facebook.com** con la cuenta de Facebook que **administra la página** de la tienda.
+   2. Ve a **Mis apps → Crear app**, caso de uso **Otro**, tipo **Empresa**, nombre "Outlet Prime agente".
+2. **Copia los datos de la app.** En la app ve a **Configuración de la app → Básica** y copia el
+   **Identificador de la app** y la **Clave secreta de la app** (botón Mostrar).
+3. **Saca un token de usuario.**
+   1. Abre **developers.facebook.com/tools/explorer** y elige tu app arriba a la derecha.
+   2. En **Permisos** agrega `pages_show_list`, `pages_read_engagement` y `pages_read_user_content`.
+   3. Toca **Generate Access Token**, entra y marca la página de la tienda.
+   4. Copia el token que aparece.
+4. **Conecta el agente.** En la Mac abre **Documentos → OutletPrime-agente** y da doble clic en
+   **Conectar Facebook.command**. Pega los 3 datos: no se ven al escribir.
+   - El asistente cambia el token por uno de la página que **no vence** y lo guarda.
+   - La clave secreta no se guarda.
+5. **Verifica.** Abre **Iniciar agente**: la ventana debe decir *"facebook: La página no está en vivo todavía"*.
+
+**Clientas de Facebook:**
+- En Facebook no hay @usuario, así que el agente usa el nombre sin espacios ni acentos ("Ana Gómez" → `anagomez`).
+- Cuando la clienta escribe al bot con ese mismo nombre (su perfil de WhatsApp o "soy Ana Gómez"), **se liga
+  sola**. Si no coincide, el Supervisor la liga a mano en el aviso "Pide DM".
+- Si Facebook no comparte quién comentó, la ventana lo marca para revisarlo a mano.
+
 ## Conectar cada red
 
 | Red | Qué poner en `config.json` | Notas |
 |---|---|---|
 | **TikTok** | `usuario` de la tienda | Conexión **no oficial**: TikTok no da una forma oficial de leer comentarios. Funciona sin cuenta ni permisos, pero puede dejar de funcionar si TikTok cambia algo. Si se satura, crea una llave gratis en eulerstream.com y ponla en `signApiKey`. |
-| **Facebook** | `paginaId` y `token` de la página | Oficial (Meta). En developers.facebook.com crea una app, agrega tu página y saca un token de página de larga duración con permisos `pages_read_engagement` y `pages_read_user_content`. En Facebook no hay @usuario: se usa el nombre de la persona sin espacios (por ejemplo `analopez`). |
+| **Facebook** | Se llena solo con **Conectar Facebook** (ver arriba) | Oficial (Meta). En Facebook no hay @usuario: se usa el nombre sin espacios ni acentos (`anagomez`). |
 | **Instagram** | `cuentaId` (ID de la cuenta profesional) y `token` | Oficial (Meta). La cuenta debe ser profesional y estar ligada a la página. Permisos `instagram_basic` e `instagram_manage_comments`. |
 | **YouTube** | `apiKey` y `canalId` | Oficial (Google). Crea una llave en console.cloud.google.com con "YouTube Data API v3" activada. La cuota gratis alcanza para un live diario de unas 2 horas. |
 
-Pon `"activa": true` en cada red que quieras leer. Los tokens de Meta vencen: si el panel muestra
-error en Facebook o Instagram, genera uno nuevo.
+Pon `"activa": true` en cada red que quieras leer. Si el panel muestra error en Facebook, vuelve a correr
+**Conectar Facebook** (pasa si cambias la contraseña de Facebook o quitas la app).
 
 ## Si algo falla
 

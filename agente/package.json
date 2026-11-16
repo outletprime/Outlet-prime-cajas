@@ -5,12 +5,15 @@
   "description": "Agente que lee los comentarios del live y aparta las prendas en Supabase",
   "type": "module",
   "main": "src/agente.js",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node src/agente.js",
     "simulador": "node src/agente.js --simulador",
     "probar": "node src/agente.js --probar",
-    "test": "node --test prueba/interprete.test.js"
+    "test": "node --test prueba/interprete.test.js",
+    "facebook": "node src/conectar-facebook.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.3.0",

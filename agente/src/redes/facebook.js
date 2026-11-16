@@ -1,9 +1,11 @@
 // Facebook: API oficial de Meta (Graph API). Necesita el token de la página con permiso
-// pages_read_engagement / pages_read_user_content (ver docs/AGENTE.md).
+// pages_read_engagement / pages_read_user_content. Se conecta con: npm run facebook (ver LEEME.md).
+// En Facebook no hay @usuario: se usa el nombre de la persona sin espacios ni acentos ("Ana Gómez" → anagomez).
 import { esperar, aFecha, pedirJSON, nuevoEstado } from './comun.js';
 
 export function crearFacebook(cfg, eventos) {
-  const base = `https://graph.facebook.com/${cfg.version || 'v21.0'}`;
+  const raiz = process.env.GRAPH_URL || 'https://graph.facebook.com';
+  const base = cfg.version ? `${raiz}/${cfg.version}` : raiz;
   const tk = encodeURIComponent(cfg.token || '');
   const estado = nuevoEstado('facebook', 'Esperando a que empiece el live de la página');
   let parar = false;
@@ -23,7 +25,8 @@ export function crearFacebook(cfg, eventos) {
           for (const k of (c.data || []).slice().reverse()) {
             if (vistos.has(k.id)) continue;
             vistos.add(k.id);
-            eventos.comentario({ red: 'facebook', usuario: k.from?.name || k.from?.id, nombre: k.from?.name, texto: k.message, id: k.id, fecha: aFecha(k.created_time) });
+            if (!k.from) { eventos.sinAutor?.('facebook', k.message); continue; }   // Facebook no compartió quién fue
+            eventos.comentario({ red: 'facebook', usuario: k.from.name || k.from.id, nombre: k.from.name, texto: k.message, id: k.id, fecha: aFecha(k.created_time) });
           }
           const sigue = await pedirJSON(`${base}/${live.id}?fields=status&access_token=${tk}`);
           if (sigue.status && sigue.status !== 'LIVE') break;

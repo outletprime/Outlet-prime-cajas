@@ -144,6 +144,17 @@ async function principal() {
     }
     const tk = cfg.redes?.tiktok;
     if (tk?.activa) decir(C.verde, `✅ Leerá el TikTok de @${String(tk.usuario || '').replace(/^@/, '')}`);
+    const fb = cfg.redes?.facebook;
+    if (fb?.activa) {
+      try {
+        const raiz = process.env.GRAPH_URL || 'https://graph.facebook.com';
+        const base = fb.version ? `${raiz}/${fb.version}` : raiz;
+        const r = await fetch(`${base}/${fb.paginaId}?fields=name&access_token=${encodeURIComponent(fb.token || '')}`, { signal: AbortSignal.timeout(15000) });
+        const j = await r.json();
+        if (!r.ok || j.error) throw new Error(j?.error?.message || `HTTP ${r.status}`);
+        decir(C.verde, `✅ Leerá el live de Facebook de la página "${j.name}"`);
+      } catch (e) { ok = false; decir(C.rojo, `❌ Facebook no responde: ${e.message}. Vuelve a conectarlo con "Conectar Facebook".`); }
+    }
     decir(ok ? C.verde + C.neg : C.rojo + C.neg, ok ? '🎉 Todo listo. Para usarlo: doble clic en "Iniciar agente".' : 'Hay que corregir lo de arriba antes del live.');
     process.exit(ok ? 0 : 1);
   }
@@ -225,6 +236,7 @@ async function principal() {
       if (fila.agregar(c)) anotar(`[${c.red}] @${c.usuario}: ${c.texto}`);
     },
     enVivo(red) { decir(C.verde, `🔴 ${red} en vivo`); asegurarLive(); },
+    sinAutor(red, texto) { if (texto && /\d/.test(texto)) decir(C.amarillo, `👀 ${red}: "${texto}" sin nombre visible (Facebook no compartió quién fue) → revisar a mano`); },
     finSimulador() { setTimeout(() => apagar(), 1500); },
   };
 

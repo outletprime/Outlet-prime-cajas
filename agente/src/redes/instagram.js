@@ -2,7 +2,8 @@
 import { esperar, aFecha, pedirJSON, nuevoEstado } from './comun.js';
 
 export function crearInstagram(cfg, eventos) {
-  const base = `https://graph.facebook.com/${cfg.version || 'v21.0'}`;
+  const raiz = process.env.GRAPH_URL || 'https://graph.facebook.com';
+  const base = cfg.version ? `${raiz}/${cfg.version}` : raiz;
   const tk = encodeURIComponent(cfg.token || '');
   const estado = nuevoEstado('instagram', 'Esperando a que empiece el live de Instagram');
   let parar = false;
