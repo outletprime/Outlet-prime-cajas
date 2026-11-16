@@ -19,6 +19,7 @@ const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const MODO_SIM = args.includes('--simulador');
 const PROBAR = args.includes('--probar') ? args.slice(args.indexOf('--probar') + 1).join(' ') : null;
+const VERIFICAR = args.includes('--verificar');   // revisa Supabase, nivel e IA y se cierra
 const rutaCfg = args.includes('--config') ? args[args.indexOf('--config') + 1] : path.join(RAIZ, 'config.json');
 
 // ---------- Pantalla ----------
@@ -127,6 +128,22 @@ async function principal() {
 
   const ia = crearIA(cfg.ia);
   decir(ia ? C.verde : C.amarillo, ia ? `IA activa (${cfg.ia.modelo || 'claude-opus-5-5'}) para comentarios poco claros` : 'IA apagada: solo se entienden comentarios claros ("23", "la 23")');
+
+  if (VERIFICAR) {
+    let ok = true;
+    const { error: eTabla } = await sb.from('live_dm').select('id', { head: true, count: 'exact' }).limit(1);
+    if (eTabla) { ok = false; decir(C.rojo, '❌ Falta pegar en Supabase 20261116090000_comentarios_live.sql'); }
+    else decir(C.verde, '✅ La base de datos ya tiene lo de comentarios');
+    if (ia) {
+      const r = await ia('prueba', 'me llevo la veintitrés');
+      if (r.error) { ok = false; decir(C.rojo, `❌ La IA no respondió: ${r.nota}`); }
+      else decir(C.verde, `✅ La IA respondió bien ("me llevo la veintitrés" → ${JSON.stringify(r.prendas)})`);
+    }
+    const tk = cfg.redes?.tiktok;
+    if (tk?.activa) decir(C.verde, `✅ Leerá el TikTok de @${String(tk.usuario || '').replace(/^@/, '')}`);
+    decir(ok ? C.verde + C.neg : C.rojo + C.neg, ok ? '🎉 Todo listo. Para usarlo: doble clic en "Iniciar agente".' : 'Hay que corregir lo de arriba antes del live.');
+    process.exit(ok ? 0 : 1);
+  }
 
   // Live del panel: si no hay uno iniciado y la red ya está en vivo, se inicia solo
   let iniciando = null;

@@ -46,7 +46,24 @@ en Supabase al momento.
 5. **La base de datos actualizada**: haber pegado en Supabase `20261113120000_niveles_acceso.sql` y
    después `20261116090000_comentarios_live.sql`.
 
-## Instalar (una sola vez)
+## Instalar en Mac con un solo comando
+
+Abre **Terminal** (Cmd + Espacio, escribe "Terminal"), pega esto y presiona Enter:
+
+```
+curl -fsSL https://raw.githubusercontent.com/outletprime/Outlet-prime-cajas/claude/outlet-prime-cajas-github-o5jydp/agente/instalar-mac.sh | bash
+```
+
+El instalador:
+1. Instala Node.js si falta. Te pide la contraseña de la Mac.
+2. Descarga el agente en Documentos/OutletPrime-agente.
+3. Te pregunta el correo y la contraseña del usuario del agente, la llave de la IA y el usuario de TikTok.
+4. Revisa que todo funcione.
+5. Deja **"Iniciar agente"** en el Escritorio.
+
+Para **actualizar**, pega el mismo comando: conserva tus datos.
+
+## Instalar a mano (Windows o Mac)
 
 1. Copia la carpeta `agente` a la computadora. En GitHub: botón **Code → Download ZIP** y luego
    descomprímelo.
@@ -82,7 +99,7 @@ aclarar quién comentó primero.
 
 ## Probar sin estar en vivo
 
-Doble clic en `Probar con simulador.bat`, o en una terminal `npm run simulador`. Escribe líneas como:
+Doble clic en `Probar con simulador.bat` (Windows) o `Probar con simulador.command` (Mac), o en una terminal `npm run simulador`. Escribe líneas como:
 
 ```
 tiktok ana_23 quiero la 23
