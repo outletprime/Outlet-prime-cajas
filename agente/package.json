@@ -1,0 +1,20 @@
+{
+  "name": "outlet-prime-agente",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agente que lee los comentarios del live y aparta las prendas en Supabase",
+  "type": "module",
+  "main": "src/agente.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/agente.js",
+    "simulador": "node src/agente.js --simulador",
+    "probar": "node src/agente.js --probar",
+    "test": "node --test prueba/interprete.test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.3.0",
+    "@supabase/supabase-js": "2.118.0",
+    "tiktok-live-connector": "2.5.0"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "supabase": {
+    "url": "https://fjafsvirllfuzrzonovy.supabase.co",
+    "anonKey": "PEGA AQUÍ LA LLAVE anon (la misma de config.js)",
+    "correo": "agente@outletprime.mx",
+    "contrasena": "CONTRASEÑA DEL USUARIO DEL AGENTE"
+  },
+  "ia": {
+    "activa": true,
+    "apiKey": "PEGA AQUÍ TU LLAVE DE ANTHROPIC (o déjalo vacío y usa la variable ANTHROPIC_API_KEY)",
+    "modelo": "claude-opus-5-5",
+    "segundosMaximo": 8
+  },
+  "iniciarLiveSolo": true,
+  "redes": {
+    "tiktok": { "activa": true, "usuario": "outletprime", "signApiKey": "" },
+    "facebook": { "activa": false, "paginaId": "", "token": "", "version": "v21.0" },
+    "instagram": { "activa": false, "cuentaId": "", "token": "", "version": "v21.0" },
+    "youtube": { "activa": false, "apiKey": "", "canalId": "" }
+  }
+}

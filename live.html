@@ -200,6 +200,32 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primario); 
 .miembro select { min-height: 40px; width: auto; }
 .miembro.pendiente { outline: 2px solid var(--aviso); }
 
+/* Comentarios del live: pide DM, agente, pantalla host */
+.dm { display: grid; gap: 8px; padding: 12px 14px; border-radius: var(--radio); background: var(--superficie); border: 2px solid var(--marca); }
+.dm.pedido { border-color: var(--aviso); }
+.dm-cab { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.dm-cab b { font-size: 18px; overflow-wrap: anywhere; }
+.dm-tiempo { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 800; color: var(--marca); }
+.dm .fila-botones { gap: 6px; }
+.dm .banner { padding: 8px 10px; align-items: center; flex-wrap: wrap; }
+.agente { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+.chip-red { background: #000; color: #fff; }
+.origen { font-size: 12px; color: var(--texto-2); }
+details.tarjeta > summary { cursor: pointer; font-weight: 700; }
+body.host .barra-sup, body.host .tabs { display: none; }
+body.host #vista { max-width: none; padding: calc(var(--sup) + 14px) 20px 24px; }
+.host-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; align-items: start; }
+@media (max-width: 900px) { .host-grid { grid-template-columns: 1fr; } }
+.host-grid section { display: grid; gap: 10px; }
+.host-grid h2 { font-size: 26px; margin: 0; }
+.host-dm { padding: 14px 18px; border-radius: 16px; background: var(--marca); color: #fff; display: grid; gap: 2px; border: 0; text-align: left; font: inherit; }
+.host-dm.pedido { background: #6b4a00; }
+.host-dm b { font-size: clamp(28px, 4vw, 46px); line-height: 1.1; overflow-wrap: anywhere; }
+.host-dm span { font-size: clamp(17px, 2vw, 22px); }
+.host-ap { display: flex; justify-content: space-between; gap: 12px; padding: 10px 16px; border-radius: 14px; background: var(--superficie); border: 1px solid var(--borde); font-size: clamp(20px, 2.6vw, 30px); }
+.host-ap .cas { color: var(--marca); font-weight: 800; }
+.host-ap small { font-size: .6em; color: var(--texto-2); }
+
 .login-fondo { min-height: 100vh; background: #000; }
 .login { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 24px; max-width: 420px; margin: 0 auto; }
 .login img { width: 100%; max-width: 300px; margin: 0 auto; display: block; }
@@ -310,7 +336,7 @@ let usuario = null;
 async function q(consulta) { const { data, error } = await consulta; if (error) throw error; return data; }
 async function rpc(fn, args) { const { data, error } = await sb.rpc(fn, args); if (error) throw error; return data; }
 
-const D = { live: null, prime: null, primeProg: [], cfg: null, feed: [], tablero: [], vistos: new Set(), primeraCarga: true };
+const D = { live: null, prime: null, primeProg: [], cfg: null, feed: [], tablero: [], vistos: new Set(), primeraCarga: true, dms: [], agente: [], cargadoEn: Date.now() };
 async function cargar() {
   const [lives, cfg, tablero] = await Promise.all([
     q(sb.from('lives').select('*').in('estado', ['activo', 'programado']).order('programado_para', { ascending: true }).limit(50)),
@@ -325,6 +351,183 @@ async function cargar() {
   D.feed = D.live
     ? await q(sb.from('live_feed').select('*').eq('live_id', D.live.id).in('estado', ['apartada', 'espera', 'pagada']).order('creado_en', { ascending: false }).limit(500))
     : [];
+  if (TIENE_COMENTARIOS) {
+    [D.dms, D.agente] = await Promise.all([
+      q(sb.from('live_dm_tablero').select('*').eq('estado', 'esperando').order('primer_comentario_en', { ascending: true }).limit(100)),
+      q(sb.from('live_agente').select('*').limit(20)),
+    ]);
+    D.cargadoEn = Date.now();
+  }
+}
+
+/* ---------- Comentarios del live (agente con IA) ---------- */
+let TIENE_COMENTARIOS = false;   // se activa cuando la base ya tiene 20261116090000_comentarios_live.sql
+const RED = { tiktok: 'TikTok', facebook: 'Facebook', instagram: 'Instagram', youtube: 'YouTube', whatsapp: 'WhatsApp', simulador: 'Simulador', otra: 'Otra' };
+const ESTADO_AG = { conectado: 'leyendo', esperando: 'esperando live', error: 'error', apagado: 'apagado' };
+const mmss = seg => { const s = Math.max(0, Math.round(seg)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const numerosDe = t => [...new Set((String(t).match(/(?<![0-9])[0-9]{1,5}(?![0-9])/g) || []).map(Number).filter(n => n > 0))];
+const nombreCorto = n => String(n || '').split(' ').slice(0, 2).join(' ');
+function textoDM(usuarioRed) {
+  return String(D.cfg.mensaje_dm || '')
+    .replaceAll('{whatsapp}', (D.cfg.whatsapp_numero || '').trim() || '(número del bot)')
+    .replaceAll('{usuario}', usuarioRed ? '@' + usuarioRed : 'tu usuario');
+}
+function htmlAgente() {
+  if (!TIENE_COMENTARIOS) return '';
+  const prog = D.agente.find(a => a.red === 'agente');
+  const vivo = prog && prog.estado !== 'apagado' && Date.now() - new Date(prog.actualizado_en) < 60000;
+  if (!vivo) return `<div class="banner banner-aviso">${IC.alerta}<span><b>El agente que lee los comentarios no está encendido.</b> Ábrelo en la computadora de la tienda. Mientras tanto, captura a mano (abajo) o que apartan por WhatsApp.</span></div>`;
+  const redes = D.agente.filter(a => a.red !== 'agente');
+  const errores = redes.filter(a => a.estado === 'error');
+  return `<div class="agente"><b>Agente:</b>${redes.map(a => `<span class="chip ${a.estado === 'conectado' ? 'chip-ok' : a.estado === 'error' ? 'chip-vencida' : 'chip-aviso'}" title="${esc(a.detalle || '')}">${esc(RED[a.red] || a.red)} · ${esc(ESTADO_AG[a.estado] || a.estado)}</span>`).join('')}
+    ${prog.detalle ? `<small>${esc(prog.detalle)}</small>` : ''}</div>
+    ${errores.map(a => `<div class="banner banner-aviso">${IC.alerta}<span>${esc(a.detalle || (RED[a.red] || a.red) + ': error')}. Captura a mano mientras se resuelve.</span></div>`).join('')}`;
+}
+function tarjetaDM(d) {
+  const fin = D.cargadoEn + d.segundos * 1000;
+  const pidio = [];
+  if (d.provisionales.length) pidio.push(`pidió <b>${d.provisionales.map(num4).join(', ')}</b>`);
+  if (d.en_espera.length) pidio.push(`en espera de ${d.en_espera.map(num4).join(', ')}`);
+  return `<div class="dm${d.pedido_en ? ' pedido' : ''}">
+    <div class="dm-cab"><span class="chip chip-red">${esc(RED[d.red] || d.red)}</span><b>@${esc(d.usuario)}</b>${d.pedido_en ? '<span class="chip chip-aviso">DM pedido</span>' : ''}<span class="dm-tiempo" data-fin="${fin}">${mmss(d.segundos)}</span></div>
+    <div>${pidio.join(' · ') || 'Sin prendas'}${d.provisionales.length ? ' <small>(deja la prenda en la charola de pendientes)</small>' : ''}</div>
+    ${d.sugerida_id && puede.operar() ? `<div class="banner banner-info"><span>¿Es <b>${esc(d.sugerida)}</b>?</span><button type="button" class="btn btn-mini btn-primario" data-dm-sug="${d.id}">Sí, es ella</button></div>` : ''}
+    ${puede.operar() ? `<div class="fila-botones">
+      ${d.pedido_en ? '' : `<button type="button" class="btn btn-mini btn-marca" data-dm-pedido="${d.id}">Ya se lo pedí</button>`}
+      <button type="button" class="btn btn-mini btn-secundario" data-dm-copiar="${d.id}">Copiar mensaje</button>
+      <button type="button" class="btn btn-mini btn-secundario" data-dm-ligar="${d.id}">Ligar a mano</button>
+      <button type="button" class="btn btn-mini btn-secundario" data-dm-mas="${d.id}">+${Number(D.cfg.minutos_registro) || 10} min</button>
+      <button type="button" class="btn btn-mini btn-secundario" data-dm-soltar="${d.id}">Soltar</button></div>` : ''}
+  </div>`;
+}
+function htmlDMs() {
+  if (!TIENE_COMENTARIOS || !D.dms.length) return '';
+  return `<h3 class="seccion">🙋 Pide DM · ${D.dms.length}</h3>
+    <p class="nota">Comentaron pero todavía no están registradas. La host les pide mensaje directo; la bienvenida del DM les da el WhatsApp del bot. Al registrarse, lo que pidieron pasa solo a su casillero.</p>
+    ${D.dms.map(tarjetaDM).join('')}`;
+}
+function htmlCaptura() {
+  if (!TIENE_COMENTARIOS || !puede.operar()) return '';
+  return `<details class="tarjeta"><summary>Capturar comentario a mano</summary>
+    <p class="nota">Plan B si el agente no está leyendo una red: escribe quién comentó y qué número pidió. Se aparta igual que si lo hubiera leído el agente.</p>
+    <form class="formulario" id="f-captura">
+      <div class="dos">
+        <label>Red<select name="red">${['tiktok', 'facebook', 'instagram', 'youtube'].map(r => `<option value="${r}" ${r === (D.cfg.red_principal || 'tiktok') ? 'selected' : ''}>${RED[r]}</option>`).join('')}</select></label>
+        <label>Usuario<input name="usuario" placeholder="@usuaria" autocomplete="off" autocapitalize="none" required></label>
+      </div>
+      <label>Número(s) de prenda<input name="nums" inputmode="numeric" placeholder="23 45" autocomplete="off" required></label>
+      <button class="btn btn-primario">Apartar</button>
+    </form></details>`;
+}
+function avisoResultado(r) {
+  if (!r) return;
+  if (r.resultado === 'pide_dm') toast(`🙋 Pide DM a @${r.usuario}${r.provisional?.length ? ' · provisional ' + r.provisional.map(num4).join(', ') : ''}`);
+  else if (r.resultado === 'clienta') {
+    const p = [];
+    if (r.tuyas?.length) p.push(`${r.tuyas.map(num4).join(', ')} → ${r.casillero || 'sin casillero'}`);
+    if (r.espera?.length) p.push('espera ' + r.espera.map(e => `${num4(e.n)} #${e.pos}`).join(', '));
+    if (r.vendidas?.length) p.push('vendida ' + r.vendidas.map(num4).join(', '));
+    if (r.noexiste?.length) p.push('no existe ' + r.noexiste.map(num4).join(', '));
+    toast(`${r.clienta}: ${p.join(' · ') || 'ya era suya'}`);
+  } else if (r.resultado === 'sin_live') toast('No hay live iniciado.', 'error');
+  else toast(r.resultado);
+}
+async function ligarAMano(d) {
+  const datos = await modal({
+    titulo: `Ligar @${d.usuario} (${RED[d.red] || d.red})`,
+    html: `<div class="formulario">
+      <p>Escribe el WhatsApp de la clienta. Si ya está registrada se liga a ella; si no, se crea con este nombre.</p>
+      <label>WhatsApp (10 dígitos)<input id="lg-tel" inputmode="tel" maxlength="16" autocomplete="off"></label>
+      <label>Nombre (si es nueva)<input id="lg-nombre" autocomplete="off"></label>
+      <p class="nota">Le llega por WhatsApp la confirmación con lo que quedó apartado.</p></div>`,
+    botones: [{ texto: 'Cancelar', valor: null }, { texto: 'Ligar', valor: el => {
+      const tel = $('#lg-tel', el).value.replace(/\D/g, '').slice(-10);
+      if (tel.length !== 10) { toast('El WhatsApp debe tener 10 dígitos.', 'error'); return undefined; }
+      return { tel, nombre: $('#lg-nombre', el).value.trim() };
+    } }],
+  });
+  if (!datos) return;
+  await accion(async () => {
+    let [cl] = await q(sb.from('clientas').select('id,nombre').eq('telefono', datos.tel).limit(1));
+    if (!cl) {
+      if (!datos.nombre) throw new Error('No hay clienta con ese WhatsApp: escribe su nombre para registrarla.');
+      [cl] = await q(sb.from('clientas').insert({ nombre: datos.nombre, telefono: datos.tel, fecha_registro: new Date().toISOString().slice(0, 10), creado_por: usuario.nombre }).select('id,nombre'));
+    }
+    return ligarRed(cl, d);
+  });
+  pintar();
+}
+async function ligarRed(cl, d) {
+  let r = await rpc('live_ligar_red', { p_clienta: cl.id, p_red: d.red, p_usuario: d.usuario, p_por: usuario.nombre, p_forzar: false, p_avisar: true });
+  if (r.conflicto) {
+    ocupado = false;
+    const ok = await confirmar('Ese usuario ya está ligado', `<p>@${esc(d.usuario)} está ligado a <b>${esc(r.clienta_actual)}</b>. ¿Cambiarlo a <b>${esc(cl.nombre)}</b>?</p>`, 'Sí, cambiar');
+    ocupado = true;
+    if (!ok) return null;
+    r = await rpc('live_ligar_red', { p_clienta: cl.id, p_red: d.red, p_usuario: d.usuario, p_por: usuario.nombre, p_forzar: true, p_avisar: true });
+  }
+  toast(`@${d.usuario} ligada a ${cl.nombre}${r.tuyas?.length ? ' · ' + r.tuyas.map(num4).join(', ') + ' a su casillero' : ''}`);
+  return r;
+}
+function conectarDMs(raiz) {
+  const dm = id => D.dms.find(x => x.id === id);
+  $$('[data-dm-pedido]', raiz).forEach(b => b.onclick = async () => {
+    if (await accion(() => rpc('live_dm_pedido', { p_dm: b.dataset.dmPedido, p_por: usuario.nombre }))) pintar();
+  });
+  $$('[data-dm-copiar]', raiz).forEach(b => b.onclick = async () => {
+    const t = textoDM(dm(b.dataset.dmCopiar)?.usuario);
+    try { await navigator.clipboard.writeText(t); toast('Mensaje copiado'); }
+    catch { modal({ titulo: 'Mensaje para el DM', html: `<p>${esc(t)}</p>`, botones: [{ texto: 'Listo', valor: true }] }); }
+  });
+  $$('[data-dm-ligar]', raiz).forEach(b => b.onclick = () => ligarAMano(dm(b.dataset.dmLigar)));
+  $$('[data-dm-sug]', raiz).forEach(b => b.onclick = async () => {
+    const d = dm(b.dataset.dmSug);
+    if (await accion(() => ligarRed({ id: d.sugerida_id, nombre: d.sugerida }, d))) pintar();
+  });
+  $$('[data-dm-mas]', raiz).forEach(b => b.onclick = async () => {
+    if (await accion(() => rpc('live_dm_extender', { p_dm: b.dataset.dmMas }), 'Le diste más tiempo')) pintar();
+  });
+  $$('[data-dm-soltar]', raiz).forEach(b => b.onclick = async () => {
+    const d = dm(b.dataset.dmSoltar);
+    if (!(await confirmar(`¿Soltar lo de @${d.usuario}?`, '<p>Sus prendas provisionales vuelven a estar disponibles (o pasan a la siguiente en espera).</p>', 'Soltar', true))) return;
+    if (await accion(() => rpc('live_dm_cancelar', { p_dm: d.id }), 'Listo')) pintar();
+  });
+  const f = $('#f-captura', raiz);
+  if (f) f.onsubmit = async e => {
+    e.preventDefault();
+    const nums = numerosDe(f.nums.value);
+    if (!nums.length) { toast('Escribe el número de la prenda.', 'error'); return; }
+    const r = await accion(() => rpc('live_comentario', { p_red: f.red.value, p_usuario: f.usuario.value, p_texto: `(capturado a mano) ${f.nums.value}`, p_prendas: nums, p_interpretado_por: 'manual', p_nombre: null }));
+    if (r) { avisoResultado(r); f.usuario.value = ''; f.nums.value = ''; f.usuario.blur(); f.nums.blur(); pintar(); }
+  };
+}
+// Cuenta regresiva de los avisos "pide DM"
+setInterval(() => $$('[data-fin]').forEach(el => { el.textContent = mmss((+el.dataset.fin - Date.now()) / 1000); }), 1000);
+
+/* ---------- Pantalla para la host (monitor) ---------- */
+async function vistaHost() {
+  await cargar();
+  const ap = D.feed.filter(a => a.estado === 'apartada').slice(0, 10);
+  return `<div class="fila-botones" style="justify-content:space-between;align-items:center">
+      <span class="chip ${D.live ? 'chip-vivo' : ''}">${D.live ? '<span class="punto-vivo"></span>EN VIVO' : 'SIN LIVE'}</span>
+      ${htmlAgente()}
+      <button type="button" class="btn btn-secundario btn-mini" data-ir="vivo">Salir</button>
+    </div>
+    <div class="host-grid">
+      <section><h2>🙋 Pide DM</h2>
+        ${TIENE_COMENTARIOS && D.dms.length ? D.dms.map(d => `<button type="button" class="host-dm${d.pedido_en ? ' pedido' : ''}" ${puede.operar() && !d.pedido_en ? `data-dm-pedido="${d.id}"` : ''}>
+            <b>@${esc(d.usuario)}</b>
+            <span>${esc(RED[d.red] || d.red)} · ${d.provisionales.concat(d.en_espera).map(num4).join(', ')} · <span data-fin="${D.cargadoEn + d.segundos * 1000}">${mmss(d.segundos)}</span>${d.pedido_en ? ' · ya se le pidió' : ' · toca cuando se lo pidas'}</span>
+          </button>`).join('') : '<p class="nota" style="font-size:22px">Nadie pendiente 👌</p>'}
+      </section>
+      <section><h2>Últimos apartados</h2>
+        ${ap.length ? ap.map(a => `<div class="host-ap"><span><b>${num4(a.prenda)}</b> ${esc(nombreCorto(a.clienta))} ${a.origen_usuario ? `<small>@${esc(a.origen_usuario)}</small>` : ''}</span><span class="cas">${esc(a.casillero || '—')}</span></div>`).join('') : '<p class="nota" style="font-size:22px">Aún no hay apartados.</p>'}
+      </section>
+    </div>`;
+}
+function conectarHost(raiz) {
+  $$('[data-ir]', raiz).forEach(a => a.onclick = e => { e.preventDefault(); irA(a.dataset.ir); });
+  conectarDMs(raiz);
 }
 
 /* ---------- Estructura ---------- */
@@ -335,8 +538,10 @@ const VISTAS = [
   { id: 'whatsapp', nombre: 'WhatsApp', icono: IC.chat },
   { id: 'ajustes', nombre: 'Ajustes', icono: IC.ajustes },
 ];
+const OCULTAS = ['host'];       // vistas sin pestaña (pantalla completa)
+const existeVista = v => VISTAS.some(x => x.id === v) || OCULTAS.includes(v);
 let vista = (location.hash.replace('#', '') || 'vivo');
-if (!VISTAS.some(v => v.id === vista)) vista = 'vivo';
+if (!existeVista(vista)) vista = 'vivo';
 
 function montar() {
   $('#app').innerHTML = `
@@ -363,14 +568,15 @@ function marcarTabs() {
   const pendientes = D.tablero.filter(c => siguientePaso(c).accion).length;
   const p = $('[data-punto="casilleros"]');
   if (p) { p.hidden = !pendientes; p.textContent = pendientes; }
-  $('#titulo').textContent = VISTAS.find(x => x.id === vista).nombre;
+  $('#titulo').textContent = (VISTAS.find(x => x.id === vista) || { nombre: 'Live' }).nombre;
+  document.body.classList.toggle('host', vista === 'host');
 }
 async function pintar(cambioDeVista = false) {
   marcarTabs();
   const v = $('#vista');
   if (cambioDeVista) v.innerHTML = '<div class="cargando"><div class="spinner"></div></div>';
   try {
-    const html = await ({ vivo: vistaVivo, casilleros: vistaCasilleros, prendas: vistaPrendas, whatsapp: vistaWhatsApp, ajustes: vistaAjustes })[vista]();
+    const html = await ({ vivo: vistaVivo, casilleros: vistaCasilleros, prendas: vistaPrendas, whatsapp: vistaWhatsApp, ajustes: vistaAjustes, host: vistaHost })[vista]();
     if (html !== null) v.innerHTML = html;
     conectar[vista] && conectar[vista](v);
   } catch (e) {
@@ -378,7 +584,7 @@ async function pintar(cambioDeVista = false) {
     v.innerHTML = `<div class="vacio">${IC.alerta}<h2>No se pudo cargar</h2><p>${esc(traducirError(e))}</p><button class="btn btn-primario" onclick="pintar(true)">Reintentar</button></div>`;
   }
 }
-const conectar = {};
+const conectar = { host: conectarHost };
 
 /* ---------- En vivo ---------- */
 function posicionesEspera(feed) {
@@ -403,7 +609,8 @@ function vistaRedes() {
   if (!D.live) {
     const porCobrar = D.tablero.filter(c => ['por_pagar', 'pago_incompleto'].includes(c.estado));
     return `
-      <div class="vacio">${IC.vivo}<h2>No hay live en curso</h2><p>Al iniciar, el bot de WhatsApp empieza a apartar por número de etiqueta.</p></div>
+      <div class="vacio">${IC.vivo}<h2>No hay live en curso</h2><p>${TIENE_COMENTARIOS ? 'Al iniciar, el agente aparta lo que comenten en el live y el bot lo que manden por WhatsApp. Si el agente está encendido, el live se inicia solo al empezar a transmitir.' : 'Al iniciar, el bot de WhatsApp empieza a apartar por número de etiqueta.'}</p></div>
+      ${htmlAgente()}
       ${sinClabe ? `<div class="banner banner-aviso">${IC.alerta}<span>Falta la CLABE para cobrar. <a href="#ajustes" data-ir="ajustes">Ponla en Ajustes</a> antes de cerrar el live.</span></div>` : ''}
       ${puede.operar() ? `<form class="tarjeta" id="f-iniciar">
         <label>Nombre del live (opcional)<input name="titulo" placeholder="Ej. Live mañana" maxlength="60" autocomplete="off"></label>
@@ -424,7 +631,10 @@ function vistaRedes() {
     <div class="fila-botones" style="justify-content:space-between;align-items:center">
       <span class="chip chip-vivo"><span class="punto-vivo"></span>EN VIVO desde ${hora(D.live.iniciado_en)}</span>
       <small>${esc(D.live.titulo || '')}</small>
+      ${TIENE_COMENTARIOS ? '<button type="button" class="btn btn-mini btn-secundario" data-ir="host">Pantalla host</button>' : ''}
     </div>
+    ${htmlAgente()}
+    ${htmlDMs()}
     <div class="kpis">
       <div class="kpi"><small>Apartadas</small><b>${apartadas.length}</b></div>
       <div class="kpi"><small>Clientas</small><b>${clientas}</b></div>
@@ -435,19 +645,21 @@ function vistaRedes() {
     ${sinClabe ? `<div class="banner banner-aviso">${IC.alerta}<span>Falta la CLABE: los cobros saldrían sin datos de pago. <a href="#ajustes" data-ir="ajustes">Ponla en Ajustes</a>.</span></div>` : ''}
     <h3 class="seccion">Apartados al momento</h3>
     ${D.feed.length ? `<div class="feed">${D.feed.map(a => filaFeed(a, pos, nuevos.has(a.id))).join('')}</div>`
-      : `<div class="vacio"><p>Aún no hay apartados. Cuando una clienta mande un número por WhatsApp aparece aquí con su casillero.</p></div>`}
+      : `<div class="vacio"><p>Aún no hay apartados. Cuando una clienta ${TIENE_COMENTARIOS ? 'comente un número en el live o lo mande' : 'mande un número'} por WhatsApp aparece aquí con su casillero.</p></div>`}
+    ${htmlCaptura()}
     ${puede.operar() ? '<button class="btn btn-peligro btn-grande" id="cerrar-live">Cerrar live y mandar cobros</button>' : ''}
     <p class="nota">Al cerrar, cada clienta recibe por WhatsApp su total y cómo pagar. Tiene ${horas(D.cfg.horas_limite)} para pagar; a las ${horas(D.cfg.horas_liberar)} lo no pagado se libera solo.</p>`;
 }
+const origenTxt = a => !a.origen ? '' : ` · <span class="origen">${esc(RED[a.origen] || a.origen)}${a.origen_usuario ? ' @' + esc(a.origen_usuario) : ''}</span>`;
 function horas(h) { const n = Number(h); return n === 1 ? '1 hora' : `${n} horas`; }
 function filaFeed(a, pos, nuevo) {
   if (a.estado === 'espera') {
     return `<div class="feed-fila espera"><div class="feed-num"><span>${num4(a.prenda)}</span> <span class="chip">Espera #${pos[a.id] || '?'}</span></div>
-      <div class="feed-quien"><b>${esc(a.clienta)}</b> · ${horaSeg(a.mensaje_en)}</div>
+      <div class="feed-quien"><b>${esc(a.clienta)}</b> · ${horaSeg(a.mensaje_en)}${origenTxt(a)}</div>
       ${puede.operar() ? `<button class="btn btn-mini btn-secundario" data-quitar="${a.id}" aria-label="Quitar de la lista de espera">Quitar</button>` : '<span></span>'}</div>`;
   }
   return `<div class="feed-fila${nuevo ? ' nuevo' : ''}"><div class="feed-num"><span>${num4(a.prenda)}</span><span class="flecha">→</span><span class="cas">${esc(a.casillero || 'SIN CASILLERO')}</span></div>
-    <div class="feed-quien"><b>${esc(a.clienta)}</b> · ${horaSeg(a.mensaje_en)}</div>
+    <div class="feed-quien"><b>${esc(a.clienta)}</b> · ${horaSeg(a.mensaje_en)}${origenTxt(a)}</div>
     ${a.estado !== 'apartada' ? '<span class="chip chip-ok">Pagada</span>' : puede.operar() ? `<button class="btn btn-mini btn-secundario" data-liberar="${a.id}" data-num="${a.prenda}">Liberar</button>` : '<span class="chip chip-aviso">Apartada</span>'}</div>`;
 }
 conectar.vivo = raiz => {
@@ -476,6 +688,7 @@ conectar.vivo = raiz => {
     if (await accion(() => rpc('live_liberar_apartado', { p_apartado: b.dataset.quitar }), 'Quitada de la lista de espera')) pintar();
   });
   $$('[data-modo]', raiz).forEach(b => b.onclick = () => { modoVivo = b.dataset.modo; pintar(); });
+  conectarDMs(raiz);
   conectarPrime(raiz);
 };
 
@@ -907,6 +1120,7 @@ conectar.prendas = raiz => {
 /* ---------- WhatsApp (simulador) ---------- */
 const PRUEBAS = ['María', 'Ana', 'Sofía', 'Lucía', 'Fer', 'Karla'].map((n, i) => ({ tel: '000000000' + (i + 1), nombre: `${n} (prueba)` }));
 let simTel = PRUEBAS[0].tel;
+let simUsuario = 'ana_23';
 async function vistaWhatsApp() {
   const [chat, pendientes, { count: nPend }] = await Promise.all([
     q(sb.from('wa_mensajes').select('*').eq('telefono', simTel).order('creado_en', { ascending: true }).limit(200)),
@@ -925,6 +1139,16 @@ async function vistaWhatsApp() {
       <button class="btn btn-marca" aria-label="Enviar">${IC.enviar}</button>
     </form>
     <div class="atajos">${['Hola', '1', '2 3', '5 6 7'].map(t => `<button type="button" class="btn btn-mini btn-secundario" data-atajo="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+    ${TIENE_COMENTARIOS ? `<h3 class="seccion">Simular comentario del live</h3>
+    <form class="tarjeta formulario" id="f-sim-com">
+      <p class="nota">Como si alguien comentara en el live (el live debe estar iniciado). Las usuarias de prueba quedan como <b>sim_…</b>. Para registrarte como ella, manda arriba desde la clienta de prueba: <b>soy Ana, mi usuario es @sim_${esc(simUsuario)}</b>.</p>
+      <div class="dos">
+        <label>Red<select name="red">${['tiktok', 'instagram', 'facebook', 'youtube'].map(r => `<option value="${r}">${RED[r]}</option>`).join('')}</select></label>
+        <label>Usuario<input name="usuario" value="${esc(simUsuario)}" autocomplete="off" autocapitalize="none"></label>
+      </div>
+      <label>Comentario<input name="texto" placeholder="quiero la 23" autocomplete="off"></label>
+      <button class="btn btn-secundario">Comentar</button>
+    </form>` : ''}
     <h3 class="seccion">Pruebas</h3>
     <div class="tarjeta">
       <p class="nota">Los recordatorios y liberaciones corren solos cada minuto. Para no esperar, puedes revisarlos ahora.</p>
@@ -951,9 +1175,22 @@ conectar.whatsapp = raiz => {
   };
   if ($('#f-sim', raiz)) $('#f-sim', raiz).onsubmit = async e => { e.preventDefault(); const t = e.target.texto.value; e.target.texto.value = ''; await enviar(t); setTimeout(() => { const i = $('#f-sim input'); i && i.focus(); }, 50); };
   $$('[data-atajo]', raiz).forEach(b => b.onclick = () => enviar(b.dataset.atajo));
+  const fc = $('#f-sim-com', raiz);
+  if (fc) fc.onsubmit = async e => {
+    e.preventDefault();
+    simUsuario = fc.usuario.value.trim().replace(/^@/, '') || 'ana_23';
+    const nums = numerosDe(fc.texto.value);
+    if (!nums.length) { toast('El agente solo aparta comentarios con número de prenda.', 'error'); return; }
+    const r = await accion(() => rpc('live_comentario', { p_red: fc.red.value, p_usuario: simUsuario, p_texto: fc.texto.value, p_prendas: nums, p_simulado: true, p_comentario_id: 'panel-' + Date.now() }));
+    if (r) { avisoResultado(r); fc.texto.value = ''; }
+  };
   if ($('#revisar', raiz)) $('#revisar', raiz).onclick = async () => {
-    const r = await accion(() => rpc('live_revisar_vencimientos'));
-    if (r) { toast(`Recordatorios: ${r.recordatorios || 0} · Liberadas: ${r.vencidas || 0}`); pintar(); }
+    const r = await accion(async () => {
+      const v = await rpc('live_revisar_vencimientos');
+      if (TIENE_COMENTARIOS) v.provisionales = (await rpc('live_revisar_reservas')).vencidas;
+      return v;
+    });
+    if (r) { toast(`Recordatorios: ${r.recordatorios || 0} · Liberadas: ${r.vencidas || 0}${TIENE_COMENTARIOS ? ` · Provisionales vencidos: ${r.provisionales || 0}` : ''}`); pintar(); }
   };
   if ($('#borrar-sim', raiz)) $('#borrar-sim', raiz).onclick = async () => {
     if (!(await confirmar('¿Borrar datos de prueba?', '<p>Se borran las clientas de prueba (números que empiezan con 00), sus apartados, cobros, cajas y pedidos de prueba. Las prendas que tenían vuelven a estar disponibles. <b>Las clientas reales no se tocan.</b></p>', 'Borrar pruebas', true))) return;
@@ -1133,6 +1370,14 @@ async function vistaAjustes() {
       </div>
       <label>Enlace del video para insertar (opcional)<input name="prime_video_url" type="url" inputmode="url" value="${esc(v.prime_video_url || '')}" placeholder="https://tu-servidor/embed/video"></label>
       <p class="nota">Precio y máximo son los valores por omisión al programar un Prime Live. "Espera" son los segundos entre que publicas la foto y se activa el botón, para que todas lo reciban al mismo tiempo. El enlace del video (por ejemplo, el "embed" de Owncast) se muestra arriba en la página de las mayoristas.</p>
+      ${TIENE_COMENTARIOS ? `<h3 class="seccion">Comentarios del live (agente)</h3>
+      <div class="dos">
+        <label>WhatsApp del bot<input name="whatsapp_numero" inputmode="tel" value="${esc(v.whatsapp_numero || '')}" placeholder="33 1234 5678"></label>
+        <label>Minutos para registrarse<input name="minutos_registro" type="number" min="1" max="120" step="1" value="${v.minutos_registro ?? 10}"></label>
+      </div>
+      <label>Red principal<select name="red_principal">${['tiktok', 'facebook', 'instagram', 'youtube'].map(r => `<option value="${r}" ${r === (v.red_principal || 'tiktok') ? 'selected' : ''}>${RED[r]}</option>`).join('')}</select></label>
+      <label>Mensaje de bienvenida del DM<textarea name="mensaje_dm" maxlength="600">${esc(v.mensaje_dm || '')}</textarea></label>
+      <p class="nota">Pon este mensaje como <b>respuesta automática</b> de mensajes directos en TikTok, Instagram y Facebook. <b>{whatsapp}</b> se cambia por el número del bot y <b>{usuario}</b> por el usuario de la clienta (al copiarlo desde un aviso "Pide DM"). Si una clienta nueva comenta, su prenda se le guarda los minutos de arriba mientras se registra; si no, pasa a la siguiente. La red principal se usa cuando una clienta manda su @usuario por WhatsApp antes de comentar.</p>` : ''}
       <h3 class="seccion">Aviso de caja lista</h3>
       <div class="dos">
         <label>A los (días)<input name="dias_caja" type="number" min="1" step="1" value="${v.dias_caja ?? 20}"></label>
@@ -1140,6 +1385,12 @@ async function vistaAjustes() {
       </div>
       ${puede.duena() ? '<button class="btn btn-primario btn-grande">Guardar ajustes</button>' : ''}
     </fieldset></form>
+    ${TIENE_COMENTARIOS ? `<h3 class="seccion">Usuarios de redes ligados</h3>
+    <div class="tarjeta">
+      <p class="nota">Cada @usuario de TikTok, Instagram, Facebook o YouTube ligado a una clienta. Si se ligó mal, quítalo: la próxima vez que comente se le pedirá DM otra vez.</p>
+      <form class="enviar" id="f-redes"><input name="buscar" placeholder="Buscar @usuario o nombre" autocomplete="off" autocapitalize="none" aria-label="Buscar usuario"><button class="btn btn-secundario">Buscar</button></form>
+      <div id="redes-res"></div>
+    </div>` : ''}
     <div class="tarjeta">
       <p>Sesión: <b>${esc(usuario.nombre)}</b> <small>${esc(usuario.email)}</small> <span class="chip">${esc(NIVELES[ROL] || '')}</span></p>
       <div class="fila-botones"><a class="btn btn-secundario" href="index.html">${IC.cajas} App de Cajas</a><button class="btn btn-secundario" id="salir">Cerrar sesión</button></div>
@@ -1162,6 +1413,12 @@ conectar.ajustes = raiz => {
       prime_retraso: Math.max(0, Math.min(30, +f.prime_retraso.value || 0)), prime_video_url: f.prime_video_url.value.trim() || null,
       dias_caja: Math.max(1, +f.dias_caja.value || 20), caja_llena_prendas: f.caja_llena_prendas.value ? +f.caja_llena_prendas.value : null,
     };
+    if (f.mensaje_dm) Object.assign(datos, {
+      whatsapp_numero: f.whatsapp_numero.value.trim() || null,
+      minutos_registro: Math.max(1, Math.min(120, +f.minutos_registro.value || 10)),
+      red_principal: f.red_principal.value,
+      mensaje_dm: f.mensaje_dm.value.trim() || 'Para apartar mándanos un WhatsApp al {whatsapp} con tu nombre, tu usuario ({usuario}) y el número de la prenda.',
+    });
     if (datos.prime_video_url && !/^https:\/\//i.test(datos.prime_video_url)) { toast('El enlace del video debe empezar con https://', 'error'); return; }
     if (!(datos.horas_recordatorio < datos.horas_limite && datos.horas_limite <= datos.horas_liberar)) {
       toast('Las horas deben ir en orden: recordatorio, luego límite de pago, luego liberar.', 'error'); return;
@@ -1173,6 +1430,24 @@ conectar.ajustes = raiz => {
     }, 'Ajustes guardados');
   };
   $('#salir', raiz).onclick = async () => { await sb.auth.signOut(); location.reload(); };
+  const fr = $('#f-redes', raiz);
+  if (fr) {
+    const buscar = async () => {
+      const t = fr.buscar.value.trim().replace(/^@/, '').replace(/[%,()*]/g, '');
+      let consulta = sb.from('clientas_redes_tablero').select('*').order('ligada_en', { ascending: false }).limit(30);
+      if (t) consulta = consulta.or(`usuario.ilike.*${t}*,clienta.ilike.*${t}*`);
+      const filas = await q(consulta);
+      $('#redes-res', raiz).innerHTML = filas.length ? `<div class="lista-simple">${filas.map(r => `<div class="miembro"><div><b>@${esc(r.usuario)} · ${esc(RED[r.red] || r.red)}</b><small>${esc(r.clienta)} · ${telBonito(r.telefono)} · ${fechaHora(r.ligada_en)}${r.ligada_por ? ' · ' + esc(r.ligada_por) : ''}</small></div>
+        ${puede.operar() ? `<button type="button" class="btn btn-mini btn-secundario" data-desligar="${esc(r.red)}|${esc(r.usuario)}">Quitar</button>` : ''}</div>`).join('')}</div>` : '<p class="nota">Sin resultados.</p>';
+      $$('[data-desligar]', raiz).forEach(b => b.onclick = async () => {
+        const [red, u] = b.dataset.desligar.split('|');
+        if (!(await confirmar(`¿Quitar @${u}?`, '<p>Ya no se le apartará sola al comentar; se le pedirá DM otra vez.</p>', 'Quitar', true))) return;
+        if (await accion(() => rpc('live_desligar_red', { p_red: red, p_usuario: u }), 'Usuario quitado')) buscar();
+      });
+    };
+    fr.onsubmit = e => { e.preventDefault(); accion(buscar); };
+    accion(buscar);
+  }
 };
 
 /* ---------- Inicio de sesión ---------- */
@@ -1212,6 +1487,7 @@ async function arrancar() {
     ROL = (e && e.code === 'PGRST202') || /mi_rol|schema cache|does not exist/i.test(m) ? 'duena' : null;
   }
   if (!ROL) return pantallaSinAcceso();
+  TIENE_COMENTARIOS = !(await sb.from('live_dm').select('id', { head: true, count: 'exact' }).limit(1)).error;
   montar();
   pintar(true);
 }
@@ -1232,9 +1508,9 @@ setInterval(() => {
   if (capturandoDesde && Date.now() - capturandoDesde < 120000) return; // la cámara está abierta
   const foco = document.activeElement;
   if (foco && /INPUT|TEXTAREA|SELECT/.test(foco.tagName)) return;
-  if (['vivo', 'casilleros', 'whatsapp'].includes(vista)) pintar();
+  if (['vivo', 'casilleros', 'whatsapp', 'host'].includes(vista)) pintar();
 }, 4000);
-window.addEventListener('hashchange', () => { const v = location.hash.replace('#', ''); if (v !== vista && VISTAS.some(x => x.id === v)) irA(v); });
+window.addEventListener('hashchange', () => { const v = location.hash.replace('#', ''); if (v !== vista && existeVista(v)) irA(v); });
 
 arrancar().catch(e => { console.error(e); $('#app').innerHTML = `<div class="vacio">${IC.alerta}<h2>No se pudo iniciar</h2><p>${esc(traducirError(e))}</p></div>`; });
 </script>

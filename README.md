@@ -6,7 +6,8 @@ y **una sola lista de clientas** (una clienta = un número de WhatsApp):
 | App | Archivo | Para qué |
 |---|---|---|
 | **Cajas** | `index.html` | Caja fija de cada clienta, pedidos por categoría, QR, envíos y reportes. |
-| **Panel del live** (equipo) | `live.html` | Lives de redes (bot de WhatsApp) y Prime Live (mayoristas), casilleros, cobros y paso automático a la caja fija. |
+| **Panel del live** (equipo) | `live.html` | Lives de redes (comentarios + WhatsApp) y Prime Live (mayoristas), avisos "pide DM", pantalla para la host, casilleros, cobros y paso automático a la caja fija. |
+| **Agente del live** | `agente/` | Programa para la computadora de la tienda: lee los comentarios de TikTok, Instagram, Facebook y YouTube con IA y aparta. Ver [`agente/LEEME.md`](agente/LEEME.md). |
 | **Prime Live** (mayoristas) | `prime.html` | Página exclusiva donde cada mayorista invitada entra con su contraseña y aparta con un botón. |
 
 ### Dos canales, una sola base de clientas
@@ -14,8 +15,8 @@ y **una sola lista de clientas** (una clienta = un número de WhatsApp):
 | | Lives en redes (TikTok / Facebook) | Prime Live |
 |---|---|---|
 | Para quién | Público: captación de clientas nuevas | Solo mayoristas invitadas |
-| Cómo apartan | Mandan el número de la etiqueta al **bot de WhatsApp** | Botón **Apartar** sobre la foto de cada prenda, en `prime.html` |
-| Acceso | Cualquiera con WhatsApp | Contraseña única por mayorista, válida solo para ese live |
+| Cómo apartan | **Comentan el número en el live** (el agente lo lee). También pueden mandarlo al bot de WhatsApp: gana quien llegue primero | Botón **Apartar** sobre la foto de cada prenda, en `prime.html` |
+| Acceso | Cualquiera: la primera vez se registra por WhatsApp con su @usuario | Contraseña única por mayorista, válida solo para ese live |
 | Cobro, casilleros, 3 h para pagar, caja fija | Igual | Igual (categoría **Prime Live** en Cajas) |
 
 Las mayoristas **no tienen usuario de Supabase**: su contraseña solo les deja ver las prendas
@@ -56,18 +57,41 @@ Las dos usan el mismo correo y contraseña de Supabase → Authentication → Us
 | `icons/` | Logos de Outlet Prime. |
 | `cp/` | Catálogo de códigos postales de México (SEPOMEX). |
 | `supabase/esquema.sql` | Estructura original de la base de Cajas (referencia, sin datos). |
-| `supabase/migrations/` | Cambios a la base, en orden: `…_sistema_lives.sql` (bot y casilleros) y `…_prime_live.sql` (mayoristas). |
+| `supabase/migrations/` | Cambios a la base, en orden: `…_sistema_lives.sql` (bot y casilleros), `…_prime_live.sql` (mayoristas), `…_avisos_equipo.sql` (avisos), `…_niveles_acceso.sql` (niveles) y `…_comentarios_live.sql` (comentarios y pide DM). |
+| `agente/` | Agente que lee los comentarios del live (Node.js). Instrucciones en `agente/LEEME.md`. |
 | `supabase/functions/whatsapp/` | Conector con WhatsApp Business (se activa cuando haya número del bot). |
 | `supabase/functions/avisos/` | Envía los avisos al celular del equipo (notificaciones). |
 | `sw.js`, `manifest.webmanifest` | Permiten instalar el panel como app y recibir notificaciones. |
 | `docs/WHATSAPP.md` | Pasos para conectar el número de WhatsApp del bot. |
 
-## Cómo funciona el live
+## Cómo funciona el live con comentarios (agente con IA)
+
+1. **La clienta comenta el número** en el live ("23", "la 23 porfa", "me llevo la veintitrés").
+2. **El agente lo lee** y busca su @usuario en Supabase:
+   - **Registrada** → la prenda se le aparta al momento y va a **su casillero**. Si ya estaba apartada,
+     queda en espera con su lugar según la hora del comentario.
+   - **Nueva** → la prenda queda **provisional 10 minutos** y en el panel sale **"🙋 Pide DM a @usuaria"**.
+     La host le pide mensaje directo. La respuesta automática del DM (Ajustes → Mensaje de bienvenida
+     del DM) le da el WhatsApp del bot.
+3. **La clienta escribe al bot**: *"Soy Ana López, mi usuario es @ana_23, quiero la 23"*. El bot la
+   registra y liga **@usuario ↔ WhatsApp ↔ clienta**. El provisional se vuelve definitivo y va a su casillero.
+4. **Lo que comente después** (en este live y en los siguientes) cae solo en su casillero.
+5. Si no se registra en 10 minutos, la prenda pasa a la siguiente en espera o vuelve a estar disponible.
+   Desde el aviso, el equipo puede darle más tiempo, ligarla a mano con su WhatsApp o soltarla.
+6. Cerrar, cobrar, pagar, caja fija y avisos: igual que siempre (abajo).
+
+En el panel:
+- **Pantalla host** (En vivo → Pantalla host) muestra en grande a quién pedirle DM y los últimos apartados.
+- **Capturar comentario a mano** es el plan B si una red falla.
+- **Ajustes → Usuarios de redes ligados** sirve para corregir un usuario mal ligado.
+- El simulador (pestaña WhatsApp) también simula comentarios.
+
+## Cómo funciona el live (cobro y caja)
 
 1. **Etiquetar.** Cada prenda tiene un número fijo (Prendas → Registrar rango, p. ej. 3001–3200), a $89.
 2. **Iniciar live** en el panel.
-3. **Apartar.** La clienta manda el número por WhatsApp (`23` o `23 45 310`). Gana el primer mensaje;
-   si ya está apartada, queda en lista de espera con su lugar. Si es nueva, se registra sola con su número.
+3. **Apartar.** La clienta comenta el número en el live (ver arriba) o lo manda por WhatsApp (`23` o
+   `23 45 310`). Gana el primero; si ya está apartada, queda en lista de espera con su lugar.
 4. **Casillero.** Al primer apartado se le asigna un casillero (C-001 a C-100). El panel muestra
    `0023 → C-007` y el ayudante deja ahí la prenda.
 5. **Cerrar live.** El bot manda a cada clienta su total, la CLABE y su folio.
