@@ -119,13 +119,21 @@ async function mandarPendientes(cfg: Config) {
   ]);
   if (e1) throw e1;
   if (e2) throw e2;
+  // Nivel de cada persona (si la tabla todavía no existe, todos reciben como antes)
+  const { data: equipo } = await sb.from('equipo').select('usuario_id, rol');
+  const rolDe = new Map((equipo ?? []).map((e: { usuario_id: string; rol: string }) => [e.usuario_id, e.rol]));
   let procesados = 0;
   for (const a of avisos ?? []) {
     // Se aparta antes de mandarlo, para que dos llamadas a la vez no lo dupliquen
     const { data: tomado } = await sb.from('avisos').update({ enviado_en: new Date().toISOString() }).eq('id', a.id).is('enviado_en', null).select('id');
     if (!tomado?.length) continue;
     procesados++;
-    const destino = (dispositivos ?? []).filter(d => !a.usuario_id || d.usuario_id === a.usuario_id);
+    const destino = (dispositivos ?? []).filter(d => {
+      if (a.usuario_id) return d.usuario_id === a.usuario_id;           // aviso de prueba de esa persona
+      const rol = rolDe.get(d.usuario_id);
+      if (a.para_rol) return rol === a.para_rol;                         // p. ej. "Pide DM" solo a presentadoras
+      return rol !== 'presentadora';                                     // pagos, cajas…: todo el equipo menos presentadoras
+    });
     let ok = 0;
     const errores: string[] = [];
     await Promise.all(destino.map(async d => {

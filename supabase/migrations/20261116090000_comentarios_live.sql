@@ -1190,3 +1190,148 @@ begin
 end $$;
 revoke all on function public.live_dm_ligar(uuid, text, text, uuid, boolean, text) from public, anon;
 grant execute on function public.live_dm_ligar(uuid, text, text, uuid, boolean, text) to authenticated, service_role;
+
+-- =====================================================================
+-- 15. Nivel "Presentadora": solo recibe en su celular "🙋 Pide DM a @usuaria"
+--     cuando una clienta nueva fue la PRIMERA en pedir una prenda. No ve clientas,
+--     pagos ni casilleros; en el panel solo tiene la lista de a quién pedirle DM
+--     y el botón "Ya se lo pedí".
+-- =====================================================================
+alter table public.equipo drop constraint if exists equipo_rol_check;
+alter table public.equipo add constraint equipo_rol_check
+  check (rol in ('duena', 'supervisor', 'operacion', 'live', 'presentadora'));
+
+-- Cualquier persona con nivel (incluida la presentadora)
+create or replace function public.es_del_equipo() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from equipo where usuario_id = auth.uid())
+$$;
+-- Ver datos del negocio: todos menos la presentadora
+create or replace function public.puede_ver() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from equipo where usuario_id = auth.uid() and rol <> 'presentadora')
+$$;
+
+create or replace function public.equipo_asignar(p_usuario uuid, p_rol text) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_email text;
+begin
+  if not es_duena() then raise exception 'Solo una dueña puede cambiar los accesos.'; end if;
+  select email into v_email from auth.users where id = p_usuario;
+  if not found then raise exception 'No existe ese usuario.'; end if;
+  if p_rol is null then
+    delete from equipo where usuario_id = p_usuario;
+  elsif p_rol in ('duena', 'supervisor', 'operacion', 'live', 'presentadora') then
+    insert into equipo (usuario_id, email, rol, asignado_por)
+    values (p_usuario, v_email, p_rol, (select email from auth.users where id = auth.uid()))
+    on conflict (usuario_id) do update
+      set rol = excluded.rol, email = excluded.email, asignado_por = excluded.asignado_por, actualizado_en = now();
+  else
+    raise exception 'Nivel inválido.';
+  end if;
+end $$;
+
+-- Avisos dirigidos a un nivel (null = todo el equipo menos la presentadora)
+alter table public.avisos add column if not exists para_rol text;
+
+-- Su teléfono también se puede registrar para avisos
+drop policy if exists propio on public.avisos_dispositivos;
+create policy propio on public.avisos_dispositivos for all to authenticated
+  using (usuario_id = auth.uid() and (select public.es_del_equipo()))
+  with check (usuario_id = auth.uid() and (select public.es_del_equipo()));
+
+create or replace function public.avisos_prueba() returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not es_del_equipo() then raise exception 'Tu cuenta todavía no tiene nivel de acceso.'; end if;
+  insert into avisos (tipo, titulo, cuerpo, url, usuario_id)
+  values ('prueba', '🔔 Avisos activados',
+          case when mi_rol() = 'presentadora' then 'Así te llegará a quién pedirle DM durante el live.'
+               else 'Así te llegarán los pagos, vencimientos y cajas listas.' end,
+          case when mi_rol() = 'presentadora' then 'live.html#dm' else 'live.html#ajustes' end, auth.uid());
+end $$;
+
+create or replace function public.avisos_resumen() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not es_del_equipo() then return null; end if;
+  if mi_rol() = 'presentadora' then
+    return jsonb_build_object(
+      'dispositivos', (select count(*) from avisos_dispositivos where activo and usuario_id = auth.uid()),
+      'nombres', (select coalesce(jsonb_agg(nombre order by creado_en), '[]'::jsonb) from avisos_dispositivos where activo and usuario_id = auth.uid()),
+      'ultimos', (select coalesce(jsonb_agg(jsonb_build_object('titulo', titulo, 'cuerpo', cuerpo, 'creado_en', creado_en, 'enviados', enviados, 'enviado', enviado_en is not null) order by creado_en desc), '[]'::jsonb)
+                    from (select * from avisos where para_rol = 'presentadora' order by creado_en desc limit 5) x));
+  end if;
+  return jsonb_build_object(
+    'dispositivos', (select count(*) from avisos_dispositivos where activo),
+    'nombres', (select coalesce(jsonb_agg(nombre order by creado_en), '[]'::jsonb) from avisos_dispositivos where activo),
+    'ultimos', (select coalesce(jsonb_agg(jsonb_build_object('titulo', titulo, 'cuerpo', cuerpo, 'creado_en', creado_en, 'enviados', enviados, 'enviado', enviado_en is not null) order by creado_en desc), '[]'::jsonb)
+                  from (select * from avisos where usuario_id is null and para_rol is null order by creado_en desc limit 5) x));
+end $$;
+
+-- Aviso "Pide DM" (al final de la operación, para juntar todas las prendas de un mismo comentario)
+create or replace function public.avisos_pide_dm() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  d live_dm;
+  v_prendas integer[];
+  v_min integer;
+begin
+  if new.estado <> 'provisional' then return null; end if;
+  select * into d from live_dm where id = new.dm_id;
+  if not found or d.estado <> 'esperando' then return null; end if;
+  select coalesce(array_agg(prenda order by prenda), '{}') into v_prendas
+    from live_reservas where dm_id = d.id and estado = 'provisional' and comentario_en = new.comentario_en;
+  if cardinality(v_prendas) = 0 then return null; end if;
+  v_min := greatest(1, ceil(extract(epoch from (d.vence_en - now())) / 60))::integer;
+  insert into avisos (tipo, clave, titulo, cuerpo, url, para_rol)
+  values ('dm', 'dm:' || d.id || ':' || extract(epoch from new.comentario_en),
+          format('🙋 Pide DM a @%s%s', d.usuario, case when d.simulado then ' (prueba)' else '' end),
+          format('%s · fue la primera en pedir %s · tiene %s min para registrarse',
+                 live_red_nombre(d.red),
+                 case when cardinality(v_prendas) = 1 then 'la ' || live_num(v_prendas[1]) else live_lista(v_prendas) end,
+                 v_min),
+          'live.html#dm', 'presentadora')
+  on conflict (clave) do nothing;
+  return null;
+end $$;
+drop trigger if exists avisos_pide_dm on public.live_reservas;
+create constraint trigger avisos_pide_dm after insert on public.live_reservas
+  deferrable initially deferred for each row execute function public.avisos_pide_dm();
+
+-- Lo que ve la presentadora en su celular (sin datos de clientas)
+create or replace function public.presentadora_pantalla() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not es_del_equipo() then raise exception 'Tu cuenta todavía no tiene nivel de acceso.'; end if;
+  return jsonb_build_object(
+    'en_vivo', exists (select 1 from lives where estado = 'activo' and tipo = 'redes'),
+    'dms', (select coalesce(jsonb_agg(jsonb_build_object(
+                'id', d.id, 'red', d.red, 'usuario', d.usuario, 'pedido_en', d.pedido_en,
+                'segundos', greatest(0, extract(epoch from (d.vence_en - now())))::integer,
+                'prendas', (select array_agg(r.prenda order by r.comentario_en) from live_reservas r
+                             where r.dm_id = d.id and r.estado = 'provisional'))
+              order by d.primer_comentario_en), '[]'::jsonb)
+              from live_dm d
+             where d.estado = 'esperando'
+               and exists (select 1 from live_reservas r where r.dm_id = d.id and r.estado = 'provisional')));
+end $$;
+
+-- "Ya se lo pedí" desde su celular
+create or replace function public.presentadora_dm_pedido(p_dm uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from equipo where usuario_id = auth.uid() and rol in ('duena', 'operacion', 'presentadora')) then
+    raise exception 'Tu nivel de acceso no permite hacer esto.';
+  end if;
+  update live_dm set pedido_en = coalesce(pedido_en, now()),
+                     pedido_por = coalesce(pedido_por, (select email from equipo where usuario_id = auth.uid()))
+   where id = p_dm and estado = 'esperando';
+end $$;
+
+revoke all on function public.es_del_equipo(), public.puede_ver(), public.equipo_asignar(uuid, text),
+  public.avisos_prueba(), public.avisos_resumen(), public.avisos_pide_dm(), public.presentadora_pantalla(),
+  public.presentadora_dm_pedido(uuid) from public, anon;
+grant execute on function public.es_del_equipo(), public.puede_ver(), public.equipo_asignar(uuid, text),
+  public.avisos_prueba(), public.avisos_resumen(), public.presentadora_pantalla(),
+  public.presentadora_dm_pedido(uuid) to authenticated, service_role;

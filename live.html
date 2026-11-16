@@ -334,7 +334,7 @@ async function accion(fn, okMsg) {
 
 /* ---------- Nivel de acceso ---------- */
 let ROL = null;
-const NIVELES = { duena: 'Dueña', supervisor: 'Supervisor · ver y ligar DMs', operacion: 'Operación', live: 'Operación live · acomodo' };
+const NIVELES = { duena: 'Dueña', supervisor: 'Supervisor · ver y ligar DMs', operacion: 'Operación', live: 'Operación live · acomodo', presentadora: 'Presentadora · solo avisos de DM' };
 const puede = {
   operar: () => ROL === 'duena' || ROL === 'operacion',
   duena: () => ROL === 'duena',
@@ -558,6 +558,27 @@ function conectarAcomodo(raiz) {
     marcar(b.dataset.cual === 'regresar' ? 'live_regresar_rack' : 'live_acomodar', b.dataset.deshacer, true));
 }
 
+/* ---------- Presentadora: a quién pedirle DM ---------- */
+async function vistaPresentadora() {
+  const [p, est] = await Promise.all([rpc('presentadora_pantalla'), estadoAvisos()]);
+  const t0 = Date.now();
+  return `
+    ${est.modo !== 'activo' ? `<div class="banner banner-aviso">${IC.alerta}<span>Tu celular todavía no recibe los avisos. <a href="#ajustes" data-ir="ajustes">Actívalos en Ajustes</a>.</span></div>` : ''}
+    <span class="chip ${p.en_vivo ? 'chip-vivo' : ''}" style="justify-self:start">${p.en_vivo ? '<span class="punto-vivo"></span>EN VIVO' : 'SIN LIVE'}</span>
+    <p class="nota">Aquí salen las clientas nuevas que fueron las <b>primeras</b> en pedir una prenda. Pídeles al aire que te manden DM y toca la tarjeta cuando ya se lo pediste.</p>
+    ${p.dms.length ? p.dms.map(d => `<button type="button" class="host-dm${d.pedido_en ? ' pedido' : ''}" ${d.pedido_en ? '' : `data-pres-pedido="${d.id}"`}>
+        <b>@${esc(d.usuario)}</b>
+        <span>${esc(RED[d.red] || d.red)} · pidió ${(d.prendas || []).map(num4).join(', ')} · <span data-fin="${t0 + d.segundos * 1000}">${mmss(d.segundos)}</span></span>
+        <span>${d.pedido_en ? '✓ ya se lo pediste' : 'Toca cuando se lo pidas'}</span>
+      </button>`).join('') : '<div class="vacio"><p style="font-size:20px">Nadie pendiente 👌</p></div>'}`;
+}
+function conectarPresentadora(raiz) {
+  $$('[data-ir]', raiz).forEach(a => a.onclick = e => { e.preventDefault(); irA(a.dataset.ir); });
+  $$('[data-pres-pedido]', raiz).forEach(b => b.onclick = async () => {
+    if (await accion(() => rpc('presentadora_dm_pedido', { p_dm: b.dataset.presPedido }))) pintar();
+  });
+}
+
 /* ---------- Pantalla para la host (monitor) ---------- */
 async function vistaHost() {
   await cargar();
@@ -586,6 +607,7 @@ function conectarHost(raiz) {
 
 /* ---------- Estructura ---------- */
 const VISTAS = [
+  { id: 'dm', nombre: 'Pide DM', icono: IC.vivo },
   { id: 'vivo', nombre: 'En vivo', icono: IC.vivo },
   { id: 'casilleros', nombre: 'Casilleros', icono: IC.casilleros },
   { id: 'acomodo', nombre: 'Acomodo', icono: IC.ok },
@@ -595,7 +617,9 @@ const VISTAS = [
 ];
 const OCULTAS = ['host'];       // vistas sin pestaña (pantalla completa)
 // "Operación live" no usa el simulador de WhatsApp; Acomodo necesita la base nueva
-const vistaVisible = v => !(v.id === 'whatsapp' && ROL === 'live') && !(v.id === 'acomodo' && !TIENE_COMENTARIOS);
+// La presentadora solo tiene "Pide DM" y Ajustes (para activar sus avisos)
+const vistaVisible = v => ROL === 'presentadora' ? ['dm', 'ajustes'].includes(v.id)
+  : v.id !== 'dm' && !(v.id === 'whatsapp' && ROL === 'live') && !(v.id === 'acomodo' && !TIENE_COMENTARIOS);
 const existeVista = v => VISTAS.some(x => x.id === v) || OCULTAS.includes(v);
 let vista = (location.hash.replace('#', '') || 'vivo');
 if (!existeVista(vista)) vista = 'vivo';
@@ -605,8 +629,8 @@ function montar() {
     <header class="barra-sup">
       <img src="icons/logo-oscuro.png" alt="Outlet Prime">
       <h1 id="titulo">Live</h1>
-      ${ROL === 'supervisor' ? '<span class="chip chip-monitor">Monitor</span>' : ROL === 'operacion' ? '<span class="chip chip-monitor">Operación</span>' : ROL === 'live' ? '<span class="chip chip-monitor">Acomodo</span>' : ''}
-      ${ROL === 'live' ? '' : `<a class="btn-icono" href="index.html" aria-label="Ir a la app de Cajas" title="Cajas">${IC.cajas}</a>`}
+      ${ROL === 'supervisor' ? '<span class="chip chip-monitor">Monitor</span>' : ROL === 'operacion' ? '<span class="chip chip-monitor">Operación</span>' : ROL === 'live' ? '<span class="chip chip-monitor">Acomodo</span>' : ROL === 'presentadora' ? '<span class="chip chip-monitor">Presentadora</span>' : ''}
+      ${['live', 'presentadora'].includes(ROL) ? '' : `<a class="btn-icono" href="index.html" aria-label="Ir a la app de Cajas" title="Cajas">${IC.cajas}</a>`}
     </header>
     <main id="vista"></main>
     <nav class="tabs" aria-label="Secciones" style="grid-template-columns:repeat(${VISTAS.filter(vistaVisible).length}, 1fr)">
@@ -615,6 +639,9 @@ function montar() {
   $$('[data-vista]').forEach(b => b.onclick = () => irA(b.dataset.vista));
 }
 function irA(v) {
+  // Cada nivel solo entra a sus pestañas (la pantalla host no es para la presentadora)
+  const permitidas = VISTAS.filter(vistaVisible).map(x => x.id).concat(ROL === 'presentadora' ? [] : OCULTAS);
+  if (!permitidas.includes(v)) v = permitidas[0];
   vista = v;
   history.replaceState(null, '', '#' + v);
   window.scrollTo(0, 0);
@@ -635,7 +662,7 @@ async function pintar(cambioDeVista = false) {
   const v = $('#vista');
   if (cambioDeVista) v.innerHTML = '<div class="cargando"><div class="spinner"></div></div>';
   try {
-    const html = await ({ vivo: vistaVivo, casilleros: vistaCasilleros, acomodo: vistaAcomodo, prendas: vistaPrendas, whatsapp: vistaWhatsApp, ajustes: vistaAjustes, host: vistaHost })[vista]();
+    const html = await ({ dm: vistaPresentadora, vivo: vistaVivo, casilleros: vistaCasilleros, acomodo: vistaAcomodo, prendas: vistaPrendas, whatsapp: vistaWhatsApp, ajustes: vistaAjustes, host: vistaHost })[vista]();
     if (html !== null) v.innerHTML = html;
     conectar[vista] && conectar[vista](v);
   } catch (e) {
@@ -643,7 +670,7 @@ async function pintar(cambioDeVista = false) {
     v.innerHTML = `<div class="vacio">${IC.alerta}<h2>No se pudo cargar</h2><p>${esc(traducirError(e))}</p><button class="btn btn-primario" onclick="pintar(true)">Reintentar</button></div>`;
   }
 }
-const conectar = { host: conectarHost, acomodo: conectarAcomodo };
+const conectar = { host: conectarHost, acomodo: conectarAcomodo, dm: conectarPresentadora };
 
 /* ---------- En vivo ---------- */
 function posicionesEspera(feed) {
@@ -1330,7 +1357,7 @@ async function htmlAvisos() {
     ? `<details class="plegable"><summary>Últimos avisos</summary><div class="lista-simple">${resumen.ultimos.map(a => `<div><b>${esc(a.titulo)}</b><br>${esc(a.cuerpo)}<br><small>${fechaHora(a.creado_en)} · ${a.enviado ? `llegó a ${a.enviados} ${a.enviados === 1 ? 'teléfono' : 'teléfonos'}` : 'pendiente'}</small></div>`).join('')}</div></details>` : '';
   return `<div class="tarjeta" id="avisos">
       <h3 class="seccion" style="margin:0">Avisos en el celular</h3>
-      <p class="nota">Llegan como notificación, sin abrir el panel: pago recibido (mover a caja), pago incompleto, apartado vencido (regresar a racks) y caja lista para empacar.</p>
+      <p class="nota">${ROL === 'presentadora' ? 'Te llega una notificación cada vez que una clienta nueva es la primera en pedir una prenda: a quién pedirle DM. No recibes otros avisos.' : 'Llegan como notificación, sin abrir el panel: pago recibido (mover a caja), pago incompleto, apartado vencido (regresar a racks) y caja lista para empacar.'}</p>
       ${MSG[est.modo]}
       ${resumen ? `<small>${resumen.dispositivos ? `Reciben avisos: ${resumen.nombres.map(esc).join(', ')}` : 'Nadie del equipo ha activado los avisos todavía.'}</small>` : ''}
       ${ultimos}
@@ -1353,7 +1380,7 @@ async function htmlEquipo() {
     ]);
   } catch (e) { return `<div class="tarjeta"><p class="nota">${esc(traducirError(e))}</p></div>`; }
   const pendientes = gente.filter(g => !g.rol).length;
-  const opciones = r => [['duena', 'Dueña'], ['supervisor', 'Supervisor · ver y ligar DMs'], ['operacion', 'Operación'], ['live', 'Operación live · acomodo'], ['', 'Sin acceso']]
+  const opciones = r => [['duena', 'Dueña'], ['supervisor', 'Supervisor · ver y ligar DMs'], ['operacion', 'Operación'], ['live', 'Operación live · acomodo'], ['presentadora', 'Presentadora · solo avisos de DM'], ['', 'Sin acceso']]
     .map(([v, t]) => `<option value="${v}" ${(r || '') === v ? 'selected' : ''}>${t}</option>`).join('');
   const DESC = {
     'pago registrado': d => `${d.folio} · ${dinero(d.monto_pagado)}${d.caja ? ' → caja ' + d.caja : ''}`,
@@ -1397,6 +1424,11 @@ function conectarEquipo(raiz) {
 async function vistaAjustes() {
   const [[c], avisos] = await Promise.all([q(sb.from('live_config').select('*').limit(1)), htmlAvisos()]);
   const v = c || {};
+  if (ROL === 'presentadora') return `${avisos}
+    <div class="tarjeta">
+      <p>Sesión: <b>${esc(usuario.nombre)}</b> <small>${esc(usuario.email)}</small> <span class="chip">${esc(NIVELES[ROL] || '')}</span></p>
+      <div class="fila-botones"><button class="btn btn-secundario" id="salir">Cerrar sesión</button></div>
+    </div>`;
   return `
     ${avisos}
     ${puede.duena() ? await htmlEquipo() : ''}
@@ -1458,6 +1490,10 @@ async function vistaAjustes() {
 conectar.ajustes = raiz => {
   conectarAvisos(raiz);
   conectarEquipo(raiz);
+  if (!$('#f-ajustes', raiz)) {   // presentadora: solo avisos y sesión
+    $('#salir', raiz).onclick = async () => { await sb.auth.signOut(); location.reload(); };
+    return;
+  }
   $('#f-ajustes', raiz).onsubmit = async e => {
     e.preventDefault();
     const f = e.target;
@@ -1548,6 +1584,7 @@ async function arrancar() {
   if (!ROL) return pantallaSinAcceso();
   TIENE_COMENTARIOS = !(await sb.from('live_dm').select('id', { head: true, count: 'exact' }).limit(1)).error;
   if (ROL === 'live' && !location.hash) vista = 'acomodo';
+  if (ROL === 'presentadora') vista = vista === 'ajustes' ? 'ajustes' : 'dm';
   if (!VISTAS.filter(vistaVisible).some(v => v.id === vista) && !OCULTAS.includes(vista)) vista = 'vivo';
   montar();
   pintar(true);
@@ -1569,7 +1606,7 @@ setInterval(() => {
   if (capturandoDesde && Date.now() - capturandoDesde < 120000) return; // la cámara está abierta
   const foco = document.activeElement;
   if (foco && /INPUT|TEXTAREA|SELECT/.test(foco.tagName)) return;
-  if (['vivo', 'casilleros', 'acomodo', 'whatsapp', 'host'].includes(vista)) pintar();
+  if (['dm', 'vivo', 'casilleros', 'acomodo', 'whatsapp', 'host'].includes(vista)) pintar();
 }, 4000);
 window.addEventListener('hashchange', () => { const v = location.hash.replace('#', ''); if (v !== vista && existeVista(v)) irA(v); });
 

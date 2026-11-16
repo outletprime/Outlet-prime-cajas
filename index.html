@@ -2358,6 +2358,7 @@ async function arrancar() {
   if (!ROL) return pantallaSinAcceso();
   // "Operación live" solo trabaja en el panel del live (acomodo de prendas), no en Cajas
   if (ROL === 'live') { location.replace('live.html#acomodo'); return; }
+  if (ROL === 'presentadora') { location.replace('live.html#dm'); return; }
   montarShell();
   await navegar();
   revisarAlertas();

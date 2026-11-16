@@ -29,19 +29,25 @@ Las dos usan el mismo correo y contraseña de Supabase → Authentication → Us
 
 ### Niveles de acceso del equipo
 
-| Puede… | Dueña | Supervisor (monitor) | Operación | Operación live (acomodo) |
-|---|---|---|---|---|
-| Ver live, casilleros y prendas; recibir avisos | ✅ | ✅ | ✅ | ✅ |
-| Marcar prendas acomodadas en su casillero o regresadas al rack (pestaña **Acomodo**) | ✅ | ❌ | ✅ | ✅ |
-| Ver clientas, teléfonos y la app de Cajas | ✅ | ✅ | ✅ | ❌ |
-| **Ligar a mano** a una clienta que mandó su WhatsApp por DM (aviso "Pide DM") | ✅ | ✅ | ✅ | ❌ |
-| Ver reportes de ventas | ✅ | ✅ | ❌ | ❌ |
-| Iniciar/cerrar lives, capturar, liberar, ligar usuarios, registrar clientas y pedidos | ✅ | ❌ | ✅ | ❌ |
-| Registrar pagos | ✅ | ❌ | ❌ | ❌ |
-| Programar Prime Live e invitar mayoristas | ✅ | ❌ | ❌ | ❌ |
-| Cambiar CLABE, precios, tiempos y categorías | ✅ | ❌ | ❌ | ❌ |
-| Borrar cualquier cosa | ✅ | ❌ | ❌ | ❌ |
-| Dar o quitar accesos | ✅ | ❌ | ❌ | ❌ |
+| Puede… | Dueña | Supervisor | Operación | Operación live (acomodo) | Presentadora |
+|---|---|---|---|---|---|
+| Ver live, casilleros y prendas | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Recibir avisos de pagos, vencidos y cajas | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Recibir el aviso **"🙋 Pide DM a @usuaria"** (la primera que pidió una prenda) y marcar "ya se lo pedí" | ver en panel | ver en panel | ✅ en panel | ❌ | ✅ **en su celular** |
+| Marcar prendas acomodadas en su casillero o regresadas al rack (pestaña **Acomodo**) | ✅ | ❌ | ✅ | ✅ | ❌ |
+| Ver clientas, teléfonos y la app de Cajas | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Ligar a mano** a una clienta que mandó su WhatsApp por DM | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Ver reportes de ventas | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Iniciar/cerrar lives, capturar, liberar, registrar clientas y pedidos | ✅ | ❌ | ✅ | ❌ | ❌ |
+| Registrar pagos | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Programar Prime Live e invitar mayoristas | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Cambiar CLABE, precios, tiempos y categorías | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Borrar cualquier cosa | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Dar o quitar accesos | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+**Presentadora**: solo le llegan notificaciones "🙋 Pide DM a @usuaria · fue la primera en pedir la 0023"
+(no las de quien quedó en espera, ni pagos ni cajas). En el panel solo tiene la pestaña **Pide DM**, con la
+lista y el botón "ya se lo pedí", y Ajustes para activar sus avisos. No ve clientas, pagos ni casilleros.
 
 **Supervisor** solo ve, con una excepción: atiende los DMs. Cuando una clienta nueva le manda su
 WhatsApp por mensaje directo, en el aviso "Pide DM" toca **Ligar con su WhatsApp**, escribe el número (y el
