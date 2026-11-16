@@ -87,7 +87,7 @@ fi
 
 # 4. Instalar lo que usa el agente -------------------------------------------
 echo "4/5 · Instalando lo que usa el agente (1–2 minutos)…"
-npm install --omit=dev --no-audit --no-fund --loglevel=error >/dev/null
+NPM_CONFIG_UPDATE_NOTIFIER=false npm install --omit=dev --no-audit --no-fund --loglevel=error >/dev/null
 verde "   ✓ Listo"
 
 # 5. Acceso en el Escritorio y revisión ---------------------------------------
