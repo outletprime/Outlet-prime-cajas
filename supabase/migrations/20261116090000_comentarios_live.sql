@@ -163,11 +163,7 @@ language sql immutable as $$
                                     '[^a-z0-9_.]', '', 'g'), 60), '')
 $$;
 
--- 23 → 0023; los números de 5 cifras ya no se recortan
-create or replace function public.live_num(p integer) returns text
-language sql immutable set search_path = public as $$
-  select case when p >= 10000 then p::text else lpad(p::text, 4, '0') end
-$$;
+-- (live_num NO se cambia aquí: la base ya usa claves con letras A1..Z99 / AB1.. — migración claves_con_letras)
 
 create or replace function public.live_ints(j jsonb) returns integer[]
 language sql immutable as $$
@@ -672,214 +668,12 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------
--- 8. El bot de WhatsApp ahora también registra a las clientas que comentaron
+-- 8. El bot de WhatsApp NO se cambia aquí.
+--    La base ya tiene su propio bot con registro por usuario de TikTok (migraciones
+--    bot_whatsapp_liga_tiktok y bot_whatsapp_usuario_tiktok_fix, 14 nov 2026).
+--    Una primera versión de este archivo lo reemplazaba; se regresó con la migración
+--    restaurar_bot_y_claves_tiktok. Falta decidir cómo unir los dos sistemas.
 -- ---------------------------------------------------------------------
-create or replace function public.bot_mensaje(
-  p_telefono text,
-  p_texto text,
-  p_nombre text default null,
-  p_wa_id text default null,
-  p_recibido timestamptz default null
-) returns jsonb
-language plpgsql set search_path = public as $$
-declare
-  v_tel text := live_tel10(p_telefono);
-  v_sim boolean;
-  v_recibido timestamptz := coalesce(p_recibido, clock_timestamp());
-  v_txt text := coalesce(p_texto, '');
-  v_txt_nums text;
-  v_cfg live_config;
-  v_cl clientas;
-  v_live lives;
-  v_c live_cuentas;
-  v_nums integer[];
-  v_arroba text[];
-  v_handles text[];
-  v_h text;
-  v_red text;
-  v_l jsonb;
-  v_nombre text;
-  v_pal text;
-  v_nueva boolean := false;
-  v_ligo boolean := false;
-  v_ligadas integer[] := '{}';
-  v_tuyas integer[] := '{}';
-  v_r jsonb;
-  v_lineas text[] := '{}';
-  v_resp text;
-  v_salida uuid;
-begin
-  if length(v_tel) <> 10 then
-    raise exception 'Número de WhatsApp inválido: %', p_telefono;
-  end if;
-  v_sim := v_tel like '00%';
-
-  if p_wa_id is not null and exists (select 1 from wa_mensajes where wa_id = p_wa_id) then
-    return jsonb_build_object('duplicado', true);
-  end if;
-
-  -- Usuarios de redes que escribió: "@ana_23" o "mi usuario es ana_23"
-  select coalesce(array_agg(distinct h), '{}') into v_arroba
-    from (select regexp_replace(lower(m[1]), '\.+$', '') h
-            from regexp_matches(v_txt, '@([A-Za-z0-9_.]{2,40})', 'g') m) s
-   where length(h) >= 2;
-  select coalesce(array_agg(distinct h order by h), '{}') into v_handles
-    from (select unnest(v_arroba) h
-          union
-          select regexp_replace(lower(m[1]), '\.+$', '')
-            from regexp_matches(v_txt, '(?:usuario|user|cuenta|perfil)\s*(?:de\s+[[:alpha:]]+\s*)?(?:es\s+|:\s*)?@?([A-Za-z0-9_.]{2,40})', 'gi') m) s
-   where length(h) >= 2
-     and h !~ '^(es|de|del|el|la|mi|tiktok|tik|facebook|face|fb|instagram|insta|ig|youtube|yt)$'
-     and (case when v_sim then h like 'sim\_%' else h not like 'sim\_%' end);
-
-  -- Candados en orden fijo (usuario → teléfono) para no chocar con el agente
-  foreach v_h in array v_handles loop
-    perform pg_advisory_xact_lock(hashtext('live-usr-' || v_h));
-  end loop;
-  perform pg_advisory_xact_lock(hashtext('live-tel-' || v_tel));
-  select * into v_cfg from live_config limit 1;
-
-  -- Nombre que escribió: "Soy Ana López", "me llamo Ana", "mi nombre es Ana"
-  select string_agg(w, ' ' order by o) into v_nombre
-    from (select w, o, bool_and(w !~* '^(y|e|mi|quiero|me|usuario|con|para|soy|por|que|en|el|la|de|del|las|los|tiktok|whats|whatsapp|face|facebook|insta|instagram|apartar|aparto|la)$')
-                       over (order by o) as sigue
-            from regexp_split_to_table(
-                   (regexp_match(v_txt, '(?:soy|me llamo|mi nombre es)\s+([A-Za-zÁÉÍÓÚÑÜáéíóúñü]+(?:\s+[A-Za-zÁÉÍÓÚÑÜáéíóúñü]+){0,5})', 'i'))[1],
-                   '\s+') with ordinality t(w, o)) s
-   where sigue and o <= 4;
-  if v_nombre is not null then v_nombre := initcap(lower(v_nombre)); end if;
-
-  select * into v_cl from clientas where telefono = v_tel;
-  if not found then
-    insert into clientas (nombre, telefono, fecha_registro, creado_por)
-    values (coalesce(v_nombre, nullif(trim(p_nombre), ''), 'Clienta ' || right(v_tel, 4)), v_tel,
-            (now() at time zone v_cfg.zona_horaria)::date,
-            case when v_sim then 'Simulador' else 'Bot WhatsApp' end)
-    returning * into v_cl;
-    v_nueva := true;
-  elsif v_nombre is not null and v_cl.nombre ~ '^Clienta [0-9]{4}$' then
-    update clientas set nombre = v_nombre where id = v_cl.id returning * into v_cl;
-  end if;
-
-  insert into wa_mensajes (direccion, telefono, wa_id, texto, clienta_id, estado, simulado, creado_en)
-  values ('entrada', v_tel, p_wa_id, v_txt, v_cl.id, 'recibido', v_sim, v_recibido);
-
-  select * into v_live from lives where estado = 'activo' and tipo = 'redes' limit 1;
-  if v_nueva then
-    v_lineas := v_lineas || '¡Bienvenida a Outlet Prime! 💕'::text;
-  end if;
-
-  -- Ligar sus usuarios de redes
-  foreach v_h in array v_handles loop
-    v_red := null;
-    for v_red in select distinct red from live_dm where usuario = v_h and estado = 'esperando' loop
-      v_l := live_ligar_red(v_cl.id, v_red, v_h, case when v_sim then 'Simulador' else 'Bot WhatsApp' end);
-      if coalesce((v_l->>'conflicto')::boolean, false) then
-        v_lineas := v_lineas || format('⚠️ El usuario @%s de %s ya está registrado con otro número. Si es tuyo, escríbenos y el equipo lo revisa.',
-                                       v_h, live_red_nombre(v_red));
-      else
-        v_ligo := true;
-        v_lineas := v_lineas || format('✅ Listo %s, ya quedaste registrada como @%s (%s).',
-                                       split_part(v_cl.nombre, ' ', 1), v_h, live_red_nombre(v_red));
-        v_lineas := v_lineas || array(select jsonb_array_elements_text(v_l->'lineas'));
-        v_ligadas := v_ligadas || live_ints(v_l->'tuyas') || live_ints(v_l->'ya');
-        v_tuyas := v_tuyas || live_ints(v_l->'tuyas');
-        v_ligadas := v_ligadas || array(select (e->>'n')::integer from jsonb_array_elements(v_l->'espera') e)
-                               || live_ints(v_l->'vendidas') || live_ints(v_l->'limite');
-      end if;
-    end loop;
-
-    if v_red is null then
-      -- No había aviso esperando: ¿se le venció el provisional?
-      select red into v_red from live_dm where usuario = v_h and estado = 'vencida'
-       order by creado_en desc limit 1;
-      if v_red is not null then
-        v_l := live_ligar_red(v_cl.id, v_red, v_h, case when v_sim then 'Simulador' else 'Bot WhatsApp' end);
-        if coalesce((v_l->>'conflicto')::boolean, false) then
-          v_lineas := v_lineas || format('⚠️ El usuario @%s ya está registrado con otro número. Si es tuyo, escríbenos y el equipo lo revisa.', v_h);
-        else
-          v_ligo := true;
-          v_lineas := v_lineas || format('✅ Listo %s, ya quedaste registrada como @%s (%s). ⏰ Tu apartado provisional ya había vencido: comenta otra vez el número en el live y se te aparta al momento.',
-                                         split_part(v_cl.nombre, ' ', 1), v_h, live_red_nombre(v_red));
-        end if;
-      elsif v_h = any (v_arroba) and not exists (select 1 from clientas_redes where usuario = v_h and clienta_id = v_cl.id) then
-        -- Se registra antes de comentar: la ligamos en la red principal
-        v_l := live_ligar_red(v_cl.id, v_cfg.red_principal, v_h, case when v_sim then 'Simulador' else 'Bot WhatsApp' end);
-        if coalesce((v_l->>'conflicto')::boolean, false) then
-          v_lineas := v_lineas || format('⚠️ El usuario @%s ya está registrado con otro número. Si es tuyo, escríbenos y el equipo lo revisa.', v_h);
-        else
-          v_ligo := true;
-          v_lineas := v_lineas || format('✅ Listo %s, te registramos como @%s (%s).',
-                                         split_part(v_cl.nombre, ' ', 1), v_h, live_red_nombre(v_cfg.red_principal));
-        end if;
-      end if;
-    end if;
-  end loop;
-  if v_ligo then
-    v_lineas := v_lineas || 'A partir de ahora, lo que comentes en el live se te aparta solo. 💕'::text;
-  end if;
-
-  -- Números de prenda (sin contar los que trae el @usuario)
-  v_txt_nums := regexp_replace(v_txt, '@[A-Za-z0-9_.]+', ' ', 'g');
-  foreach v_h in array v_handles loop
-    v_txt_nums := regexp_replace(v_txt_nums, '(?<![A-Za-z0-9_.])' || regexp_replace(v_h, '([.])', '\\\1', 'g') || '(?![A-Za-z0-9_])', ' ', 'gi');
-  end loop;
-  select coalesce(array_agg(n order by o), '{}') into v_nums
-    from (select (m[1])::integer as n, min(o) as o
-            from regexp_matches(v_txt_nums, '(?<![0-9])([0-9]{1,5})(?![0-9])', 'g') with ordinality as t(m, o)
-           group by 1) s
-   where not n = any (v_ligadas);
-
-  if cardinality(v_nums) = 0 then
-    if v_ligo then
-      null;
-    elsif v_live.id is not null then
-      v_lineas := v_lineas || format('Hola %s 👋 Para apartar comenta el número de la etiqueta en el live, o mándalo aquí (por ejemplo: 23). Puedes mandar varios: 23 45 310.',
-                                     split_part(v_cl.nombre, ' ', 1));
-    else
-      select * into v_c from live_cuentas
-       where clienta_id = v_cl.id and estado in ('por_pagar', 'pago_incompleto')
-       order by creada_en desc limit 1;
-      if found then
-        v_lineas := v_lineas || format('Hola %s 👋 Esto es lo que tienes pendiente:', split_part(v_cl.nombre, ' ', 1));
-        v_lineas := v_lineas || live_texto_cobro(v_c.id);
-      else
-        v_lineas := v_lineas || v_cfg.mensaje_sin_live;
-      end if;
-    end if;
-
-  elsif v_live.id is null then
-    v_lineas := v_lineas || v_cfg.mensaje_sin_live;
-
-  else
-    v_r := live_apartar(v_live.id, v_cl.id, v_nums, v_recibido, 'whatsapp', null);
-    v_lineas := v_lineas || live_texto_apartar(v_r);
-    v_tuyas := v_tuyas || live_ints(v_r->'tuyas');
-    if jsonb_array_length(v_r->'provisional_de_otra') > 0
-       and not exists (select 1 from clientas_redes where clienta_id = v_cl.id) then
-      v_lineas := v_lineas || format('🙋 Si tú comentaste %s en el live, mándanos tu usuario (por ejemplo @tu_usuario) para ligártela.',
-        case when jsonb_array_length(v_r->'provisional_de_otra') = 1 then 'la ' || live_num((v_r->'provisional_de_otra'->>0)::integer)
-             else live_lista(live_ints(v_r->'provisional_de_otra')) end);
-    end if;
-  end if;
-
-  if v_live.id is not null then
-    v_lineas := v_lineas || live_texto_resumen(v_live.id, v_cl.id);
-  end if;
-
-  v_resp := array_to_string(v_lineas, E'\n');
-  v_salida := wa_encolar(v_tel, v_resp, v_cl.id);
-
-  return jsonb_build_object(
-    'clienta_id', v_cl.id,
-    'nueva', v_nueva,
-    'ligada', v_ligo,
-    'respuesta', v_resp,
-    'mensaje_id', v_salida,
-    'apartadas', to_jsonb(v_tuyas),
-    'espera', coalesce(v_r->'espera', '[]'::jsonb)
-  );
-end $$;
 
 -- ---------------------------------------------------------------------
 -- 9. Borrar datos de prueba (también comentarios y avisos simulados)
@@ -1004,7 +798,7 @@ begin
               and p.proname in ('live_usuario_norm', 'live_ints', 'live_red_nombre', 'live_texto_dm', 'live_apartar',
                                 'live_texto_apartar', 'live_comentario', 'live_ligar_red', 'live_desligar_red',
                                 'live_soltar_reserva', 'live_revisar_reservas', 'live_dm_pedido', 'live_dm_extender',
-                                'live_dm_cancelar', 'live_reserva_quitar', 'bot_mensaje', 'live_borrar_simulacion') loop
+                                'live_dm_cancelar', 'live_reserva_quitar', 'live_borrar_simulacion') loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated, service_role', f.sig);
   end loop;
