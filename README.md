@@ -45,6 +45,10 @@ Las dos usan el mismo correo y contraseña de Supabase → Authentication → Us
 | Borrar cualquier cosa | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Dar o quitar accesos | ✅ | ❌ | ❌ | ❌ | ❌ |
 
+**Operación live (acomodo)**: además de los avisos generales, le llega una notificación por cada prenda:
+"📦 A23 → C-007 · Ana" (llevarla a su casillero), "🔁 A23: de C-007 a C-009" (pasó a la siguiente en espera)
+o "↩️ Regresar A23 al rack".
+
 **Presentadora**: solo le llegan notificaciones "🙋 Pide DM a @usuaria · fue la primera en pedir la 0023"
 (no las de quien quedó en espera, ni pagos ni cajas). En el panel solo tiene la pestaña **Pide DM**, con la
 lista y el botón "ya se lo pedí", y Ajustes para activar sus avisos. No ve clientas, pagos ni casilleros.
