@@ -138,9 +138,9 @@ async function principal() {
     if (eTabla) { ok = false; decir(C.rojo, '❌ Falta pegar en Supabase 20261116090000_comentarios_live.sql'); }
     else decir(C.verde, '✅ La base de datos ya tiene lo de comentarios');
     if (ia) {
-      const r = await ia('prueba', 'me llevo la veintitrés');
+      const r = await ia('prueba', 'me llevo la A veintitrés');
       if (r.error) { ok = false; decir(C.rojo, `❌ La IA no respondió: ${r.nota}`); }
-      else decir(C.verde, `✅ La IA respondió bien ("me llevo la veintitrés" → ${JSON.stringify(r.prendas)})`);
+      else decir(C.verde, `✅ La IA respondió bien ("me llevo la A veintitrés" → ${(r.claves || []).join(', ') || r.tipo})`);
     }
     const tk = cfg.redes?.tiktok;
     if (tk?.activa) decir(C.verde, `✅ Leerá el TikTok de @${String(tk.usuario || '').replace(/^@/, '')}`);
