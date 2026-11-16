@@ -2356,6 +2356,8 @@ let ROL = null;
 async function arrancar() {
   try { ROL = await store.rol(); } catch (e) { console.error(e); ROL = null; }
   if (!ROL) return pantallaSinAcceso();
+  // "Operación live" solo trabaja en el panel del live (acomodo de prendas), no en Cajas
+  if (ROL === 'live') { location.replace('live.html#acomodo'); return; }
   montarShell();
   await navegar();
   revisarAlertas();

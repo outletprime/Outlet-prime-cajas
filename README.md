@@ -29,16 +29,22 @@ Las dos usan el mismo correo y contraseña de Supabase → Authentication → Us
 
 ### Niveles de acceso del equipo
 
-| Puede… | Dueña | Supervisor (monitor) | Operación |
-|---|---|---|---|
-| Ver live, casilleros, cajas y clientas; recibir avisos | ✅ | ✅ | ✅ |
-| Ver reportes de ventas | ✅ | ✅ | ❌ |
-| Iniciar/cerrar lives, capturar, liberar, mover prendas, registrar clientas y pedidos | ✅ | ❌ | ✅ |
-| Registrar pagos | ✅ | ❌ | ❌ |
-| Programar Prime Live e invitar mayoristas | ✅ | ❌ | ❌ |
-| Cambiar CLABE, precios, tiempos y categorías | ✅ | ❌ | ❌ |
-| Borrar cualquier cosa | ✅ | ❌ | ❌ |
-| Dar o quitar accesos | ✅ | ❌ | ❌ |
+| Puede… | Dueña | Supervisor (monitor) | Operación | Operación live (acomodo) |
+|---|---|---|---|---|
+| Ver live, casilleros y prendas; recibir avisos | ✅ | ✅ | ✅ | ✅ |
+| Marcar prendas acomodadas en su casillero o regresadas al rack (pestaña **Acomodo**) | ✅ | ❌ | ✅ | ✅ |
+| Ver clientas, teléfonos y la app de Cajas | ✅ | ✅ | ✅ | ❌ |
+| Ver reportes de ventas | ✅ | ✅ | ❌ | ❌ |
+| Iniciar/cerrar lives, capturar, liberar, ligar usuarios, registrar clientas y pedidos | ✅ | ❌ | ✅ | ❌ |
+| Registrar pagos | ✅ | ❌ | ❌ | ❌ |
+| Programar Prime Live e invitar mayoristas | ✅ | ❌ | ❌ | ❌ |
+| Cambiar CLABE, precios, tiempos y categorías | ✅ | ❌ | ❌ | ❌ |
+| Borrar cualquier cosa | ✅ | ❌ | ❌ | ❌ |
+| Dar o quitar accesos | ✅ | ❌ | ❌ | ❌ |
+
+**Acomodo** (para quien lleva las prendas del live a los casilleros): lista "Llevar a su casillero"
+(`0023 → C-007`), "Regresar al rack" (prendas liberadas) y "Charola de pendientes" (clientas nuevas que
+aún no se registran). Cada prenda se palomea con ✓; si se equivoca, puede deshacer.
 
 - Las reglas están **en la base de datos** (`…_niveles_acceso.sql`); esconder botones es solo comodidad.
 - Para agregar a alguien: Supabase → Authentication → Users → **Add user** (Auto Confirm) y después

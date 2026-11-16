@@ -226,6 +226,16 @@ body.host #vista { max-width: none; padding: calc(var(--sup) + 14px) 20px 24px; 
 .host-ap .cas { color: var(--marca); font-weight: 800; }
 .host-ap small { font-size: .6em; color: var(--texto-2); }
 
+.acomodo { display: grid; gap: 8px; }
+.acomodo-fila { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--superficie); border: 1px solid var(--borde); }
+.acomodo-fila.regresar { border-style: dashed; }
+.acomodo-fila small { display: block; color: var(--texto-2); }
+.acomodo-num, .acomodo-fila b { font-size: 24px; font-variant-numeric: tabular-nums; }
+.acomodo-cas { color: var(--marca); }
+.acomodo-ok { min-width: 64px; min-height: 52px; border-radius: 14px; }
+.acomodo-ok svg { width: 26px; height: 26px; }
+.acomodo-hecha { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
 .login-fondo { min-height: 100vh; background: #000; }
 .login { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 24px; max-width: 420px; margin: 0 auto; }
 .login img { width: 100%; max-width: 300px; margin: 0 auto; display: block; }
@@ -324,10 +334,11 @@ async function accion(fn, okMsg) {
 
 /* ---------- Nivel de acceso ---------- */
 let ROL = null;
-const NIVELES = { duena: 'Dueña', supervisor: 'Supervisor · solo ver', operacion: 'Operación' };
+const NIVELES = { duena: 'Dueña', supervisor: 'Supervisor · solo ver', operacion: 'Operación', live: 'Operación live · acomodo' };
 const puede = {
   operar: () => ROL === 'duena' || ROL === 'operacion',
   duena: () => ROL === 'duena',
+  acomodar: () => ['duena', 'operacion', 'live'].includes(ROL),
 };
 
 /* ---------- Datos ---------- */
@@ -357,6 +368,8 @@ async function cargar() {
       q(sb.from('live_agente').select('*').limit(20)),
     ]);
     D.cargadoEn = Date.now();
+    const { count } = await sb.from('live_acomodo').select('id', { head: true, count: 'exact' }).neq('tarea', 'hecho');
+    D.porAcomodar = count || 0;
   }
 }
 
@@ -376,7 +389,7 @@ function htmlAgente() {
   if (!TIENE_COMENTARIOS) return '';
   const prog = D.agente.find(a => a.red === 'agente');
   const vivo = prog && prog.estado !== 'apagado' && Date.now() - new Date(prog.actualizado_en) < 60000;
-  if (!vivo) return `<div class="banner banner-aviso">${IC.alerta}<span><b>El agente que lee los comentarios no está encendido.</b> Ábrelo en la computadora de la tienda. Mientras tanto, captura a mano (abajo) o que apartan por WhatsApp.</span></div>`;
+  if (!vivo) return `<div class="banner banner-aviso">${IC.alerta}<span><b>El agente que lee los comentarios no está encendido.</b> Ábrelo en la computadora de la tienda. Mientras tanto, captura a mano (abajo); las clientas también pueden apartar por WhatsApp.</span></div>`;
   const redes = D.agente.filter(a => a.red !== 'agente');
   const errores = redes.filter(a => a.estado === 'error');
   return `<div class="agente"><b>Agente:</b>${redes.map(a => `<span class="chip ${a.estado === 'conectado' ? 'chip-ok' : a.estado === 'error' ? 'chip-vencida' : 'chip-aviso'}" title="${esc(a.detalle || '')}">${esc(RED[a.red] || a.red)} · ${esc(ESTADO_AG[a.estado] || a.estado)}</span>`).join('')}
@@ -504,6 +517,47 @@ function conectarDMs(raiz) {
 // Cuenta regresiva de los avisos "pide DM"
 setInterval(() => $$('[data-fin]').forEach(el => { el.textContent = mmss((+el.dataset.fin - Date.now()) / 1000); }), 1000);
 
+/* ---------- Acomodo: llevar prendas del live a los casilleros ---------- */
+async function vistaAcomodo() {
+  await cargar();
+  const filas = await q(sb.from('live_acomodo').select('*').order('creado_en', { ascending: true }).limit(500));
+  const acomodar = filas.filter(f => f.tarea === 'acomodar');
+  const regresar = filas.filter(f => f.tarea === 'regresar');
+  const hechas = filas.filter(f => f.tarea === 'hecho')
+    .sort((a, b) => new Date(b.regresada_en || b.acomodada_en) - new Date(a.regresada_en || a.acomodada_en)).slice(0, 15);
+  const charola = D.dms.flatMap(d => d.provisionales.map(n => ({ n, d })));
+  D.porAcomodar = acomodar.length + regresar.length;
+  const boton = (f, tipo) => puede.acomodar()
+    ? `<button type="button" class="btn btn-primario acomodo-ok" data-${tipo}="${f.id}" aria-label="Listo ${esc(f.etiqueta)}">${IC.ok}</button>` : '<span></span>';
+  return `
+    ${puede.acomodar() ? '' : '<p class="nota">Solo ver: la persona de acomodo marca cada prenda.</p>'}
+    <h3 class="seccion">Llevar a su casillero · ${acomodar.length}</h3>
+    ${acomodar.length ? `<div class="acomodo">${acomodar.map(f => `<div class="acomodo-fila">
+        <div><b class="acomodo-num">${esc(f.etiqueta)}</b> <span class="flecha">→</span> <b class="acomodo-cas">${esc(f.casillero || 'SIN CASILLERO')}</b><small>${esc(nombreCorto(f.clienta))} · ${hora(f.creado_en)}</small></div>
+        ${boton(f, 'acomodar')}</div>`).join('')}</div>`
+      : '<div class="vacio"><p>Todo acomodado 👌</p></div>'}
+    ${regresar.length ? `<h3 class="seccion">Regresar al rack · ${regresar.length}</h3>
+    <p class="nota">Prendas que se liberaron (no pagaron o se quitaron). Sácalas del casillero y regrésalas al rack.</p>
+    <div class="acomodo">${regresar.map(f => `<div class="acomodo-fila regresar">
+        <div><b class="acomodo-num">${esc(f.etiqueta)}</b> <span class="flecha">←</span> <b>${esc(f.casillero || '—')}</b> <span class="chip chip-aviso">al rack</span><small>era de ${esc(nombreCorto(f.clienta))}</small></div>
+        ${boton(f, 'regresar')}</div>`).join('')}</div>` : ''}
+    ${charola.length ? `<h3 class="seccion">En la charola de pendientes · ${charola.length}</h3>
+    <p class="nota">Las pidieron clientas nuevas que aún no se registran. Déjalas en la charola: cuando se registren aparecen arriba con su casillero; si no, se liberan solas.</p>
+    <div class="tarjeta"><div class="lista-simple">${charola.map(x => `<div><b>${num4(x.n)}</b> · @${esc(x.d.usuario)} · ${esc(RED[x.d.red] || x.d.red)} · <span data-fin="${D.cargadoEn + x.d.segundos * 1000}">${mmss(x.d.segundos)}</span></div>`).join('')}</div></div>` : ''}
+    ${hechas.length ? `<details class="tarjeta"><summary>Hechas recientemente (${hechas.length})</summary>
+      <div class="lista-simple">${hechas.map(f => `<div class="acomodo-hecha"><span><b>${esc(f.etiqueta)}</b> ${f.regresada_en ? '→ rack' : '→ ' + esc(f.casillero || '—')} · <small>${hora(f.regresada_en || f.acomodada_en)} · ${esc((f.regresada_por || f.acomodada_por || '').split('@')[0])}</small></span>
+        ${puede.acomodar() ? `<button type="button" class="btn btn-mini btn-secundario" data-deshacer="${f.id}" data-cual="${f.regresada_en ? 'regresar' : 'acomodar'}">Deshacer</button>` : ''}</div>`).join('')}</div></details>` : ''}`;
+}
+function conectarAcomodo(raiz) {
+  const marcar = async (fn, id, deshacer = false) => {
+    if (await accion(() => rpc(fn, { p_apartado: id, p_por: usuario.email, p_deshacer: deshacer }))) pintar();
+  };
+  $$('[data-acomodar]', raiz).forEach(b => b.onclick = () => marcar('live_acomodar', b.dataset.acomodar));
+  $$('[data-regresar]', raiz).forEach(b => b.onclick = () => marcar('live_regresar_rack', b.dataset.regresar));
+  $$('[data-deshacer]', raiz).forEach(b => b.onclick = () =>
+    marcar(b.dataset.cual === 'regresar' ? 'live_regresar_rack' : 'live_acomodar', b.dataset.deshacer, true));
+}
+
 /* ---------- Pantalla para la host (monitor) ---------- */
 async function vistaHost() {
   await cargar();
@@ -534,11 +588,14 @@ function conectarHost(raiz) {
 const VISTAS = [
   { id: 'vivo', nombre: 'En vivo', icono: IC.vivo },
   { id: 'casilleros', nombre: 'Casilleros', icono: IC.casilleros },
+  { id: 'acomodo', nombre: 'Acomodo', icono: IC.ok },
   { id: 'prendas', nombre: 'Prendas', icono: IC.prendas },
   { id: 'whatsapp', nombre: 'WhatsApp', icono: IC.chat },
   { id: 'ajustes', nombre: 'Ajustes', icono: IC.ajustes },
 ];
 const OCULTAS = ['host'];       // vistas sin pestaña (pantalla completa)
+// "Operación live" no usa el simulador de WhatsApp; Acomodo necesita la base nueva
+const vistaVisible = v => !(v.id === 'whatsapp' && ROL === 'live') && !(v.id === 'acomodo' && !TIENE_COMENTARIOS);
 const existeVista = v => VISTAS.some(x => x.id === v) || OCULTAS.includes(v);
 let vista = (location.hash.replace('#', '') || 'vivo');
 if (!existeVista(vista)) vista = 'vivo';
@@ -548,12 +605,12 @@ function montar() {
     <header class="barra-sup">
       <img src="icons/logo-oscuro.png" alt="Outlet Prime">
       <h1 id="titulo">Live</h1>
-      ${ROL === 'supervisor' ? '<span class="chip chip-monitor">Monitor</span>' : ROL === 'operacion' ? '<span class="chip chip-monitor">Operación</span>' : ''}
-      <a class="btn-icono" href="index.html" aria-label="Ir a la app de Cajas" title="Cajas">${IC.cajas}</a>
+      ${ROL === 'supervisor' ? '<span class="chip chip-monitor">Monitor</span>' : ROL === 'operacion' ? '<span class="chip chip-monitor">Operación</span>' : ROL === 'live' ? '<span class="chip chip-monitor">Acomodo</span>' : ''}
+      ${ROL === 'live' ? '' : `<a class="btn-icono" href="index.html" aria-label="Ir a la app de Cajas" title="Cajas">${IC.cajas}</a>`}
     </header>
     <main id="vista"></main>
-    <nav class="tabs" aria-label="Secciones">
-      ${VISTAS.map(v => `<button type="button" data-vista="${v.id}">${v.icono}<span>${v.nombre}</span><span class="punto" data-punto="${v.id}" hidden></span></button>`).join('')}
+    <nav class="tabs" aria-label="Secciones" style="grid-template-columns:repeat(${VISTAS.filter(vistaVisible).length}, 1fr)">
+      ${VISTAS.filter(vistaVisible).map(v => `<button type="button" data-vista="${v.id}">${v.icono}<span>${v.nombre}</span><span class="punto" data-punto="${v.id}" hidden></span></button>`).join('')}
     </nav>`;
   $$('[data-vista]').forEach(b => b.onclick = () => irA(b.dataset.vista));
 }
@@ -568,6 +625,8 @@ function marcarTabs() {
   const pendientes = D.tablero.filter(c => siguientePaso(c).accion).length;
   const p = $('[data-punto="casilleros"]');
   if (p) { p.hidden = !pendientes; p.textContent = pendientes; }
+  const pa = $('[data-punto="acomodo"]');
+  if (pa) { pa.hidden = !D.porAcomodar; pa.textContent = D.porAcomodar; }
   $('#titulo').textContent = (VISTAS.find(x => x.id === vista) || { nombre: 'Live' }).nombre;
   document.body.classList.toggle('host', vista === 'host');
 }
@@ -576,7 +635,7 @@ async function pintar(cambioDeVista = false) {
   const v = $('#vista');
   if (cambioDeVista) v.innerHTML = '<div class="cargando"><div class="spinner"></div></div>';
   try {
-    const html = await ({ vivo: vistaVivo, casilleros: vistaCasilleros, prendas: vistaPrendas, whatsapp: vistaWhatsApp, ajustes: vistaAjustes, host: vistaHost })[vista]();
+    const html = await ({ vivo: vistaVivo, casilleros: vistaCasilleros, acomodo: vistaAcomodo, prendas: vistaPrendas, whatsapp: vistaWhatsApp, ajustes: vistaAjustes, host: vistaHost })[vista]();
     if (html !== null) v.innerHTML = html;
     conectar[vista] && conectar[vista](v);
   } catch (e) {
@@ -584,7 +643,7 @@ async function pintar(cambioDeVista = false) {
     v.innerHTML = `<div class="vacio">${IC.alerta}<h2>No se pudo cargar</h2><p>${esc(traducirError(e))}</p><button class="btn btn-primario" onclick="pintar(true)">Reintentar</button></div>`;
   }
 }
-const conectar = { host: conectarHost };
+const conectar = { host: conectarHost, acomodo: conectarAcomodo };
 
 /* ---------- En vivo ---------- */
 function posicionesEspera(feed) {
@@ -659,7 +718,7 @@ function filaFeed(a, pos, nuevo) {
       ${puede.operar() ? `<button class="btn btn-mini btn-secundario" data-quitar="${a.id}" aria-label="Quitar de la lista de espera">Quitar</button>` : '<span></span>'}</div>`;
   }
   return `<div class="feed-fila${nuevo ? ' nuevo' : ''}"><div class="feed-num"><span>${num4(a.prenda)}</span><span class="flecha">→</span><span class="cas">${esc(a.casillero || 'SIN CASILLERO')}</span></div>
-    <div class="feed-quien"><b>${esc(a.clienta)}</b> · ${horaSeg(a.mensaje_en)}${origenTxt(a)}</div>
+    <div class="feed-quien"><b>${esc(a.clienta)}</b> · ${horaSeg(a.mensaje_en)}${origenTxt(a)}${a.acomodada_en ? ' · <span class="origen">✓ en casillero</span>' : ''}</div>
     ${a.estado !== 'apartada' ? '<span class="chip chip-ok">Pagada</span>' : puede.operar() ? `<button class="btn btn-mini btn-secundario" data-liberar="${a.id}" data-num="${a.prenda}">Liberar</button>` : '<span class="chip chip-aviso">Apartada</span>'}</div>`;
 }
 conectar.vivo = raiz => {
@@ -1009,7 +1068,7 @@ function tarjetaCasillero(c) {
     <div class="cas-id">${esc(c.casillero || '—')}<small>${folio(c.folio)}</small></div>
     <div class="cas-cuerpo">
       <div class="cas-cab"><b>${esc(c.clienta)}</b><span class="chip ${s.chip[0]}">${esc(s.chip[1])}</span></div>
-      <small>${c.tipo === 'prime' ? '<span class="chip chip-prime">Prime</span> ' : ''}${telBonito(c.telefono)} · ${c.piezas} ${c.piezas === 1 ? 'prenda' : 'prendas'} · ${dinero(c.total)}</small>
+      <small>${c.tipo === 'prime' ? '<span class="chip chip-prime">Prime</span> ' : ''}${ROL === 'live' ? '' : telBonito(c.telefono) + ' · '}${c.piezas} ${c.piezas === 1 ? 'prenda' : 'prendas'} · ${dinero(c.total)}</small>
       <div class="piezas">${esc(c.piezas_txt || '') || '<span class="nota">Sin prendas</span>'}</div>
       <p class="paso">${s.paso}</p>
       <div class="fila-botones">
@@ -1294,7 +1353,7 @@ async function htmlEquipo() {
     ]);
   } catch (e) { return `<div class="tarjeta"><p class="nota">${esc(traducirError(e))}</p></div>`; }
   const pendientes = gente.filter(g => !g.rol).length;
-  const opciones = r => [['duena', 'Dueña'], ['supervisor', 'Supervisor · solo ver'], ['operacion', 'Operación'], ['', 'Sin acceso']]
+  const opciones = r => [['duena', 'Dueña'], ['supervisor', 'Supervisor · solo ver'], ['operacion', 'Operación'], ['live', 'Operación live · acomodo'], ['', 'Sin acceso']]
     .map(([v, t]) => `<option value="${v}" ${(r || '') === v ? 'selected' : ''}>${t}</option>`).join('');
   const DESC = {
     'pago registrado': d => `${d.folio} · ${dinero(d.monto_pagado)}${d.caja ? ' → caja ' + d.caja : ''}`,
@@ -1488,6 +1547,8 @@ async function arrancar() {
   }
   if (!ROL) return pantallaSinAcceso();
   TIENE_COMENTARIOS = !(await sb.from('live_dm').select('id', { head: true, count: 'exact' }).limit(1)).error;
+  if (ROL === 'live' && !location.hash) vista = 'acomodo';
+  if (!VISTAS.filter(vistaVisible).some(v => v.id === vista) && !OCULTAS.includes(vista)) vista = 'vivo';
   montar();
   pintar(true);
 }
@@ -1508,7 +1569,7 @@ setInterval(() => {
   if (capturandoDesde && Date.now() - capturandoDesde < 120000) return; // la cámara está abierta
   const foco = document.activeElement;
   if (foco && /INPUT|TEXTAREA|SELECT/.test(foco.tagName)) return;
-  if (['vivo', 'casilleros', 'whatsapp', 'host'].includes(vista)) pintar();
+  if (['vivo', 'casilleros', 'acomodo', 'whatsapp', 'host'].includes(vista)) pintar();
 }, 4000);
 window.addEventListener('hashchange', () => { const v = location.hash.replace('#', ''); if (v !== vista && existeVista(v)) irA(v); });
 

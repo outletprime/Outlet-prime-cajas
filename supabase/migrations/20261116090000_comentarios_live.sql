@@ -1021,3 +1021,120 @@ begin
     raise notice 'pg_cron no está activo: live_revisar_reservas() hay que llamarla de otra forma.';
   end if;
 end $$;
+
+-- =====================================================================
+-- 13. Nivel "Operación live": lleva las prendas del live a los casilleros
+--     Ve el live, los casilleros y las prendas. Solo marca:
+--       ✓ "ya está en su casillero"   y   ✓ "ya la regresé al rack".
+--     No inicia ni cierra lives, no aparta, no libera, no cobra, no entra a Cajas.
+-- =====================================================================
+alter table public.equipo drop constraint if exists equipo_rol_check;
+alter table public.equipo add constraint equipo_rol_check check (rol in ('duena', 'supervisor', 'operacion', 'live'));
+
+create or replace function public.puede_acomodar() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from equipo where usuario_id = auth.uid() and rol in ('duena', 'operacion', 'live'))
+$$;
+
+-- p_rol: 'duena', 'supervisor', 'operacion', 'live' o null para quitar el acceso
+create or replace function public.equipo_asignar(p_usuario uuid, p_rol text) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_email text;
+begin
+  if not es_duena() then raise exception 'Solo una dueña puede cambiar los accesos.'; end if;
+  select email into v_email from auth.users where id = p_usuario;
+  if not found then raise exception 'No existe ese usuario.'; end if;
+  if p_rol is null then
+    delete from equipo where usuario_id = p_usuario;
+  elsif p_rol in ('duena', 'supervisor', 'operacion', 'live') then
+    insert into equipo (usuario_id, email, rol, asignado_por)
+    values (p_usuario, v_email, p_rol, (select email from auth.users where id = auth.uid()))
+    on conflict (usuario_id) do update
+      set rol = excluded.rol, email = excluded.email, asignado_por = excluded.asignado_por, actualizado_en = now();
+  else
+    raise exception 'Nivel inválido.';
+  end if;
+end $$;
+
+-- Acomodo físico de cada prenda
+alter table public.live_apartados add column if not exists acomodada_en timestamptz;
+alter table public.live_apartados add column if not exists acomodada_por text;
+alter table public.live_apartados add column if not exists regresada_en timestamptz;
+alter table public.live_apartados add column if not exists regresada_por text;
+-- Lo que ya existía se da por acomodado, para empezar con la lista limpia
+do $$
+begin
+  if not exists (select 1 from live_apartados where acomodada_en is not null or regresada_en is not null) then
+    update live_apartados set acomodada_en = actualizado_en, acomodada_por = 'instalación'
+     where estado in ('apartada', 'pagada', 'liberada');
+    update live_apartados set regresada_en = actualizado_en, regresada_por = 'instalación'
+     where estado = 'liberada';
+  end if;
+end $$;
+create index if not exists live_apartados_por_acomodar on public.live_apartados (creado_en)
+  where estado = 'apartada' and acomodada_en is null;
+create index if not exists live_apartados_por_regresar on public.live_apartados (actualizado_en)
+  where estado = 'liberada' and regresada_en is null;
+
+-- Tareas de acomodo: prendas por llevar a su casillero y prendas por regresar al rack
+drop view if exists public.live_acomodo;
+create view public.live_acomodo with (security_invoker = true) as
+select a.id, a.live_id, a.prenda, a.prime_prenda, a.estado, a.creado_en, a.actualizado_en,
+       a.acomodada_en, a.acomodada_por, a.regresada_en, a.regresada_por,
+       coalesce(live_num(a.prenda), '#' || pp.num) as etiqueta,
+       c.casillero,
+       trim(cl.nombre || coalesce(' ' || cl.apellidos, '')) as clienta,
+       case when a.estado = 'apartada' and a.acomodada_en is null then 'acomodar'
+            when a.estado = 'liberada' and a.regresada_en is null and not o.otra then 'regresar'
+            else 'hecho' end as tarea
+  from live_apartados a
+  join clientas cl on cl.id = a.clienta_id
+  left join live_cuentas c on c.id = a.cuenta_id
+  left join prime_prendas pp on pp.id = a.prime_prenda
+  -- si la prenda ya es de otra clienta, la tarea es llevarla a su casillero, no al rack
+  cross join lateral (select exists (select 1 from live_apartados x
+                                      where x.estado in ('apartada', 'pagada') and x.id <> a.id
+                                        and (x.prenda = a.prenda or x.prime_prenda = a.prime_prenda)) as otra) o
+ where (a.estado = 'apartada' and a.acomodada_en is null)
+    or (a.estado = 'liberada' and a.regresada_en is null and not o.otra)
+    or (a.acomodada_en > now() - interval '12 hours')
+    or (a.regresada_en > now() - interval '12 hours');
+revoke all on public.live_acomodo from anon;
+grant select on public.live_acomodo to authenticated, service_role;
+
+-- ✓ "Ya está en su casillero" (p_deshacer = true para corregir)
+create or replace function public.live_acomodar(p_apartado uuid, p_por text default null, p_deshacer boolean default false)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_por text := coalesce(nullif(trim(p_por), ''), (select email from equipo where usuario_id = auth.uid()));
+begin
+  if auth.uid() is not null and not puede_acomodar() then
+    raise exception 'Tu nivel de acceso no permite hacer esto.';
+  end if;
+  if coalesce(p_deshacer, false) then
+    update live_apartados set acomodada_en = null, acomodada_por = null where id = p_apartado and regresada_en is null;
+  else
+    update live_apartados set acomodada_en = now(), acomodada_por = v_por
+     where id = p_apartado and estado in ('apartada', 'pagada') and acomodada_en is null;
+  end if;
+end $$;
+
+-- ✓ "Ya la regresé al rack" (p_deshacer = true para corregir)
+create or replace function public.live_regresar_rack(p_apartado uuid, p_por text default null, p_deshacer boolean default false)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_por text := coalesce(nullif(trim(p_por), ''), (select email from equipo where usuario_id = auth.uid()));
+begin
+  if auth.uid() is not null and not puede_acomodar() then
+    raise exception 'Tu nivel de acceso no permite hacer esto.';
+  end if;
+  if coalesce(p_deshacer, false) then
+    update live_apartados set regresada_en = null, regresada_por = null where id = p_apartado;
+  else
+    update live_apartados set regresada_en = now(), regresada_por = v_por
+     where id = p_apartado and estado in ('liberada', 'cancelada') and regresada_en is null;
+  end if;
+end $$;
+
+revoke all on function public.puede_acomodar(), public.equipo_asignar(uuid, text),
+  public.live_acomodar(uuid, text, boolean), public.live_regresar_rack(uuid, text, boolean) from public, anon;
+grant execute on function public.puede_acomodar(), public.equipo_asignar(uuid, text),
+  public.live_acomodar(uuid, text, boolean), public.live_regresar_rack(uuid, text, boolean) to authenticated, service_role;
