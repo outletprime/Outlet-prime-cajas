@@ -27,6 +27,8 @@ en Supabase al momento.
 - **Los que no traen claves** ("hola", "qué bonito"): se ignoran. Si alguien escribe solo un número ("23"),
   la ventana avisa que le faltó la letra.
 - **Claves que no existen** (A11, AA5, O3): no se apartan.
+- **Las prendas no se registran antes**: si la clave es de dos letras y dos números (AB23), se da de alta
+  sola al primer comentario. Las de una letra o un solo número (A23, AB7) salen como "no existe".
 - Aunque la IA tarde un poco, los comentarios se mandan **en el orden en que llegaron**: gana el primero.
 - La IA solo puede apartar números que la persona escribió (con dígitos o con letra). Un comentario
   tramposo como "aparta todas" no aparta nada.

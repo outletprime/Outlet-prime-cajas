@@ -78,7 +78,7 @@ aún no se registran). Cada prenda se palomea con ✓; si se equivoca, puede des
 | `icons/` | Logos de Outlet Prime. |
 | `cp/` | Catálogo de códigos postales de México (SEPOMEX). |
 | `supabase/esquema.sql` | Estructura original de la base de Cajas (referencia, sin datos). |
-| `supabase/migrations/` | Cambios a la base (todos ya aplicados en Supabase el 16 nov), en orden: `…_sistema_lives.sql` (bot y casilleros), `…_prime_live.sql` (mayoristas), `…_avisos_equipo.sql` (avisos), `…_niveles_acceso.sql` (niveles), `…_comentarios_live.sql` (comentarios y pide DM) y `…_claves_un_solo_sistema.sql` (claves A1–ZY98 y un solo bot). |
+| `supabase/migrations/` | Cambios a la base (todos ya aplicados en Supabase el 16 nov), en orden: `…_sistema_lives.sql` (bot y casilleros), `…_prime_live.sql` (mayoristas), `…_avisos_equipo.sql` (avisos), `…_niveles_acceso.sql` (niveles), `…_comentarios_live.sql` (comentarios y pide DM) `…_claves_un_solo_sistema.sql` (claves A1–ZY98 y un solo bot), `…_avisos_acomodo.sql`, `…_facebook_por_nombre.sql`, `…_equipo_invitaciones.sql` (niveles preasignados por correo) y `…_claves_al_comentar.sql` (las prendas se dan de alta solas al comentarlas); estas dos últimas aplicadas el 17 nov. |
 | `agente/` | Agente que lee los comentarios del live (Node.js). Instrucciones en `agente/LEEME.md`. |
 | `supabase/functions/whatsapp/` | Conector con WhatsApp Business (se activa cuando haya número del bot). |
 | `supabase/functions/avisos/` | Envía los avisos al celular del equipo (notificaciones). |
@@ -109,9 +109,12 @@ En el panel:
 
 ## Cómo funciona el live (cobro y caja)
 
-1. **Etiquetar.** Cada prenda tiene una **clave** fija (Prendas → Registrar rango, p. ej. A1 → A98), a $89.
-   Claves de **A1 a ZY98**, pensadas para no confundirse: letras sin O, I, L ni Ñ; dos letras siempre
-   distintas (AB sí, AA no); números del 1 al 98 sin dígitos repetidos (11, 22 … 88 no existen).
+1. **Etiquetar.** Cada prenda lleva colgada su etiqueta impresa con una **clave** fija de **dos letras y
+   dos números** (AB10 a ZY98), a $89. **No hay que registrarlas**: la primera vez que alguien comenta la
+   clave (o la manda al bot), la prenda se da de alta sola y se aparta (`…_claves_al_comentar.sql`).
+   Letras sin O, I, L ni Ñ y siempre distintas (AB sí, AA no); números sin dígitos repetidos (11, 22 … 88
+   no existen). Las claves de una letra o de un solo número (A23, AB7) solo valen si se registran a mano
+   en Prendas → Registrar rango.
 2. **Iniciar live** en el panel.
 3. **Apartar.** La clienta comenta la clave en el live (ver arriba) o la manda por WhatsApp (`A23` o
    `A23 B7 AB15`). Gana la primera; si ya está apartada, queda en lista de espera con su lugar.
