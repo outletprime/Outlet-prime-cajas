@@ -1,0 +1,108 @@
+// Guía del equipo de Outlet Prime: es todo lo que "sabe" el asistente de la burbuja de ayuda.
+// Para corregir o ampliar una respuesta, se edita este texto y se vuelve a publicar la función `ayuda`.
+// Escríbela como se le explicaría a una persona nueva del equipo: con los nombres que se ven en el panel.
+
+export const GUIA = `# Guía del equipo · Outlet Prime (panel del live)
+
+## Qué es cada cosa
+- **Panel del live**: la aplicación del equipo. Abajo tiene pestañas: En vivo, Casilleros, Acomodo, Prendas, WhatsApp y Ajustes. Cada nivel ve solo las suyas.
+- **Cajas**: la otra aplicación (ícono de caja arriba a la derecha del panel). Ahí está la caja fija de cada clienta, sus pedidos y envíos.
+- **Agente**: programa que corre en la computadora de la tienda. Lee los comentarios del live de TikTok y aparta solo. Se enciende con el ícono "Iniciar agente" del Escritorio de esa computadora.
+- **Clave**: lo que trae la etiqueta colgada de cada prenda: dos letras y dos números, por ejemplo AB23. No se registra antes: la primera vez que alguien la comenta, la prenda se da de alta sola. Cada prenda cuesta lo que diga Ajustes → Precio por prenda.
+- **Casillero**: espacio temporal (C-001 a C-100) donde se juntan las prendas de una clienta durante el live, hasta que paga.
+- **Caja fija**: la caja permanente de la clienta en la app de Cajas. Las prendas pasan del casillero a la caja fija cuando paga completo.
+- **Pide DM**: aviso de que una clienta nueva (que el sistema todavía no conoce) fue la primera en pedir una prenda. Hay que pedirle al aire que mande mensaje directo.
+- **Charola de pendientes**: donde se dejan las prendas que pidió una clienta nueva mientras se registra.
+- **Lista de espera**: si una prenda ya estaba apartada, las siguientes que la piden quedan en espera en orden de comentario.
+
+## Cómo funciona un live, de principio a fin
+1. Se enciende el agente en la computadora de la tienda y se inicia el live en En vivo (si el agente detecta el live, lo inicia solo).
+2. La clienta comenta la clave en TikTok ("AB23", "la ab23 porfa").
+3. Si la clienta **ya está registrada** con ese usuario: la prenda se le aparta al momento y se le asigna casillero. A quien hace el acomodo le llega "📦 AB23 → C-007 · Ana".
+4. Si la clienta es **nueva**: la prenda queda provisional (10 minutos, o lo que diga Ajustes → Minutos para registrarse) y sale el aviso "🙋 Pide DM a @usuaria". Quien presenta le pide al aire que mande DM. La prenda se deja en la charola de pendientes.
+5. La clienta nueva se registra de una de dos formas: (a) escribe al WhatsApp del bot con su nombre y su usuario, o (b) manda su WhatsApp por DM y alguien del equipo la liga a mano con "Ligar con su WhatsApp". En cuanto queda ligada, lo que pidió pasa a su casillero y de ahí en adelante todo lo que comente cae solo, en este live y en los siguientes.
+6. Si no se registra a tiempo, la prenda pasa a la siguiente en espera o vuelve a estar disponible.
+7. Al terminar: En vivo → "Cerrar live y mandar cobros". A cada clienta se le manda su total, la CLABE y su folio (OP-001…).
+8. Pago: una Dueña lo registra en Casilleros → "Registrar pago". Con el pago completo, las prendas pasan solas a su caja fija y se crea el pedido en Cajas.
+9. Sin pago: recordatorio, luego límite de pago y luego se libera solo (los tiempos están en Ajustes → Tiempos después de cerrar el live). El panel avisa "Regresar a racks".
+
+## Niveles de acceso (qué puede cada quien)
+- **Dueña**: todo. Es la única que registra pagos, cambia Ajustes (CLABE, precios, tiempos), programa Prime Live, borra, y da o quita accesos.
+- **Supervisor**: solo ve. Única excepción: puede ligar a una clienta con su WhatsApp desde un aviso "Pide DM".
+- **Operación**: opera el live: inicia y cierra lives, captura comentarios a mano, libera prendas, liga clientas, marca acomodo. No registra pagos, no cambia Ajustes y no borra.
+- **Operación live (acomodo)**: lleva las prendas a los casilleros. Ve En vivo, Casilleros, Acomodo, Prendas y Ajustes. No ve la pestaña WhatsApp, ni la app de Cajas, ni los datos de las clientas.
+- **Presentadora**: solo ve la pestaña Pide DM y Ajustes. No ve clientas, pagos ni casilleros.
+- Una Dueña que conduce el live puede tener sus avisos en "solo Pide DM": en su celular solo le llegan esos avisos, pero en el panel sigue viendo todo.
+Si un botón no aparece o sale "Tu nivel de acceso no permite hacer esto", es por el nivel: hay que pedírselo a una Dueña u Operación.
+
+## Pestaña En vivo
+- Sin live: botón para iniciar (el nombre es opcional). Si dice "Falta la CLABE para cobrar", una Dueña debe ponerla en Ajustes antes de cerrar.
+- Con live: contadores (Apartadas, Clientas, Total, En espera), la lista "Apartados al momento" y los avisos "🙋 Pide DM".
+- "El agente que lee los comentarios no está encendido": hay que abrir "Iniciar agente" en la computadora de la tienda. Mientras tanto se captura a mano.
+- **Capturar comentario a mano** (plan B si el agente o TikTok fallan): se escribe el usuario y la clave o claves, y "Apartar". Se aparta igual que si lo hubiera leído el agente.
+- **Quitar / Liberar** una prenda apartada: se le quita a esa clienta; si hay alguien en espera, pasa a la primera.
+- **Pantalla host**: vista grande con a quién pedirle DM y los últimos apartados, para tenerla a la vista de quien presenta.
+- **Cerrar live y mandar cobros**: después de cerrar ya no se puede apartar.
+
+## Avisos "🙋 Pide DM" (clientas nuevas)
+En cada aviso hay estas acciones:
+- **Ya se lo pedí**: marca que ya se le pidió al aire que mande DM.
+- **Copiar mensaje**: copia el mensaje de bienvenida para pegárselo en su DM.
+- **Ligar con su WhatsApp**: cuando la clienta ya mandó su número por DM. Se escribe su WhatsApp a 10 dígitos y su nombre si es nueva. Si ese número ya era de una clienta, se liga a ella. Lo que pidió pasa a su casillero y le llega la confirmación.
+- **Soltar**: se le quita lo que tenía provisional; las prendas vuelven a estar disponibles o pasan a la siguiente en espera.
+Quién puede ligar: Dueña, Operación y Supervisor. Operación live y Presentadora no.
+Si un usuario quedó ligado a la clienta equivocada: Ajustes → Usuarios de redes ligados → buscarla → "Quitar". La próxima vez que comente se le pedirá DM otra vez.
+
+## Pestaña Pide DM (Presentadora)
+Salen las clientas nuevas que fueron las primeras en pedir una prenda. Se les pide al aire que manden DM y se toca la tarjeta cuando ya se les pidió. Si dice "Tu celular todavía no recibe los avisos", hay que activarlos en Ajustes. "Nadie pendiente 👌" significa que no hay nada que hacer.
+
+## Pestaña Acomodo (Operación live)
+- **Llevar a su casillero**: cada renglón dice la clave y el casillero (AB23 → C-007). Se lleva la prenda y se toca ✓.
+- **Regresar al rack**: prendas que se liberaron (no pagaron o se quitaron). Se sacan del casillero, se regresan al rack y se toca ✓.
+- **En la charola de pendientes**: prendas de clientas nuevas que aún no se registran. Se dejan en la charola; cuando la clienta se registra aparecen arriba con su casillero, y si no, se liberan solas.
+- Si se palomeó una por error: "Deshacer". "Todo acomodado 👌" significa que no hay nada pendiente.
+Avisos que llegan al celular de acomodo: "📦 AB23 → C-007 · Ana" (llevarla), "🔁 AB23: de C-007 a C-009" (cambió de clienta: moverla al otro casillero) y "↩️ Regresar AB23 al rack".
+
+## Pestaña Casilleros
+Lista de casilleros con la clienta, sus prendas, su total y en qué va (por pagar, pago incompleto, pagada). El número rojo en la pestaña son los que tienen algo pendiente.
+- **Registrar pago** (solo Dueña): monto recibido y referencia opcional. Si el pago queda incompleto, avisa cuánto falta.
+- Con el pago completo las prendas pasan a su caja fija; el panel dice a qué caja mover el casillero. Si dice que no hay cajas libres, hay que crear más en la app de Cajas.
+
+## Pestaña Prendas
+- **Buscar una prenda**: se escribe la clave y dice si está disponible, apartada o vendida, y quién la tiene o está en espera.
+- Las claves de dos letras y dos números no se registran: se crean solas al comentarlas. "Registrar etiquetas nuevas" solo hace falta para claves de otro tipo.
+
+## Pestaña WhatsApp (simulador y mensajes)
+- **Simulador**: sirve para practicar. Se escribe como si uno fuera clienta y el bot responde, sin que salga nada a ningún teléfono. Las clientas de prueba usan números que empiezan con 00.
+- **Simular comentario del live**: como si alguien comentara (el live debe estar iniciado).
+- **Borrar datos de prueba**: quita las clientas de prueba y todo lo suyo. Las clientas reales no se tocan.
+- **Mensajes reales por enviar**: mientras el bot no tenga número de WhatsApp conectado, los mensajes para clientas reales se quedan ahí y no salen solos.
+
+## Ajustes
+- **Avisos en el celular**: botón "🔔 Activar avisos en este teléfono", "Mandar aviso de prueba" y "Desactivar aquí".
+- **Equipo y niveles de acceso** (solo Dueña): cambiar el nivel de cada persona y ver el historial de cambios.
+- **Cobro** (solo Dueña): CLABE (18 dígitos), banco y a nombre de quién.
+- Tiempos después de cerrar el live, precio por prenda, máximo por clienta, mensaje de bienvenida del DM, WhatsApp del bot, minutos para registrarse.
+- **Usuarios de redes ligados**: buscar y quitar un @usuario mal ligado.
+- **Cerrar sesión**.
+
+## Activar los avisos en el celular
+- **iPhone**: primero instalar el panel: abrirlo en Safari → botón Compartir → "Agregar a pantalla de inicio". Luego abrirlo desde ese ícono, ir a Ajustes y tocar "🔔 Activar avisos en este teléfono". Debe llegar "🔔 Avisos activados". Necesita iOS 16.4 o más reciente.
+- **Android**: abrir el panel en Chrome → Ajustes → "🔔 Activar avisos en este teléfono".
+- Si no llegan: (1) en Ajustes debe decir que este teléfono recibe avisos; si no, activarlos otra vez. (2) Revisar en los ajustes del teléfono que las notificaciones de "OP Live" estén permitidas. (3) Revisar que no esté en modo No molestar o concentración. (4) En iPhone, abrir el panel desde el ícono de la pantalla de inicio, no desde Safari. (5) Probar con "Mandar aviso de prueba".
+- Cada nivel recibe avisos distintos: acomodo recibe los de llevar y regresar prendas; presentadora solo "Pide DM"; los demás, pagos, vencidos y cajas listas.
+
+## Problemas frecuentes
+- **"Tu sesión expiró"**: volver a entrar con correo y contraseña.
+- **Olvidé mi contraseña**: el panel no tiene recuperación; hay que pedírsela a una Dueña, que la cambia en el tablero de Supabase.
+- **"Tu cuenta todavía no tiene acceso"**: una Dueña debe asignar el nivel en Ajustes → Equipo.
+- **"Sin conexión a internet"**: revisar la señal e intentar de nuevo. El panel se actualiza solo cada pocos segundos.
+- **No se están apartando los comentarios**: revisar en En vivo si el agente está encendido; si no, abrir "Iniciar agente" en la computadora de la tienda. Mientras, usar "Capturar comentario a mano".
+- **Una clienta dice que comentó y no le apartó**: buscar la clave en Prendas para ver quién la tiene. Si otra la pidió antes, quedó en espera. Si es nueva, está en "Pide DM" esperando registrarse.
+- **La clienta comentó una clave que no existe o mal escrita**: no se aparta. Se captura a mano con la clave correcta.
+- **Se apartó una prenda a la clienta equivocada**: En vivo → "Quitar" en ese apartado, y capturarla a mano para la correcta.
+- **La prenda no está en el casillero que dice el panel**: revisar la charola de pendientes y la pestaña Acomodo (puede faltar llevarla o haber cambiado de clienta).
+
+## Lo que esta guía no cubre
+Datos del momento (en qué casillero está una prenda, si alguien ya pagó, cuánto debe una clienta): eso se ve en el panel, en Prendas → Buscar o en Casilleros. Tampoco cubre a detalle la app de Cajas, Prime Live (mayoristas) ni temas de dinero, bancos o envíos.
+`;

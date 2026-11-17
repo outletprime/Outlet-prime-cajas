@@ -86,6 +86,7 @@ aún no se registran). Cada prenda se palomea con ✓; si se equivoca, puede des
 | `agente/` | Agente que lee los comentarios del live (Node.js). Instrucciones en `agente/LEEME.md`. |
 | `supabase/functions/whatsapp/` | Conector con WhatsApp Business (se activa cuando haya número del bot). |
 | `supabase/functions/avisos/` | Envía los avisos al celular del equipo (notificaciones). |
+| `supabase/functions/ayuda/` | Asistente de la burbuja de ayuda del panel. `guia.ts` es la guía del equipo: todo lo que el asistente sabe. |
 | `sw.js`, `manifest.webmanifest` | Permiten instalar el panel como app y recibir notificaciones. |
 | `docs/WHATSAPP.md` | Pasos para conectar el número de WhatsApp del bot. |
 
@@ -155,6 +156,20 @@ desde ese ícono (iOS 16.4 o más reciente).
 
 Toda la lógica vive en la base de datos (funciones `bot_mensaje`, `live_cerrar`, `live_registrar_pago`,
 `live_revisar_vencimientos`…), así que el bot real y el simulador se comportan igual.
+
+## Burbuja de ayuda (dudas del equipo)
+
+En el panel hay una burbuja roja con un signo de interrogación. Cada persona la arrastra a donde no le
+estorbe (se pega a la orilla y el teléfono recuerda dónde quedó) y, al tocarla, abre un diálogo para
+preguntar cómo hacer algo. No aparece en la Pantalla host.
+
+- Responde **solo con la guía del equipo** (`supabase/functions/ayuda/guia.ts`) y según el nivel de quien
+  pregunta. Para corregir o ampliar una respuesta se edita esa guía y se vuelve a publicar la función `ayuda`.
+- **No ve ni cambia nada del live**: no lee clientas, prendas, casilleros ni pagos. Solo explica cómo se usa el panel.
+- Solo le responde a quien ya entró al panel y tiene nivel asignado.
+- Usa Claude. La llave va en Supabase → Edge Functions → Secrets, con el nombre `ANTHROPIC_API_KEY`
+  (nunca en este repositorio). Sin llave, el diálogo dice "La ayuda todavía no está activada".
+- La conversación no se guarda: se borra al cerrar o recargar el panel.
 
 ### Simulador
 
