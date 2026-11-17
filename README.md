@@ -53,6 +53,10 @@ o "↩️ Regresar A23 al rack".
 (no las de quien quedó en espera, ni pagos ni cajas). En el panel solo tiene la pestaña **Pide DM**, con la
 lista y el botón "ya se lo pedí", y Ajustes para activar sus avisos. No ve clientas, pagos ni casilleros.
 
+**Quien presenta sin ser Presentadora** (por ejemplo una dueña que conduce el live): se marca su cuenta con
+`avisos_solo_dm` en la tabla `equipo` (`…_avisos_solo_dm.sql`). En su celular recibe únicamente los avisos
+"🙋 Pide DM" y ninguno más; en el panel sigue viendo todo lo de su nivel.
+
 **Supervisor** solo ve, con una excepción: atiende los DMs. Cuando una clienta nueva le manda su
 WhatsApp por mensaje directo, en el aviso "Pide DM" toca **Ligar con su WhatsApp**, escribe el número (y el
 nombre si es nueva) y listo: lo que pidió pasa a su casillero y le llega la confirmación por WhatsApp.
