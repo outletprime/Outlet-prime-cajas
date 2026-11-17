@@ -195,9 +195,11 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primario); 
 .chip-monitor { background: #2a2a2a; color: #f5c94c; }
 .sin-borde { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 12px; }
 .sin-borde[disabled] input, .sin-borde[disabled] textarea { opacity: .7; }
-.miembro { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--superficie-2); }
+.miembro { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--superficie-2); }
 .miembro b, .miembro small { display: block; overflow-wrap: anywhere; }
-.miembro select { min-height: 40px; width: auto; }
+.miembro select { min-height: 40px; width: auto; max-width: 100%; }
+/* En celular el correo va arriba, completo, y el nivel abajo a todo lo ancho */
+@media (max-width: 640px) { #equipo .miembro { grid-template-columns: minmax(0, 1fr); } #equipo .miembro select { width: 100%; } }
 .miembro.pendiente { outline: 2px solid var(--aviso); }
 
 /* Comentarios del live: pide DM, agente, pantalla host */
