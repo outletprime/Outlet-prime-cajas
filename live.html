@@ -435,7 +435,7 @@ async function accion(fn, okMsg) {
 
 /* ---------- Nivel de acceso ---------- */
 let ROL = null;
-const NIVELES = { duena: 'Dueña', supervisor: 'Supervisor · ver y ligar DMs', operacion: 'Operación', live: 'Operación live · acomodo', presentadora: 'Presentadora · solo avisos de DM', resurtido: 'Resurtido · solo reponer racks' };
+const NIVELES = { duena: 'Dueña', supervisor: 'Supervisor · ver y registrar clientas', operacion: 'Operación', live: 'Operación live · acomodo', presentadora: 'Presentadora · solo avisos de DM', resurtido: 'Resurtido · solo reponer racks' };
 const puede = {
   operar: () => ROL === 'duena' || ROL === 'operacion',
   duena: () => ROL === 'duena',
@@ -448,6 +448,8 @@ const puede = {
   verResurtido: () => ['duena', 'operacion', 'supervisor', 'resurtido'].includes(ROL),
   // Generar el PDF de etiquetas con las claves que siguen (lo imprime el supervisor)
   etiquetas: () => ['duena', 'supervisor'].includes(ROL),
+  // Agregar clientas desde Ajustes con los datos que mandaron por DM
+  agregarClienta: () => ['duena', 'supervisor'].includes(ROL),
 };
 
 /* ---------- Datos ---------- */
@@ -2071,6 +2073,22 @@ async function vistaAjustes() {
       </div>
       ${puede.duena() ? '<button class="btn btn-primario btn-grande">Guardar ajustes</button>' : ''}
     </fieldset></form>
+    ${TIENE_COMENTARIOS && puede.agregarClienta() ? `<h3 class="seccion">Agregar clienta</h3>
+    <div class="tarjeta">
+      <p class="nota">Con los datos que mandó por DM. Desde ahora, todo lo que comente se le aparta solo. Si tenía un aviso "Pide DM", lo que pidió pasa a su casillero.</p>
+      <form class="formulario" id="f-agregar" autocomplete="off">
+        <div class="dos">
+          <label>Red<select name="red">${['tiktok', 'instagram', 'facebook', 'youtube'].map(r => `<option value="${r}" ${r === ((v && v.red_principal) || 'tiktok') ? 'selected' : ''}>${RED[r]}</option>`).join('')}</select></label>
+          <label>Usuario<input name="usuario" placeholder="@usuaria" autocapitalize="none" spellcheck="false" required></label>
+        </div>
+        <div class="dos">
+          <label>Nombre<input name="nombre" autocapitalize="words" required></label>
+          <label>Apellido <small>(por lo menos uno)</small><input name="apellidos" autocapitalize="words" required></label>
+        </div>
+        <label>WhatsApp <small>(opcional, 10 dígitos)</small><input name="tel" inputmode="tel" maxlength="16"></label>
+        <button class="btn btn-primario">Agregar clienta</button>
+      </form>
+    </div>` : ''}
     ${TIENE_COMENTARIOS ? `<h3 class="seccion">Usuarios de redes ligados</h3>
     <div class="tarjeta">
       <p class="nota">Cada @usuario de TikTok, Instagram, Facebook o YouTube ligado a una clienta. Si se ligó mal, quítalo: la próxima vez que comente se le pedirá DM otra vez.</p>
@@ -2120,6 +2138,21 @@ conectar.ajustes = raiz => {
     }, 'Ajustes guardados');
   };
   $('#salir', raiz).onclick = async () => { await sb.auth.signOut(); location.reload(); };
+  const fa = $('#f-agregar', raiz);
+  if (fa) fa.onsubmit = async e => {
+    e.preventDefault();
+    const usuarioRed = fa.usuario.value.trim().replace(/^@/, ''), nombre = fa.nombre.value.trim(), apellidos = fa.apellidos.value.trim();
+    const tel = fa.tel.value.replace(/\D/g, '').slice(-10);
+    if (!usuarioRed) return toast('Escribe su usuario.', 'error');
+    if (nombre.length < 2 || apellidos.length < 2) return toast('Escribe su nombre y por lo menos un apellido.', 'error');
+    if (fa.tel.value.trim() && tel.length !== 10) return toast('El WhatsApp debe tener 10 dígitos (o déjalo vacío).', 'error');
+    const r = await accion(() => rpc('live_clienta_agregar', { p_red: fa.red.value, p_usuario: usuarioRed, p_nombre: nombre, p_apellidos: apellidos, p_telefono: tel || null, p_por: usuario.email }));
+    if (!r || r === true) return;
+    const extra = [r.tuyas_txt ? `${r.tuyas_txt} a su casillero` : '', r.espera_txt ? `en espera de ${r.espera_txt}` : ''].filter(Boolean).join(' · ');
+    toast(`${r.existente ? 'Ligada a' : 'Agregada:'} ${r.clienta} · @${r.usuario}${extra ? ' · ' + extra : ''}`);
+    fa.reset();
+    fa.usuario.focus();
+  };
   const fr = $('#f-redes', raiz);
   if (fr) {
     const buscar = async () => {

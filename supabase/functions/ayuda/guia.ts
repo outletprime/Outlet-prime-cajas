@@ -31,7 +31,7 @@ export const GUIA = `# Guía del equipo · Outlet Prime (panel del live)
 
 ## Niveles de acceso (qué puede cada quien)
 - **Dueña**: todo. Es la única que registra pagos, cambia Ajustes (CLABE, precios, tiempos), programa Prime Live, borra, y da o quita accesos.
-- **Supervisor**: solo ve. Dos excepciones: registra a las clientas nuevas desde un aviso "Pide DM" (Registrar a mano, con su nombre y apellido; le llega al celular el aviso "📝 Registrar a @usuario"), y genera el PDF de las etiquetas para imprimirlas (pestaña Prendas → Imprimir etiquetas).
+- **Supervisor**: solo ve. Dos excepciones: registra a las clientas nuevas, ya sea desde un aviso "Pide DM" (Registrar a mano) o en Ajustes → Agregar clienta, con su usuario, nombre y apellido (le llega al celular el aviso "📝 Registrar a @usuario"), y genera el PDF de las etiquetas para imprimirlas (pestaña Prendas → Imprimir etiquetas).
 - **Operación**: opera el live: inicia y cierra lives, captura comentarios a mano, libera prendas, liga clientas, marca acomodo. No registra pagos, no cambia Ajustes y no borra.
 - **Operación live (acomodo)**: lleva las prendas a los casilleros. Ve En vivo, Casilleros, Acomodo, Prendas y Ajustes. No ve la pestaña WhatsApp, ni la app de Cajas, ni los datos de las clientas.
 - **Presentadora**: solo ve la pestaña Pide DM y Ajustes. No ve clientas, pagos ni casilleros.
@@ -108,6 +108,7 @@ Lista de casilleros con la clienta, sus prendas, su total y en qué va. El núme
 - **Equipo y niveles de acceso** (solo Dueña): cambiar el nivel de cada persona y ver el historial de cambios.
 - **Cobro** (solo Dueña): CLABE (18 dígitos), banco y a nombre de quién.
 - Tiempos después de cerrar el live, precio por prenda, máximo por clienta, mensaje de bienvenida del DM, WhatsApp del bot, minutos para registrarse.
+- **Agregar clienta** (solo Dueña y Supervisor): con los datos que mandó por DM se escribe la red (TikTok), su usuario, su nombre y por lo menos un apellido; el WhatsApp es opcional. Se toca "Agregar clienta" y desde ese momento todo lo que comente se le aparta solo. Si tenía un aviso "Pide DM", lo que pidió pasa a su casillero. Si el usuario ya era de otra clienta, avisa a quién está ligado y no lo cambia.
 - **Usuarios de redes ligados**: buscar y quitar un @usuario mal ligado.
 - **Cerrar sesión**.
 
