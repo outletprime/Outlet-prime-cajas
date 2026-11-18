@@ -132,7 +132,11 @@ En el panel:
    `A23 B7 AB15`). Gana la primera; si ya está apartada, queda en lista de espera con su lugar.
 4. **Casillero.** Al primer apartado se le asigna un casillero (30 casilleros nombrados por su posición, de A1 a F5: columna A–F y fila 1–5; `…_casilleros_por_posicion.sql` y `…_casilleros_sin_prefijo.sql`. Las cajas fijas también se llaman A1…H5, por eso los avisos de pago dicen "Mover casillero A1 → caja B3"). El panel muestra
    `A23 → B2` y quien hace el acomodo deja ahí la prenda.
-5. **Cerrar live.** El bot manda a cada clienta su total, la CLABE y su folio.
+5. **Cerrar live.** Ya no se puede apartar. En los lives de redes todavía no se cobra: cada pedido queda
+   **en revisión** (`…_revision_antes_de_cobrar.sql`). Operación live revisa en físico cada casillero y, con
+   todas las prendas, toca **Pedido completo** en Acomodo. Luego una dueña toca **Mandar nota de cobro** en
+   Casilleros (abre WhatsApp con el total, la CLABE y el folio); ahí empieza a correr el plazo de esa clienta.
+   En Prime Live el cobro sigue saliendo al cerrar.
 6. **Pago.** Se registra en Casilleros (a mano por ahora; automático cuando haya CLABE por pedido).
    Al pagar completo, las prendas pasan solas a su **caja fija** y se crea el pedido en Cajas
    (categoría **Live**). Si no tenía caja, se le asigna la primera libre.

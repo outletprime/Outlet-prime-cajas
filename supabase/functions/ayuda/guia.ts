@@ -23,9 +23,11 @@ export const GUIA = `# Guía del equipo · Outlet Prime (panel del live)
 4. Si la clienta es **nueva**: la prenda queda provisional (10 minutos, o lo que diga Ajustes → Minutos para registrarse) y sale el aviso "🙋 Pide DM a @usuaria". Quien presenta le pide al aire que mande DM. La prenda se deja en la charola de pendientes.
 5. La clienta nueva se registra de una de dos formas: (a) escribe al WhatsApp del bot con su nombre y su usuario, o (b) manda su WhatsApp por DM y alguien del equipo la liga a mano con "Ligar con su WhatsApp". En cuanto queda ligada, lo que pidió pasa a su casillero y de ahí en adelante todo lo que comente cae solo, en este live y en los siguientes.
 6. Si no se registra a tiempo, la prenda pasa a la siguiente en espera o vuelve a estar disponible.
-7. Al terminar: En vivo → "Cerrar live y mandar cobros". A cada clienta se le manda su total, la CLABE y su folio (OP-001…).
-8. Pago: una Dueña lo registra en Casilleros → "Registrar pago". Con el pago completo, las prendas pasan solas a su caja fija y se crea el pedido en Cajas.
-9. Sin pago: recordatorio, luego límite de pago y luego se libera solo (los tiempos están en Ajustes → Tiempos después de cerrar el live). El panel avisa "Regresar a racks".
+7. Al terminar: En vivo → "Cerrar live". Ya no se puede apartar. Todavía NO se cobra: los pedidos quedan "En revisión".
+8. Revisión: en Acomodo, sección "Revisar pedidos", Operación live revisa en físico cada casillero contra su lista. Cuando están todas las prendas, toca "Pedido completo". Si falta alguna, el pedido se queda en revisión y a esa clienta no se le cobra hasta que aparezca o se le quite.
+9. Cobro: en Casilleros el pedido confirmado dice "Listo para cobrar". Una Dueña toca "Mandar nota de cobro": se abre WhatsApp con la nota ya escrita (total, CLABE y folio OP-001…). En ese momento empieza a correr el plazo de pago de esa clienta.
+10. Pago: una Dueña lo registra en Casilleros → "Registrar pago". Con el pago completo, las prendas pasan solas a su caja fija y se crea el pedido en Cajas.
+11. Sin pago: recordatorio, luego límite de pago y luego se libera solo. Los tiempos cuentan desde que se mandó la nota (Ajustes → Tiempos después de cerrar el live). El panel avisa "Regresar a racks".
 
 ## Niveles de acceso (qué puede cada quien)
 - **Dueña**: todo. Es la única que registra pagos, cambia Ajustes (CLABE, precios, tiempos), programa Prime Live, borra, y da o quita accesos.
@@ -44,7 +46,7 @@ Si un botón no aparece o sale "Tu nivel de acceso no permite hacer esto", es po
 - **Capturar comentario a mano** (plan B si el agente o TikTok fallan): se escribe el usuario y la clave o claves, y "Apartar". Se aparta igual que si lo hubiera leído el agente.
 - **Quitar / Liberar** una prenda apartada: se le quita a esa clienta; si hay alguien en espera, pasa a la primera.
 - **Pantalla host**: vista grande con a quién pedirle DM y los últimos apartados, para tenerla a la vista de quien presenta.
-- **Cerrar live y mandar cobros**: después de cerrar ya no se puede apartar.
+- **Cerrar live**: está justo debajo de los avisos "Pide DM". Después de cerrar ya no se puede apartar. No manda cobros: eso se hace después, pedido por pedido.
 
 ## Avisos "🙋 Pide DM" (clientas nuevas)
 En cada aviso hay estas acciones:
@@ -63,6 +65,7 @@ Salen las clientas nuevas que fueron las primeras en pedir una prenda. Se les pi
 - **Regresar al rack**: prendas que se liberaron (no pagaron o se quitaron). Se sacan del casillero, se regresan al rack y se toca ✓.
 - **En la charola de pendientes**: prendas de clientas nuevas que aún no se registran. Se dejan en la charola; cuando la clienta se registra aparecen arriba con su casillero, y si no, se liberan solas.
 - Si se palomeó una por error: "Deshacer". "Todo acomodado 👌" significa que no hay nada pendiente.
+- **Revisar pedidos** (aparece cuando el live ya cerró): cada renglón es un casillero con su clienta y la lista de prendas que debe tener. Se revisa en físico. Si están todas, se toca **Pedido completo** y se confirma. Si falta alguna, el renglón dice "Falta ✓" con su clave: esa prenda sigue abajo en "Llevar a su casillero" y se le pone ✓ cuando aparezca; hasta entonces no se puede confirmar ni cobrar ese pedido. Si de plano no apareció, una Dueña u Operación toca "Quitar" junto a la clave para sacarla del pedido; Operación live no puede quitarla, tiene que avisar.
 Avisos que llegan al celular de acomodo: "📦 AB23 → B2 · Ana" (llevarla), "🔁 AB23: de B2 a D2" (cambió de clienta: moverla al otro casillero) y "↩️ Regresar AB23 al rack".
 
 ## Pestaña Resurtir (nivel Resurtido)
@@ -76,7 +79,10 @@ Avisos que llegan al celular de acomodo: "📦 AB23 → B2 · Ana" (llevarla), "
 - Dueña, Operación y Supervisor ven el mismo número en la pestaña Prendas, en el renglón "Por resurtir en Sala 1"; al tocarlo se abre el detalle. Dueña y Operación también pueden anotar el resurtido; Supervisor solo lo ve.
 
 ## Pestaña Casilleros
-Lista de casilleros con la clienta, sus prendas, su total y en qué va (por pagar, pago incompleto, pagada). El número rojo en la pestaña son los que tienen algo pendiente.
+Lista de casilleros con la clienta, sus prendas, su total y en qué va. El número rojo en la pestaña son los que tienen algo pendiente. Después de cerrar el live, cada pedido pasa por estos pasos:
+- **En revisión**: falta que Operación live confirme en Acomodo que el pedido está completo. Aún no se cobra.
+- **Listo para cobrar**: pedido confirmado. Una Dueña toca **Mandar nota de cobro**, confirma, y aparece la nota con dos botones: "Abrir WhatsApp" (abre el chat de la clienta con la nota ya escrita; solo falta enviar) y "Copiar nota". Al mandarla empieza a correr su plazo de pago.
+- **Pendiente** (con la hora límite): la nota ya se mandó y se espera el pago. "Ver nota de cobro" la muestra otra vez para reenviarla; no reinicia el plazo.
 - **Registrar pago** (solo Dueña): monto recibido y referencia opcional. Si el pago queda incompleto, avisa cuánto falta.
 - Con el pago completo las prendas pasan a su caja fija; el panel dice a qué caja mover el casillero. Si dice que no hay cajas libres, hay que crear más en la app de Cajas.
 
