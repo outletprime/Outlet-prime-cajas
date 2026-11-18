@@ -57,6 +57,13 @@ lista y el botón "ya se lo pedí", y Ajustes para activar sus avisos. No ve cli
 `avisos_solo_dm` en la tabla `equipo` (`…_avisos_solo_dm.sql`). En su celular recibe únicamente los avisos
 "🙋 Pide DM" y ninguno más; en el panel sigue viendo todo lo de su nivel.
 
+**Resurtido** (sexto nivel, fuera de la tabla porque no hace nada de lo anterior): es quien repone en la
+sala las prendas que ya se vendieron. En el panel solo tiene la pestaña **Resurtir** (y Ajustes para sus avisos):
+un número grande con las prendas **ya pagadas** que faltan por reponer en Sala 1, el botón "Ya resurtí las N"
+(o "Solo resurtí una parte") y su historial. Le llega "🧺 Van N prendas por resurtir" cada vez que se completa
+un pago, y ningún otro aviso. No ve clientas, pagos, casilleros ni el live. Dueña, Operación y Supervisor ven
+el mismo número en Prendas → "Por resurtir en Sala 1" (`…_resurtido.sql`).
+
 **Supervisor** solo ve, con una excepción: atiende los DMs. Cuando una clienta nueva le manda su
 WhatsApp por mensaje directo, en el aviso "Pide DM" toca **Ligar con su WhatsApp**, escribe el número (y el
 nombre si es nueva) y listo: lo que pidió pasa a su casillero y le llega la confirmación por WhatsApp.
@@ -82,7 +89,7 @@ aún no se registran). Cada prenda se palomea con ✓; si se equivoca, puede des
 | `icons/` | Logos de Outlet Prime. |
 | `cp/` | Catálogo de códigos postales de México (SEPOMEX). |
 | `supabase/esquema.sql` | Estructura original de la base de Cajas (referencia, sin datos). |
-| `supabase/migrations/` | Cambios a la base (todos ya aplicados en Supabase el 16 nov), en orden: `…_sistema_lives.sql` (bot y casilleros), `…_prime_live.sql` (mayoristas), `…_avisos_equipo.sql` (avisos), `…_niveles_acceso.sql` (niveles), `…_comentarios_live.sql` (comentarios y pide DM) `…_claves_un_solo_sistema.sql` (claves A1–ZY98 y un solo bot), `…_avisos_acomodo.sql`, `…_facebook_por_nombre.sql`, `…_equipo_invitaciones.sql` (niveles preasignados por correo) y `…_claves_al_comentar.sql` (las prendas se dan de alta solas al comentarlas); estas dos últimas aplicadas el 17 nov. |
+| `supabase/migrations/` | Cambios a la base (todos ya aplicados en Supabase el 16 nov), en orden: `…_sistema_lives.sql` (bot y casilleros), `…_prime_live.sql` (mayoristas), `…_avisos_equipo.sql` (avisos), `…_niveles_acceso.sql` (niveles), `…_comentarios_live.sql` (comentarios y pide DM) `…_claves_un_solo_sistema.sql` (claves A1–ZY98 y un solo bot), `…_avisos_acomodo.sql`, `…_facebook_por_nombre.sql`, `…_equipo_invitaciones.sql` (niveles preasignados por correo) y `…_claves_al_comentar.sql` (las prendas se dan de alta solas al comentarlas); estas dos últimas aplicadas el 17 nov; `…_avisos_solo_dm.sql` (quien presenta solo recibe "Pide DM") y `…_resurtido.sql` (nivel Resurtido y prendas por reponer), aplicada el 18 nov. |
 | `agente/` | Agente que lee los comentarios del live (Node.js). Instrucciones en `agente/LEEME.md`. |
 | `supabase/functions/whatsapp/` | Conector con WhatsApp Business (se activa cuando haya número del bot). |
 | `supabase/functions/avisos/` | Envía los avisos al celular del equipo (notificaciones). |

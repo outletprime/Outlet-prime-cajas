@@ -238,6 +238,10 @@ body.host #vista { max-width: none; padding: calc(var(--sup) + 14px) 20px 24px; 
 .acomodo-ok svg { width: 26px; height: 26px; }
 .acomodo-hecha { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
+.resurtir-num { justify-items: center; text-align: center; padding: 22px 14px; }
+.resurtir-num b { font-size: 76px; line-height: 1; font-variant-numeric: tabular-nums; }
+.resurtir-num .btn { width: 100%; }
+
 /* ---------- Ayuda: burbuja movible y diálogo de dudas ---------- */
 .ayuda-burbuja { position: fixed; z-index: 60; right: 12px; bottom: calc(var(--inf) + 86px); width: 54px; height: 54px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: var(--marca); color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.3); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; transition: left .18s ease, top .18s ease, transform .12s ease; }
 .ayuda-burbuja svg { width: 27px; height: 27px; pointer-events: none; }
@@ -404,13 +408,15 @@ async function accion(fn, okMsg) {
 
 /* ---------- Nivel de acceso ---------- */
 let ROL = null;
-const NIVELES = { duena: 'Dueña', supervisor: 'Supervisor · ver y ligar DMs', operacion: 'Operación', live: 'Operación live · acomodo', presentadora: 'Presentadora · solo avisos de DM' };
+const NIVELES = { duena: 'Dueña', supervisor: 'Supervisor · ver y ligar DMs', operacion: 'Operación', live: 'Operación live · acomodo', presentadora: 'Presentadora · solo avisos de DM', resurtido: 'Resurtido · solo reponer racks' };
 const puede = {
   operar: () => ROL === 'duena' || ROL === 'operacion',
   duena: () => ROL === 'duena',
   acomodar: () => ['duena', 'operacion', 'live'].includes(ROL),
   // Supervisor solo cambia esto: ligar a una clienta que mandó su WhatsApp por DM
   ligar: () => ['duena', 'operacion', 'supervisor'].includes(ROL),
+  // Ver cuántas prendas pagadas hay que reponer en la sala (el nivel Resurtido solo ve esto)
+  verResurtido: () => ['duena', 'operacion', 'supervisor', 'resurtido'].includes(ROL),
 };
 
 /* ---------- Datos ---------- */
@@ -628,6 +634,53 @@ function conectarAcomodo(raiz) {
     marcar(b.dataset.cual === 'regresar' ? 'live_regresar_rack' : 'live_acomodar', b.dataset.deshacer, true));
 }
 
+/* ---------- Resurtido: prendas pagadas que hay que reponer en la sala ---------- */
+async function vistaResurtir() {
+  const [r, est] = await Promise.all([rpc('resurtido_estado'), ROL === 'resurtido' ? estadoAvisos() : null]);
+  const n = r.pendientes;
+  const prendas = c => `${c} ${c === 1 ? 'prenda' : 'prendas'}`;
+  return `
+    ${ROL === 'resurtido' ? '' : '<a href="#prendas" data-ir="prendas" class="nota">← Volver a Prendas</a>'}
+    ${est && est.modo !== 'activo' ? `<div class="banner banner-aviso">${IC.alerta}<span>Tu celular todavía no recibe los avisos. <a href="#ajustes" data-ir="ajustes">Actívalos en Ajustes</a>.</span></div>` : ''}
+    <div class="tarjeta resurtir-num">
+      <small>Por resurtir en ${esc(r.sala)}</small>
+      <b>${n}</b>
+      <span>${n ? `${n === 1 ? 'prenda ya pagada que falta' : 'prendas ya pagadas que faltan'} por reponer` : 'Todo repuesto 👌'}</span>
+      ${n && r.puede_marcar ? `<button type="button" class="btn btn-marca btn-grande" id="resurtir-todo" data-n="${n}">Ya resurtí ${n === 1 ? 'la prenda' : 'las ' + n}</button>
+        ${n > 1 ? `<button type="button" class="btn btn-secundario" id="resurtir-parte" data-n="${n}">Solo resurtí una parte</button>` : ''}` : ''}
+    </div>
+    <p class="nota">Una prenda cuenta cuando su pago queda completo. Las apartadas que todavía no se pagan no aparecen aquí.${r.de_prueba ? ` Hay ${prendas(r.de_prueba)} de ensayo que no se ${r.de_prueba === 1 ? 'cuenta' : 'cuentan'}.` : ''}</p>
+    <h3 class="seccion">Pagadas por live</h3>
+    ${r.por_live.length ? `<div class="lista-simple">${r.por_live.map(l => `<div><b>${esc(l.titulo || 'Live')}</b> · ${prendas(l.prendas)}<br><small>${fechaHora(l.fecha)}</small></div>`).join('')}</div>` : '<p class="nota">Todavía no hay ventas pagadas.</p>'}
+    <h3 class="seccion">Últimos resurtidos</h3>
+    ${r.historial.length ? `<div class="lista-simple">${r.historial.map(h => `<div><b>${prendas(h.prendas)}</b> · ${esc(h.sala)}<br><small>${fechaHora(h.hecho_en)}${h.hecho_por ? ' · ' + esc(h.hecho_por) : ''}</small></div>`).join('')}</div>` : '<p class="nota">Aún no se ha anotado ningún resurtido.</p>'}`;
+}
+function conectarResurtir(raiz) {
+  $$('[data-ir]', raiz).forEach(a => a.onclick = e => { e.preventDefault(); irA(a.dataset.ir); });
+  const anotar = async cuantas => {
+    if (await accion(() => rpc('resurtido_marcar', { p_prendas: cuantas, p_usuario: usuario.nombre }), 'Resurtido anotado')) pintar(true);
+  };
+  const todo = $('#resurtir-todo', raiz);
+  if (todo) todo.onclick = async () => {
+    const n = +todo.dataset.n;
+    if (await confirmar(n === 1 ? '¿Ya repusiste la prenda?' : `¿Ya repusiste las ${n} prendas?`, '<p>Se anota a tu nombre y el contador vuelve a cero.</p>', 'Sí, ya quedó')) anotar(null);
+  };
+  const parte = $('#resurtir-parte', raiz);
+  if (parte) parte.onclick = async () => {
+    const max = +parte.dataset.n;
+    const cuantas = await modal({
+      titulo: '¿Cuántas prendas repusiste?',
+      html: `<div class="formulario"><label>Prendas repuestas (de ${max})<input type="number" inputmode="numeric" min="1" max="${max}" id="resurtir-cuantas"></label><p class="nota">Las demás se quedan pendientes.</p></div>`,
+      botones: [{ texto: 'Cancelar', valor: false }, { texto: 'Anotar', valor: f => {
+        const v = Math.floor(+$('#resurtir-cuantas', f).value);
+        if (!(v >= 1 && v <= max)) { toast(`Escribe un número entre 1 y ${max}.`, 'error'); return undefined; }
+        return v;
+      } }],
+    });
+    if (cuantas) anotar(cuantas);
+  };
+}
+
 /* ---------- Presentadora: a quién pedirle DM ---------- */
 async function vistaPresentadora() {
   const [p, est] = await Promise.all([rpc('presentadora_pantalla'), estadoAvisos()]);
@@ -678,6 +731,7 @@ function conectarHost(raiz) {
 /* ---------- Estructura ---------- */
 const VISTAS = [
   { id: 'dm', nombre: 'Pide DM', icono: IC.vivo },
+  { id: 'resurtir', nombre: 'Resurtir', icono: IC.prendas },
   { id: 'vivo', nombre: 'En vivo', icono: IC.vivo },
   { id: 'casilleros', nombre: 'Casilleros', icono: IC.casilleros },
   { id: 'acomodo', nombre: 'Acomodo', icono: IC.ok },
@@ -685,11 +739,13 @@ const VISTAS = [
   { id: 'whatsapp', nombre: 'WhatsApp', icono: IC.chat },
   { id: 'ajustes', nombre: 'Ajustes', icono: IC.ajustes },
 ];
-const OCULTAS = ['host'];       // vistas sin pestaña (pantalla completa)
+const OCULTAS = ['host', 'resurtir'];   // vistas sin pestaña: pantalla host y, para quien no es de resurtido, el resurtido (se entra desde Prendas)
+// Niveles que solo tienen su pantalla y Ajustes (para activar sus avisos)
+const SOLO = { presentadora: ['dm', 'ajustes'], resurtido: ['resurtir', 'ajustes'] };
 // "Operación live" no usa el simulador de WhatsApp; Acomodo necesita la base nueva
 // La presentadora solo tiene "Pide DM" y Ajustes (para activar sus avisos)
-const vistaVisible = v => ROL === 'presentadora' ? ['dm', 'ajustes'].includes(v.id)
-  : v.id !== 'dm' && !(v.id === 'whatsapp' && ROL === 'live') && !(v.id === 'acomodo' && !TIENE_COMENTARIOS);
+const vistaVisible = v => SOLO[ROL] ? SOLO[ROL].includes(v.id)
+  : !['dm', 'resurtir'].includes(v.id) && !(v.id === 'whatsapp' && ROL === 'live') && !(v.id === 'acomodo' && !TIENE_COMENTARIOS);
 const existeVista = v => VISTAS.some(x => x.id === v) || OCULTAS.includes(v);
 let vista = (location.hash.replace('#', '') || 'vivo');
 if (!existeVista(vista)) vista = 'vivo';
@@ -699,8 +755,8 @@ function montar() {
     <header class="barra-sup">
       <img src="icons/logo-oscuro.png" alt="Outlet Prime">
       <h1 id="titulo">Live</h1>
-      ${ROL === 'supervisor' ? '<span class="chip chip-monitor">Monitor</span>' : ROL === 'operacion' ? '<span class="chip chip-monitor">Operación</span>' : ROL === 'live' ? '<span class="chip chip-monitor">Acomodo</span>' : ROL === 'presentadora' ? '<span class="chip chip-monitor">Presentadora</span>' : ''}
-      ${['live', 'presentadora'].includes(ROL) ? '' : `<a class="btn-icono" href="index.html" aria-label="Ir a la app de Cajas" title="Cajas">${IC.cajas}</a>`}
+      ${ROL === 'supervisor' ? '<span class="chip chip-monitor">Monitor</span>' : ROL === 'operacion' ? '<span class="chip chip-monitor">Operación</span>' : ROL === 'live' ? '<span class="chip chip-monitor">Acomodo</span>' : ROL === 'resurtido' ? '<span class="chip chip-monitor">Resurtido</span>' : ROL === 'presentadora' ? '<span class="chip chip-monitor">Presentadora</span>' : ''}
+      ${['live', 'presentadora', 'resurtido'].includes(ROL) ? '' : `<a class="btn-icono" href="index.html" aria-label="Ir a la app de Cajas" title="Cajas">${IC.cajas}</a>`}
     </header>
     <main id="vista"></main>
     <nav class="tabs" aria-label="Secciones" style="grid-template-columns:repeat(${VISTAS.filter(vistaVisible).length}, 1fr)">
@@ -710,7 +766,7 @@ function montar() {
 }
 function irA(v) {
   // Cada nivel solo entra a sus pestañas (la pantalla host no es para la presentadora)
-  const permitidas = VISTAS.filter(vistaVisible).map(x => x.id).concat(ROL === 'presentadora' ? [] : OCULTAS);
+  const permitidas = VISTAS.filter(vistaVisible).map(x => x.id).concat(SOLO[ROL] ? [] : OCULTAS.filter(o => o !== 'resurtir' || puede.verResurtido()));
   if (!permitidas.includes(v)) v = permitidas[0];
   vista = v;
   history.replaceState(null, '', '#' + v);
@@ -732,7 +788,7 @@ async function pintar(cambioDeVista = false) {
   const v = $('#vista');
   if (cambioDeVista) v.innerHTML = '<div class="cargando"><div class="spinner"></div></div>';
   try {
-    const html = await ({ dm: vistaPresentadora, vivo: vistaVivo, casilleros: vistaCasilleros, acomodo: vistaAcomodo, prendas: vistaPrendas, whatsapp: vistaWhatsApp, ajustes: vistaAjustes, host: vistaHost })[vista]();
+    const html = await ({ dm: vistaPresentadora, vivo: vistaVivo, casilleros: vistaCasilleros, acomodo: vistaAcomodo, prendas: vistaPrendas, whatsapp: vistaWhatsApp, ajustes: vistaAjustes, host: vistaHost, resurtir: vistaResurtir })[vista]();
     if (html !== null) v.innerHTML = html;
     conectar[vista] && conectar[vista](v);
   } catch (e) {
@@ -740,7 +796,7 @@ async function pintar(cambioDeVista = false) {
     v.innerHTML = `<div class="vacio">${IC.alerta}<h2>No se pudo cargar</h2><p>${esc(traducirError(e))}</p><button class="btn btn-primario" onclick="pintar(true)">Reintentar</button></div>`;
   }
 }
-const conectar = { host: conectarHost, acomodo: conectarAcomodo, dm: conectarPresentadora };
+const conectar = { host: conectarHost, acomodo: conectarAcomodo, dm: conectarPresentadora, resurtir: conectarResurtir };
 
 /* ---------- En vivo ---------- */
 function posicionesEspera(feed) {
@@ -1219,6 +1275,8 @@ async function contar(estado) {
 }
 async function vistaPrendas() {
   const [disp, apar, pag, cfg] = await Promise.all([contar('disponible'), contar('apartada'), contar('pagada'), q(sb.from('live_config').select('precio').limit(1))]);
+  // Prendas pagadas que falta reponer en la sala (si la base todavía no lo tiene, no se muestra)
+  const resurtir = puede.verResurtido() ? await rpc('resurtido_estado').catch(() => null) : null;
   let detalle = '';
   if (buscada != null) {
     const [p] = await q(sb.from('prendas').select('*').eq('numero', buscada));
@@ -1241,6 +1299,7 @@ async function vistaPrendas() {
       <div class="kpi"><small>Vendidas</small><b>${pag}</b></div>
       <div class="kpi"><small>Registradas</small><b>${disp + apar + pag}</b></div>
     </div>
+    ${resurtir ? `<a href="#resurtir" data-ir="resurtir" class="banner ${resurtir.pendientes ? 'banner-aviso' : 'banner-info'}" style="text-decoration:none">${IC.prendas}<span><b>Por resurtir en ${esc(resurtir.sala)}: ${resurtir.pendientes}</b> ${resurtir.pendientes === 1 ? 'prenda pagada' : 'prendas pagadas'} · ver detalle</span></a>` : ''}
     ${puede.operar() ? `<h3 class="seccion">Registrar etiquetas nuevas</h3>
     <form class="tarjeta formulario" id="f-rango">
       <div class="tres">
@@ -1259,6 +1318,7 @@ async function vistaPrendas() {
     ${detalle}`;
 }
 conectar.prendas = raiz => {
+  $$('[data-ir]', raiz).forEach(a => a.onclick = e => { e.preventDefault(); irA(a.dataset.ir); });
   if ($('#f-rango', raiz)) $('#f-rango', raiz).onsubmit = async e => {
     e.preventDefault();
     const f = e.target;
@@ -1437,7 +1497,7 @@ async function htmlAvisos() {
     ? `<details class="plegable"><summary>Últimos avisos</summary><div class="lista-simple">${resumen.ultimos.map(a => `<div><b>${esc(a.titulo)}</b><br>${esc(a.cuerpo)}<br><small>${fechaHora(a.creado_en)} · ${a.enviado ? `llegó a ${a.enviados} ${a.enviados === 1 ? 'teléfono' : 'teléfonos'}` : 'pendiente'}</small></div>`).join('')}</div></details>` : '';
   return `<div class="tarjeta" id="avisos">
       <h3 class="seccion" style="margin:0">Avisos en el celular</h3>
-      <p class="nota">${ROL === 'presentadora' ? 'Te llega una notificación cada vez que una clienta nueva es la primera en pedir una prenda: a quién pedirle DM. No recibes otros avisos.' : ROL === 'live' ? 'Te llega una notificación por cada prenda que hay que llevar a su casillero (📦 A23 → C-007), cambiar de casillero (🔁) o regresar al rack (↩️), además de pagos, vencidos y cajas listas.' : 'Llegan como notificación, sin abrir el panel: pago recibido (mover a caja), pago incompleto, apartado vencido (regresar a racks) y caja lista para empacar.'}</p>
+      <p class="nota">${ROL === 'resurtido' ? 'Te llega una notificación cada vez que se completa un pago, con el total de prendas que hay que reponer en la sala. No recibes otros avisos.' : ROL === 'presentadora' ? 'Te llega una notificación cada vez que una clienta nueva es la primera en pedir una prenda: a quién pedirle DM. No recibes otros avisos.' : ROL === 'live' ? 'Te llega una notificación por cada prenda que hay que llevar a su casillero (📦 A23 → C-007), cambiar de casillero (🔁) o regresar al rack (↩️), además de pagos, vencidos y cajas listas.' : 'Llegan como notificación, sin abrir el panel: pago recibido (mover a caja), pago incompleto, apartado vencido (regresar a racks) y caja lista para empacar.'}</p>
       ${MSG[est.modo]}
       ${resumen ? `<small>${resumen.dispositivos ? `Reciben avisos: ${resumen.nombres.map(esc).join(', ')}` : 'Nadie del equipo ha activado los avisos todavía.'}</small>` : ''}
       ${ultimos}
@@ -1460,7 +1520,7 @@ async function htmlEquipo() {
     ]);
   } catch (e) { return `<div class="tarjeta"><p class="nota">${esc(traducirError(e))}</p></div>`; }
   const pendientes = gente.filter(g => !g.rol).length;
-  const opciones = r => [['duena', 'Dueña'], ['supervisor', 'Supervisor · ver y ligar DMs'], ['operacion', 'Operación'], ['live', 'Operación live · acomodo'], ['presentadora', 'Presentadora · solo avisos de DM'], ['', 'Sin acceso']]
+  const opciones = r => [['duena', 'Dueña'], ['supervisor', 'Supervisor · ver y ligar DMs'], ['operacion', 'Operación'], ['live', 'Operación live · acomodo'], ['presentadora', 'Presentadora · solo avisos de DM'], ['resurtido', 'Resurtido · solo reponer racks'], ['', 'Sin acceso']]
     .map(([v, t]) => `<option value="${v}" ${(r || '') === v ? 'selected' : ''}>${t}</option>`).join('');
   const DESC = {
     'pago registrado': d => `${d.folio} · ${dinero(d.monto_pagado)}${d.caja ? ' → caja ' + d.caja : ''}`,
@@ -1477,7 +1537,7 @@ async function htmlEquipo() {
   };
   return `<div class="tarjeta" id="equipo">
       <h3 class="seccion" style="margin:0">Equipo y niveles de acceso</h3>
-      <p class="nota"><b>Dueña:</b> todo. <b>Supervisor:</b> solo ve y recibe avisos. <b>Operación:</b> opera el live y mueve prendas; no registra pagos, no cambia ajustes ni invita mayoristas, y no borra.</p>
+      <p class="nota"><b>Dueña:</b> todo. <b>Supervisor:</b> solo ve y recibe avisos. <b>Operación:</b> opera el live y mueve prendas; no registra pagos, no cambia ajustes ni invita mayoristas, y no borra. <b>Resurtido:</b> solo ve cuántas prendas pagadas hay que reponer en la sala; no ve clientas, pagos ni el live.</p>
       ${pendientes ? `<div class="banner banner-aviso">${IC.alerta}<span>${pendientes} ${pendientes === 1 ? 'persona no tiene' : 'personas no tienen'} nivel todavía: no ven nada hasta que se lo asignes.</span></div>` : ''}
       <div class="lista-invitadas">${gente.map(g => `
         <div class="miembro${g.rol ? '' : ' pendiente'}">
@@ -1504,7 +1564,7 @@ function conectarEquipo(raiz) {
 async function vistaAjustes() {
   const [[c], avisos] = await Promise.all([q(sb.from('live_config').select('*').limit(1)), htmlAvisos()]);
   const v = c || {};
-  if (ROL === 'presentadora') return `${avisos}
+  if (SOLO[ROL]) return `${avisos}
     <div class="tarjeta">
       <p>Sesión: <b>${esc(usuario.nombre)}</b> <small>${esc(usuario.email)}</small> <span class="chip">${esc(NIVELES[ROL] || '')}</span></p>
       <div class="fila-botones"><button class="btn btn-secundario" id="salir">Cerrar sesión</button></div>
@@ -1635,6 +1695,7 @@ const AYUDA_SUGERENCIAS = {
   supervisor: ['¿Cómo ligo a una clienta nueva con su WhatsApp?', '¿Qué significa "Pide DM"?', '¿Cómo veo quién tiene una prenda?'],
   live: ['¿Qué hago con cada aviso que me llega?', '¿Qué es la charola de pendientes?', 'Palomeé una prenda por error'],
   presentadora: ['¿Qué hago cuando me llega "Pide DM"?', 'No me llegan los avisos al celular', '¿Cómo instalo el panel en mi iPhone?'],
+  resurtido: ['¿Cuándo cuenta una prenda para resurtir?', 'Repuse solo una parte, ¿cómo lo anoto?', 'No me llegan los avisos al celular'],
 };
 const AYUDA_FALLAS = {
   sin_llave: 'La ayuda todavía no está activada. Avísale a una dueña.',
@@ -1847,6 +1908,8 @@ async function arrancar() {
   TIENE_COMENTARIOS = !(await sb.from('live_dm').select('id', { head: true, count: 'exact' }).limit(1)).error;
   if (ROL === 'live' && !location.hash) vista = 'acomodo';
   if (ROL === 'presentadora') vista = vista === 'ajustes' ? 'ajustes' : 'dm';
+  if (ROL === 'resurtido') vista = vista === 'ajustes' ? 'ajustes' : 'resurtir';
+  if (vista === 'resurtir' && !puede.verResurtido()) vista = 'vivo';
   if (!VISTAS.filter(vistaVisible).some(v => v.id === vista) && !OCULTAS.includes(vista)) vista = 'vivo';
   montar();
   montarAyuda();
@@ -1869,7 +1932,7 @@ setInterval(() => {
   if (capturandoDesde && Date.now() - capturandoDesde < 120000) return; // la cámara está abierta
   const foco = document.activeElement;
   if (foco && /INPUT|TEXTAREA|SELECT/.test(foco.tagName)) return;
-  if (['dm', 'vivo', 'casilleros', 'acomodo', 'whatsapp', 'host'].includes(vista)) pintar();
+  if (['dm', 'vivo', 'casilleros', 'acomodo', 'whatsapp', 'host', 'resurtir'].includes(vista)) pintar();
 }, 4000);
 window.addEventListener('hashchange', () => { const v = location.hash.replace('#', ''); if (v !== vista && existeVista(v)) irA(v); });
 

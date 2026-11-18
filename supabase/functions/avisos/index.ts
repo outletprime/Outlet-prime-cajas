@@ -127,6 +127,8 @@ async function mandarPendientes(cfg: Config) {
   // recibe en su celular únicamente los avisos de "Pide DM"
   const soloDm = new Set((equipo ?? []).filter((e: Persona) => e.rol === 'presentadora' || e.avisos_solo_dm === true)
     .map((e: Persona) => e.usuario_id));
+  // Niveles que solo reciben los avisos dirigidos a su propio nivel (nada de pagos, cajas ni clientas)
+  const soloSuNivel = new Set(['resurtido']);
   let procesados = 0;
   for (const a of avisos ?? []) {
     // Se aparta antes de mandarlo, para que dos llamadas a la vez no lo dupliquen
@@ -135,6 +137,8 @@ async function mandarPendientes(cfg: Config) {
     procesados++;
     const destino = (dispositivos ?? []).filter(d => {
       if (a.usuario_id) return d.usuario_id === a.usuario_id;           // aviso de prueba de esa persona
+      const rol = rolDe.get(d.usuario_id);
+      if (rol && soloSuNivel.has(rol)) return a.para_rol === rol;        // resurtido: solo "por resurtir"
       if (a.para_rol === 'presentadora') return soloDm.has(d.usuario_id); // "Pide DM": solo a quien presenta
       if (soloDm.has(d.usuario_id)) return false;                        // quien presenta no recibe nada más
       if (a.para_rol) return rolDe.get(d.usuario_id) === a.para_rol;     // p. ej. acomodo solo a Operación live

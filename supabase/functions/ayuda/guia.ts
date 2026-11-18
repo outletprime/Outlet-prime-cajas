@@ -14,6 +14,7 @@ export const GUIA = `# Guía del equipo · Outlet Prime (panel del live)
 - **Pide DM**: aviso de que una clienta nueva (que el sistema todavía no conoce) fue la primera en pedir una prenda. Hay que pedirle al aire que mande mensaje directo.
 - **Charola de pendientes**: donde se dejan las prendas que pidió una clienta nueva mientras se registra.
 - **Lista de espera**: si una prenda ya estaba apartada, las siguientes que la piden quedan en espera en orden de comentario.
+- **Resurtir**: reponer en los racks de la sala las prendas que ya se vendieron. Una prenda cuenta como vendida cuando su pago queda completo. Por ahora hay una sola sala: Sala 1.
 
 ## Cómo funciona un live, de principio a fin
 1. Se enciende el agente en la computadora de la tienda y se inicia el live en En vivo (si el agente detecta el live, lo inicia solo).
@@ -32,6 +33,7 @@ export const GUIA = `# Guía del equipo · Outlet Prime (panel del live)
 - **Operación**: opera el live: inicia y cierra lives, captura comentarios a mano, libera prendas, liga clientas, marca acomodo. No registra pagos, no cambia Ajustes y no borra.
 - **Operación live (acomodo)**: lleva las prendas a los casilleros. Ve En vivo, Casilleros, Acomodo, Prendas y Ajustes. No ve la pestaña WhatsApp, ni la app de Cajas, ni los datos de las clientas.
 - **Presentadora**: solo ve la pestaña Pide DM y Ajustes. No ve clientas, pagos ni casilleros.
+- **Resurtido**: solo ve la pestaña Resurtir y Ajustes. Sabe cuántas prendas pagadas hay que reponer en la sala y lo anota cuando ya lo hizo. No ve clientas, pagos, casilleros ni el live.
 - Una Dueña que conduce el live puede tener sus avisos en "solo Pide DM": en su celular solo le llegan esos avisos, pero en el panel sigue viendo todo.
 Si un botón no aparece o sale "Tu nivel de acceso no permite hacer esto", es por el nivel: hay que pedírselo a una Dueña u Operación.
 
@@ -63,6 +65,16 @@ Salen las clientas nuevas que fueron las primeras en pedir una prenda. Se les pi
 - Si se palomeó una por error: "Deshacer". "Todo acomodado 👌" significa que no hay nada pendiente.
 Avisos que llegan al celular de acomodo: "📦 AB23 → C-007 · Ana" (llevarla), "🔁 AB23: de C-007 a C-009" (cambió de clienta: moverla al otro casillero) y "↩️ Regresar AB23 al rack".
 
+## Pestaña Resurtir (nivel Resurtido)
+- Arriba sale un número grande: las prendas ya pagadas que faltan por reponer en Sala 1. Solo cuentan las que ya se pagaron completas; las apartadas que todavía no se pagan no aparecen. Las de ensayo tampoco cuentan.
+- **Ya resurtí las N**: se toca cuando ya se repusieron todas. Se anota a nombre de quien lo hizo y el contador vuelve a cero.
+- **Solo resurtí una parte**: se escribe cuántas se repusieron; las demás se quedan pendientes.
+- "Todo repuesto 👌" significa que no hay nada por reponer.
+- Abajo salen "Pagadas por live" (cuántas prendas se pagaron de cada live) y "Últimos resurtidos" (cuántas se repusieron, cuándo y quién).
+- Al celular llega el aviso "🧺 Van N prendas por resurtir" cada vez que se completa un pago. Este nivel no recibe ningún otro aviso.
+- No hay botón para deshacer: si se anotó un resurtido por error, hay que avisarle a una Dueña.
+- Dueña, Operación y Supervisor ven el mismo número en la pestaña Prendas, en el renglón "Por resurtir en Sala 1"; al tocarlo se abre el detalle. Dueña y Operación también pueden anotar el resurtido; Supervisor solo lo ve.
+
 ## Pestaña Casilleros
 Lista de casilleros con la clienta, sus prendas, su total y en qué va (por pagar, pago incompleto, pagada). El número rojo en la pestaña son los que tienen algo pendiente.
 - **Registrar pago** (solo Dueña): monto recibido y referencia opcional. Si el pago queda incompleto, avisa cuánto falta.
@@ -90,7 +102,7 @@ Lista de casilleros con la clienta, sus prendas, su total y en qué va (por paga
 - **iPhone**: primero instalar el panel: abrirlo en Safari → botón Compartir → "Agregar a pantalla de inicio". Luego abrirlo desde ese ícono, ir a Ajustes y tocar "🔔 Activar avisos en este teléfono". Debe llegar "🔔 Avisos activados". Necesita iOS 16.4 o más reciente.
 - **Android**: abrir el panel en Chrome → Ajustes → "🔔 Activar avisos en este teléfono".
 - Si no llegan: (1) en Ajustes debe decir que este teléfono recibe avisos; si no, activarlos otra vez. (2) Revisar en los ajustes del teléfono que las notificaciones de "OP Live" estén permitidas. (3) Revisar que no esté en modo No molestar o concentración. (4) En iPhone, abrir el panel desde el ícono de la pantalla de inicio, no desde Safari. (5) Probar con "Mandar aviso de prueba".
-- Cada nivel recibe avisos distintos: acomodo recibe los de llevar y regresar prendas; presentadora solo "Pide DM"; los demás, pagos, vencidos y cajas listas.
+- Cada nivel recibe avisos distintos: acomodo recibe los de llevar y regresar prendas; presentadora solo "Pide DM"; resurtido solo "🧺 Van N prendas por resurtir"; los demás, pagos, vencidos y cajas listas.
 
 ## Problemas frecuentes
 - **"Tu sesión expiró"**: volver a entrar con correo y contraseña.

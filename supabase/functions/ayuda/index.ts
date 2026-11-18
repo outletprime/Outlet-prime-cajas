@@ -26,6 +26,7 @@ const NIVELES: Record<string, string> = {
   operacion: 'Operación',
   live: 'Operación live (acomodo)',
   presentadora: 'Presentadora',
+  resurtido: 'Resurtido',
 };
 const MAX_MENSAJES = 12;
 const MAX_LETRAS = 1500;
