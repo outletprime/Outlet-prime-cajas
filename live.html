@@ -953,6 +953,8 @@ function vistaRedes() {
     </div>
     ${htmlAgente()}
     ${htmlDMs()}
+    ${puede.operar() ? `<button class="btn btn-peligro btn-grande" id="cerrar-live">Cerrar live y mandar cobros</button>
+    <p class="nota">Al cerrar, cada clienta recibe por WhatsApp su total y cómo pagar. Tiene ${horas(D.cfg.horas_limite)} para pagar; a las ${horas(D.cfg.horas_liberar)} lo no pagado se libera solo.</p>` : ''}
     <div class="kpis">
       <div class="kpi"><small>Apartadas</small><b>${apartadas.length}</b></div>
       <div class="kpi"><small>Clientas</small><b>${clientas}</b></div>
@@ -964,9 +966,7 @@ function vistaRedes() {
     <h3 class="seccion">Apartados al momento</h3>
     ${D.feed.length ? `<div class="feed">${D.feed.map(a => filaFeed(a, pos, nuevos.has(a.id))).join('')}</div>`
       : `<div class="vacio"><p>Aún no hay apartados. Cuando una clienta ${TIENE_COMENTARIOS ? 'comente una clave en el live o la mande' : 'mande una clave'} por WhatsApp aparece aquí con su casillero.</p></div>`}
-    ${htmlCaptura()}
-    ${puede.operar() ? '<button class="btn btn-peligro btn-grande" id="cerrar-live">Cerrar live y mandar cobros</button>' : ''}
-    <p class="nota">Al cerrar, cada clienta recibe por WhatsApp su total y cómo pagar. Tiene ${horas(D.cfg.horas_limite)} para pagar; a las ${horas(D.cfg.horas_liberar)} lo no pagado se libera solo.</p>`;
+    ${htmlCaptura()}`;
 }
 const origenTxt = a => !a.origen ? '' : ` · <span class="origen">${esc(RED[a.origen] || a.origen)}${a.origen_usuario ? ' @' + esc(a.origen_usuario) : ''}</span>`;
 function horas(h) { const n = Number(h); return n === 1 ? '1 hora' : `${n} horas`; }
