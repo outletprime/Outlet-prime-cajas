@@ -243,7 +243,7 @@ body.host #vista { max-width: none; padding: calc(var(--sup) + 14px) 20px 24px; 
 .resurtir-num .btn { width: 100%; }
 
 /* ---------- Ayuda: burbuja movible y diálogo de dudas ---------- */
-.ayuda-burbuja { position: fixed; z-index: 60; right: 12px; bottom: calc(var(--inf) + 86px); width: 54px; height: 54px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: var(--marca); color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.3); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; transition: left .18s ease, top .18s ease, transform .12s ease; }
+.ayuda-burbuja { position: fixed; z-index: 60; left: 12px; bottom: calc(var(--inf) + 86px); width: 54px; height: 54px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: var(--marca); color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.3); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; transition: left .18s ease, top .18s ease, transform .12s ease; }
 .ayuda-burbuja svg { width: 27px; height: 27px; pointer-events: none; }
 .ayuda-burbuja:focus-visible { outline: 3px solid var(--primario); outline-offset: 2px; }
 .ayuda-burbuja.arrastrando { cursor: grabbing; transform: scale(1.1); transition: transform .12s ease; }
@@ -1851,7 +1851,8 @@ function montarAyuda() {
     let p = null;
     try { p = JSON.parse(localStorage.getItem(LLAVE) || 'null'); } catch (e) { /* se queda en su lugar de siempre */ }
     const l = limites();
-    if (!p || typeof p.alto !== 'number') p = { derecha: true, alto: 1 };
+    // Sin lugar guardado empieza abajo a la izquierda: a la derecha van los botones (Liberar, Quitar, ✓)
+    if (!p || typeof p.alto !== 'number') p = { derecha: false, alto: 1 };
     colocar(p.derecha ? l.x1 : l.x0, l.y0 + Math.min(1, Math.max(0, p.alto)) * (l.y1 - l.y0));
   };
   restaurar();
@@ -2033,6 +2034,25 @@ function pantallaSinAcceso() {
     <button class="btn btn-secundario" id="salir-sa">Cerrar sesión</button>
   </div></div>`;
   $('#salir-sa').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+}
+
+/* iPhone: al cerrarse el teclado, la barra de pestañas a veces se queda flotando a media pantalla.
+ * Un movimiento mínimo de la página obliga al teléfono a volver a colocarla abajo. */
+function reacomodarPantalla() {
+  requestAnimationFrame(() => { window.scrollBy(0, 1); requestAnimationFrame(() => window.scrollBy(0, -1)); });
+}
+const esCampo = el => !!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName || '');
+document.addEventListener('focusout', e => {
+  if (!esCampo(e.target)) return;
+  setTimeout(() => { if (!esCampo(document.activeElement)) reacomodarPantalla(); }, 150);
+});
+if (window.visualViewport) {
+  let altoAntes = window.visualViewport.height;
+  window.visualViewport.addEventListener('resize', () => {
+    const alto = window.visualViewport.height;
+    if (alto > altoAntes + 80) reacomodarPantalla();   // el teclado se acaba de cerrar
+    altoAntes = alto;
+  });
 }
 
 /* Se actualiza sola cada 4 segundos (sin interrumpir si alguien está escribiendo o hay una ventana abierta). */
