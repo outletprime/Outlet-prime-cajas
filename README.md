@@ -89,7 +89,7 @@ aún no se registran). Cada prenda se palomea con ✓; si se equivoca, puede des
 | `icons/` | Logos de Outlet Prime. |
 | `cp/` | Catálogo de códigos postales de México (SEPOMEX). |
 | `supabase/esquema.sql` | Estructura original de la base de Cajas (referencia, sin datos). |
-| `supabase/migrations/` | Cambios a la base (todos ya aplicados en Supabase el 16 nov), en orden: `…_sistema_lives.sql` (bot y casilleros), `…_prime_live.sql` (mayoristas), `…_avisos_equipo.sql` (avisos), `…_niveles_acceso.sql` (niveles), `…_comentarios_live.sql` (comentarios y pide DM) `…_claves_un_solo_sistema.sql` (claves A1–ZY98 y un solo bot), `…_avisos_acomodo.sql`, `…_facebook_por_nombre.sql`, `…_equipo_invitaciones.sql` (niveles preasignados por correo) y `…_claves_al_comentar.sql` (las prendas se dan de alta solas al comentarlas); estas dos últimas aplicadas el 17 nov; `…_avisos_solo_dm.sql` (quien presenta solo recibe "Pide DM") y `…_resurtido.sql` (nivel Resurtido y prendas por reponer), aplicada el 18 nov. |
+| `supabase/migrations/` | Cambios a la base (todos ya aplicados en Supabase el 16 nov), en orden: `…_sistema_lives.sql` (bot y casilleros), `…_prime_live.sql` (mayoristas), `…_avisos_equipo.sql` (avisos), `…_niveles_acceso.sql` (niveles), `…_comentarios_live.sql` (comentarios y pide DM) `…_claves_un_solo_sistema.sql` (claves A1–ZY98 y un solo bot), `…_avisos_acomodo.sql`, `…_facebook_por_nombre.sql`, `…_equipo_invitaciones.sql` (niveles preasignados por correo) y `…_claves_al_comentar.sql` (las prendas se dan de alta solas al comentarlas); estas dos últimas aplicadas el 17 nov; `…_avisos_solo_dm.sql` (quien presenta solo recibe "Pide DM") y `…_resurtido.sql` (nivel Resurtido y prendas por reponer) y `…_etiquetas.sql` (claves ya impresas), aplicadas el 18 nov. |
 | `agente/` | Agente que lee los comentarios del live (Node.js). Instrucciones en `agente/LEEME.md`. |
 | `supabase/functions/whatsapp/` | Conector con WhatsApp Business (se activa cuando haya número del bot). |
 | `supabase/functions/avisos/` | Envía los avisos al celular del equipo (notificaciones). |
@@ -178,7 +178,13 @@ preguntar cómo hacer algo. No aparece en la Pantalla host.
   (nunca en este repositorio). Sin llave, el diálogo dice "La ayuda todavía no está activada".
 - La conversación no se guarda: se borra al cerrar o recargar el panel.
 
-### Simulador
+## Imprimir etiquetas de las prendas
+
+En **Prendas → Imprimir etiquetas** (solo Supervisor y Dueña) se escribe cuántas etiquetas hacen falta, siempre
+en múltiplos de 6 (una hoja Janel J-5164 trae 6), y el panel arma el PDF con las claves que siguen. La base
+anota cada lote (`etiquetas_lotes`, `…_etiquetas.sql`), así que nunca se imprime dos veces la misma clave y un
+lote se puede volver a descargar desde "Lotes anteriores". Se imprime al 100 % ("Tamaño real").
+
 
 En el panel, pestaña **WhatsApp**: escribes como si fueras una clienta y el bot responde.
 Las clientas de prueba usan números que empiezan con `00`, nunca se manda nada a un teléfono,

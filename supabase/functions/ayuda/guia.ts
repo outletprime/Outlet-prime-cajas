@@ -29,7 +29,7 @@ export const GUIA = `# Guía del equipo · Outlet Prime (panel del live)
 
 ## Niveles de acceso (qué puede cada quien)
 - **Dueña**: todo. Es la única que registra pagos, cambia Ajustes (CLABE, precios, tiempos), programa Prime Live, borra, y da o quita accesos.
-- **Supervisor**: solo ve. Única excepción: puede ligar a una clienta con su WhatsApp desde un aviso "Pide DM".
+- **Supervisor**: solo ve. Dos excepciones: puede ligar a una clienta con su WhatsApp desde un aviso "Pide DM", y genera el PDF de las etiquetas para imprimirlas (pestaña Prendas → Imprimir etiquetas).
 - **Operación**: opera el live: inicia y cierra lives, captura comentarios a mano, libera prendas, liga clientas, marca acomodo. No registra pagos, no cambia Ajustes y no borra.
 - **Operación live (acomodo)**: lleva las prendas a los casilleros. Ve En vivo, Casilleros, Acomodo, Prendas y Ajustes. No ve la pestaña WhatsApp, ni la app de Cajas, ni los datos de las clientas.
 - **Presentadora**: solo ve la pestaña Pide DM y Ajustes. No ve clientas, pagos ni casilleros.
@@ -83,6 +83,7 @@ Lista de casilleros con la clienta, sus prendas, su total y en qué va (por paga
 ## Pestaña Prendas
 - **Buscar una prenda**: se escribe la clave y dice si está disponible, apartada o vendida, y quién la tiene o está en espera.
 - Las claves de dos letras y dos números no se registran: se crean solas al comentarlas. "Registrar etiquetas nuevas" solo hace falta para claves de otro tipo.
+- **Imprimir etiquetas** (solo Supervisor y Dueña): se escribe cuántas etiquetas se necesitan, siempre en múltiplos de 6 porque cada hoja trae 6 (por ejemplo 60 etiquetas son 10 hojas; de 6 a 600 por vez). Se toca "Generar etiquetas" y después "Descargar PDF". El sistema sigue desde la última clave impresa, así que nunca se repite una clave. Las claves generadas quedan anotadas como impresas, por eso hay que imprimirlas todas. Si la descarga o la impresión falló, en "Lotes anteriores" está "Descargar otra vez". Se imprimen en etiquetas Janel J-5164 (hoja carta de 6), al 100 % o "Tamaño real", nunca "Ajustar a la página".
 
 ## Pestaña WhatsApp (simulador y mensajes)
 - **Simulador**: sirve para practicar. Se escribe como si uno fuera clienta y el bot responde, sin que salga nada a ningún teléfono. Las clientas de prueba usan números que empiezan con 00.

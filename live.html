@@ -417,6 +417,8 @@ const puede = {
   ligar: () => ['duena', 'operacion', 'supervisor'].includes(ROL),
   // Ver cuántas prendas pagadas hay que reponer en la sala (el nivel Resurtido solo ve esto)
   verResurtido: () => ['duena', 'operacion', 'supervisor', 'resurtido'].includes(ROL),
+  // Generar el PDF de etiquetas con las claves que siguen (lo imprime el supervisor)
+  etiquetas: () => ['duena', 'supervisor'].includes(ROL),
 };
 
 /* ---------- Datos ---------- */
@@ -632,6 +634,110 @@ function conectarAcomodo(raiz) {
   $$('[data-regresar]', raiz).forEach(b => b.onclick = () => marcar('live_regresar_rack', b.dataset.regresar));
   $$('[data-deshacer]', raiz).forEach(b => b.onclick = () =>
     marcar(b.dataset.cual === 'regresar' ? 'live_regresar_rack' : 'live_acomodar', b.dataset.deshacer, true));
+}
+
+/* ---------- Etiquetas: PDF con las claves que siguen, en hojas completas de 6 ----------
+ * Hoja Janel J-5164 (igual que Avery 5164): carta, 2 columnas x 3 filas, cada etiqueta de 4 x 3⅓ pulgadas.
+ * La base lleva la cuenta de qué claves ya se imprimieron; aquí solo se dibuja el PDF. */
+const ETQ = { listo: null };   // último PDF generado: { url, nombre, archivo, texto }
+const etqNombre = l => `Etiquetas ${l.desde} a ${l.hasta} (${l.hojas} ${l.hojas === 1 ? 'hoja' : 'hojas'}).pdf`;
+
+function htmlEtiquetas(e) {
+  const listo = ETQ.listo;
+  return `<h3 class="seccion">Imprimir etiquetas</h3>
+    <div class="tarjeta" id="etiquetas">
+      ${listo ? `<div class="banner banner-ok">${IC.ok}<span><b>PDF listo:</b> ${esc(listo.texto)}</span></div>
+        <div class="fila-botones">
+          <a class="btn btn-marca" href="${listo.url}" download="${esc(listo.nombre)}">Descargar PDF</a>
+          ${listo.archivo && navigator.canShare && navigator.canShare({ files: [listo.archivo] }) ? '<button type="button" class="btn btn-secundario" id="etq-compartir">Compartir o imprimir</button>' : ''}
+        </div>` : ''}
+      ${e.siguiente ? `<form id="f-etiquetas" class="formulario">
+        <label>¿Cuántas etiquetas? <small>Siguen desde la <b>${esc(e.siguiente)}</b> · 6 por hoja</small>
+          <input name="cantidad" type="number" inputmode="numeric" min="6" max="600" step="6" value="60" required></label>
+        <small id="etq-hojas"></small>
+        <button class="btn btn-primario">Generar etiquetas</button>
+      </form>` : '<p class="nota">Ya se imprimieron todas las claves disponibles.</p>'}
+      <p class="nota">Para etiquetas Janel J-5164 (hoja carta de 6). Imprime al <b>100 %</b> o "Tamaño real", nunca "Ajustar a la página". Van ${e.impresas} etiquetas impresas en total.</p>
+      ${e.lotes.length ? `<details class="plegable"><summary>Lotes anteriores</summary><div class="lista-simple">${e.lotes.map(l => `<div class="miembro"><div><b>${esc(l.desde)} a ${esc(l.hasta)}</b><small>${l.cantidad} etiquetas · ${l.hojas} ${l.hojas === 1 ? 'hoja' : 'hojas'} · ${fechaHora(l.hecho_en)}${l.hecho_por ? ' · ' + esc(l.hecho_por) : ''}</small></div>
+        <button type="button" class="btn btn-mini btn-secundario" data-etq-lote="${l.id}">Descargar otra vez</button></div>`).join('')}</div></details>` : ''}
+    </div>`;
+}
+
+function cargarJsPDF() {
+  if (window.jspdf) return Promise.resolve(window.jspdf.jsPDF);
+  return new Promise((ok, mal) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+    s.onload = () => ok(window.jspdf.jsPDF);
+    s.onerror = () => { s.parentNode && s.parentNode.removeChild(s); mal(new Error('No se pudo cargar el generador de PDF. Revisa tu conexión e intenta de nuevo.')); };
+    document.head.appendChild(s);
+  });
+}
+// Dibuja las etiquetas: logo arriba, la clave lo más grande que quepa y la indicación para la clienta
+function pdfEtiquetas(claves, jsPDF, logo) {
+  const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
+  const ANCHO = 288, ALTO = 240, IZQ = 11.25, SUP = 36, ENTRE = 13.5, LOGO_W = 124, LOGO_H = 62;
+  claves.forEach((clave, i) => {
+    const k = i % 6;
+    if (i && k === 0) doc.addPage('letter');
+    const x = IZQ + (k % 2) * (ANCHO + ENTRE), y = SUP + Math.floor(k / 2) * ALTO, cx = x + ANCHO / 2;
+    doc.addImage(logo, 'PNG', cx - LOGO_W / 2, y + 14, LOGO_W, LOGO_H, 'logo', 'FAST');
+    let tam = 104;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(tam);
+    while (doc.getTextWidth(clave) > ANCHO - 44) doc.setFontSize(--tam);
+    const libre = ALTO - 14 - LOGO_H - 12 - 36 - 0.718 * tam;   // espacio que sobra entre el logo y la indicación
+    doc.setTextColor(0);
+    doc.text(clave, cx, y + ALTO - 36 - libre / 2, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(64);
+    doc.text('Comenta esta clave en el live para apartarla', cx, y + ALTO - 18, { align: 'center' });
+  });
+  return doc.output('blob');
+}
+async function prepararPdfEtiquetas(lote) {
+  const [jsPDF, logo] = await Promise.all([
+    cargarJsPDF(),
+    fetch('icons/logo-claro.png').then(r => { if (!r.ok) throw new Error('No se pudo cargar el logo.'); return r.blob(); })
+      .then(b => new Promise((ok, mal) => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = mal; f.readAsDataURL(b); })),
+  ]);
+  const blob = pdfEtiquetas(lote.claves, jsPDF, logo);
+  if (ETQ.listo) URL.revokeObjectURL(ETQ.listo.url);
+  const nombre = etqNombre(lote);
+  let archivo = null;
+  try { archivo = new File([blob], nombre, { type: 'application/pdf' }); } catch (e) { /* navegadores viejos: solo descarga */ }
+  ETQ.listo = { url: URL.createObjectURL(blob), nombre, archivo, texto: `${lote.cantidad} etiquetas, de ${lote.desde} a ${lote.hasta} (${lote.hojas} ${lote.hojas === 1 ? 'hoja' : 'hojas'})` };
+}
+function conectarEtiquetas(raiz) {
+  const f = $('#f-etiquetas', raiz);
+  if (f) {
+    const hojas = $('#etq-hojas', raiz);
+    const revisar = () => {
+      const n = Math.floor(+f.cantidad.value);
+      if (!n) { hojas.textContent = ''; return false; }
+      if (n % 6) { hojas.textContent = `Debe ser múltiplo de 6 para imprimir hojas completas: prueba con ${Math.max(6, n - n % 6)} o ${n - n % 6 + 6}.`; return false; }
+      if (n < 6 || n > 600) { hojas.textContent = 'Escribe entre 6 y 600 etiquetas (de 1 a 100 hojas).'; return false; }
+      hojas.textContent = `Son ${n / 6} ${n === 6 ? 'hoja completa' : 'hojas completas'}.`;
+      return true;
+    };
+    f.cantidad.oninput = revisar;
+    revisar();
+    f.noValidate = true;   // los mensajes de arriba explican mejor que los del navegador
+    f.onsubmit = async e => {
+      e.preventDefault();
+      const n = Math.floor(+f.cantidad.value);
+      if (!revisar()) { toast(hojas.textContent || 'Escribe cuántas etiquetas necesitas.', 'error'); return; }
+      if (!(await confirmar(`¿Generar ${n} etiquetas?`, `<p>Son ${n / 6} ${n === 6 ? 'hoja' : 'hojas'}. Estas claves quedan anotadas como impresas y no se vuelven a generar, así que imprímelas todas.</p>`, 'Sí, generar'))) return;
+      const ok = await accion(async () => prepararPdfEtiquetas(await rpc('etiquetas_generar', { p_cantidad: n, p_usuario: usuario.nombre })), 'PDF listo para descargar');
+      pintar();   // se vuelve a pintar aunque falle el PDF: si las claves ya quedaron anotadas, salen en "Lotes anteriores"
+    };
+  }
+  $$('[data-etq-lote]', raiz).forEach(b => b.onclick = async () => {
+    if (await accion(async () => prepararPdfEtiquetas(await rpc('etiquetas_lote', { p_lote: b.dataset.etqLote })), 'PDF listo para descargar')) pintar();
+  });
+  const compartir = $('#etq-compartir', raiz);
+  if (compartir) compartir.onclick = () => navigator.share({ files: [ETQ.listo.archivo], title: ETQ.listo.nombre }).catch(() => {});
 }
 
 /* ---------- Resurtido: prendas pagadas que hay que reponer en la sala ---------- */
@@ -1277,6 +1383,7 @@ async function vistaPrendas() {
   const [disp, apar, pag, cfg] = await Promise.all([contar('disponible'), contar('apartada'), contar('pagada'), q(sb.from('live_config').select('precio').limit(1))]);
   // Prendas pagadas que falta reponer en la sala (si la base todavía no lo tiene, no se muestra)
   const resurtir = puede.verResurtido() ? await rpc('resurtido_estado').catch(() => null) : null;
+  const etq = puede.etiquetas() ? await rpc('etiquetas_estado').catch(() => null) : null;
   let detalle = '';
   if (buscada != null) {
     const [p] = await q(sb.from('prendas').select('*').eq('numero', buscada));
@@ -1300,6 +1407,7 @@ async function vistaPrendas() {
       <div class="kpi"><small>Registradas</small><b>${disp + apar + pag}</b></div>
     </div>
     ${resurtir ? `<a href="#resurtir" data-ir="resurtir" class="banner ${resurtir.pendientes ? 'banner-aviso' : 'banner-info'}" style="text-decoration:none">${IC.prendas}<span><b>Por resurtir en ${esc(resurtir.sala)}: ${resurtir.pendientes}</b> ${resurtir.pendientes === 1 ? 'prenda pagada' : 'prendas pagadas'} · ver detalle</span></a>` : ''}
+    ${etq ? htmlEtiquetas(etq) : ''}
     ${puede.operar() ? `<h3 class="seccion">Registrar etiquetas nuevas</h3>
     <form class="tarjeta formulario" id="f-rango">
       <div class="tres">
@@ -1319,6 +1427,7 @@ async function vistaPrendas() {
 }
 conectar.prendas = raiz => {
   $$('[data-ir]', raiz).forEach(a => a.onclick = e => { e.preventDefault(); irA(a.dataset.ir); });
+  conectarEtiquetas(raiz);
   if ($('#f-rango', raiz)) $('#f-rango', raiz).onsubmit = async e => {
     e.preventDefault();
     const f = e.target;
