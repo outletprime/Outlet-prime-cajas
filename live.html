@@ -255,6 +255,8 @@ body.host #vista { max-width: none; padding: calc(var(--sup) + 14px) 20px 24px; 
 .btn.rev-si { background: var(--ok); color: #fff; }
 .btn.rev-no { background: var(--vencida); color: #fff; }
 .btn.rev-nv { background: var(--aviso); color: #fff; }
+.nota-pdf { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--borde); }
+.nota-pdf .fila-botones { margin-top: 8px; }
 .rev-cuenta { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-variant-numeric: tabular-nums; }
 .rev-cuenta td { padding: 5px 2px; border-bottom: 1px solid var(--borde); }
 .rev-cuenta td:last-child { text-align: right; }
@@ -745,6 +747,131 @@ function pdfEtiquetas(claves, jsPDF, logo) {
     doc.text('Comenta esta clave en el live para apartarla', cx, y + ALTO - 18, { align: 'center' });
   });
   return doc.output('blob');
+}
+// Nota de cobro en PDF para mandarla a la clienta: logo, sus prendas, el total y los datos para transferir.
+// Página angosta y tan larga como haga falta, para que se lea bien en el celular.
+function pdfNota(n, jsPDF, logo) {
+  const W = 420, M = 30, ROJO = [206, 9, 30], GRIS = 95;
+  const zona = { timeZone: 'America/Mexico_City' };
+  const fecha = t => new Date(t).toLocaleDateString('es-MX', { ...zona, day: 'numeric', month: 'long' });
+  const horaTxt = t => new Date(t).toLocaleTimeString('es-MX', { ...zona, hour: 'numeric', minute: '2-digit', hour12: true })
+    .replace(/\s?a\.?\s?m\.?/i, ' a.m.').replace(/\s?p\.?\s?m\.?/i, ' p.m.');
+  const cuando = t => `${horaTxt(t)} del ${fecha(t)}`;
+  const pesos = v => '$' + Number(v || 0).toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  const clabe = String(n.clabe || '').replace(/\D/g, '');
+  const clabeTxt = clabe.length === 18 ? `${clabe.slice(0, 3)} ${clabe.slice(3, 6)} ${clabe.slice(6, 17)} ${clabe.slice(17)}` : clabe;
+  const ps = n.piezas || [];
+  const cols = ps.length > 8 ? 2 : 1, filas = Math.ceil(ps.length / cols), FILA = 23;
+  const falta = Math.max(0, Number(n.total) - Number(n.pagado || 0));
+  const datos = [['Banco', n.banco], ['A nombre de', n.titular]].filter(d => d[1]);
+
+  // Alto de la página según lo que lleva
+  const altoPrendas = 30 + filas * FILA;
+  const altoDatos = clabe ? 58 + datos.length * 30 + 52 : 50;
+  const H = 238 + altoPrendas + 22 + (Number(n.pagado) > 0 ? 82 : 64) + 20 + altoDatos + 20 + 76 + 40;
+  const doc = new jsPDF({ unit: 'pt', format: [W, H], compress: true });
+  const centro = (txt, y) => doc.text(txt, W / 2, y, { align: 'center' });
+  const linea = (y, color = 215) => { doc.setDrawColor(color); doc.setLineWidth(0.8); doc.line(M, y, W - M, y); };
+
+  // Fondo blanco (el logo trae fondo blanco y así no se nota su recuadro)
+  doc.setFillColor(255, 255, 255); doc.rect(0, 0, W, H, 'F');
+
+  // Encabezado
+  doc.addImage(logo, 'PNG', (W - 190) / 2, 26, 190, 95, 'logo', 'FAST');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(20);
+  centro('NOTA DE COBRO', 150);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(GRIS);
+  centro(`Folio ${n.folio}${n.fecha ? ' · ' + (n.tipo === 'prime' ? 'Prime Live' : 'Live') + ' del ' + fecha(n.fecha) : ''}`, 167);
+  doc.setDrawColor(...ROJO); doc.setLineWidth(2.5); doc.line(M, 182, W - M, 182);
+
+  // Clienta
+  let y = 205;
+  doc.setFontSize(9.5); doc.setTextColor(GRIS); doc.text('CLIENTA', M, y);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(20);
+  doc.text(doc.splitTextToSize(n.clienta || '', W - 2 * M)[0], M, y + 19);
+
+  // Prendas
+  y = 230 + 22;
+  doc.setFontSize(10.5); doc.setTextColor(20);
+  doc.text(`${ps.length} ${ps.length === 1 ? 'PRENDA' : 'PRENDAS'}`, M, y);
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(GRIS); doc.text('PRECIO', W - M, y, { align: 'right' });
+  linea(y + 7, 150);
+  const anchoCol = (W - 2 * M - (cols - 1) * 24) / cols;
+  ps.forEach((p, i) => {
+    const c = Math.floor(i / filas), f = i % filas;
+    const x = M + c * (anchoCol + 24), yy = y + 26 + f * FILA;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13.5); doc.setTextColor(20); doc.text(String(p.clave), x, yy);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(12.5); doc.text(pesos(p.precio), x + anchoCol, yy, { align: 'right' });
+    doc.setDrawColor(232); doc.setLineWidth(0.6); doc.line(x, yy + 8, x + anchoCol, yy + 8);
+  });
+  y += altoPrendas;
+
+  // Total
+  y += 14;
+  if (Number(n.pagado) > 0) {
+    doc.setFontSize(11.5); doc.setTextColor(60);
+    doc.text('Total del pedido', M, y + 2); doc.text(pesos(n.total), W - M, y + 2, { align: 'right' });
+    doc.text('Ya pagaste', M, y + 20); doc.text('- ' + pesos(n.pagado), W - M, y + 20, { align: 'right' });
+    y += 30;
+  }
+  doc.setFillColor(...ROJO); doc.roundedRect(M, y, W - 2 * M, 52, 8, 8, 'F');
+  doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+  doc.text(Number(n.pagado) > 0 ? 'FALTA POR PAGAR' : 'TOTAL A PAGAR', M + 16, y + 31);
+  doc.setFontSize(25); doc.text(pesos(falta), W - M - 16, y + 35, { align: 'right' });
+  y += 52 + 22;
+
+  // Datos para transferir
+  doc.setFillColor(244, 244, 242); doc.setDrawColor(222);
+  doc.roundedRect(M, y, W - 2 * M, altoDatos, 8, 8, 'FD');
+  let yd = y + 26;
+  doc.setTextColor(20); doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5);
+  doc.text('DATOS PARA TRANSFERENCIA O DEPÓSITO', M + 16, yd);
+  if (clabe) {
+    yd += 28;
+    datos.forEach(([k, v]) => {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(GRIS); doc.text(k.toUpperCase(), M + 16, yd - 11);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(20); doc.text(String(v), M + 16, yd + 4);
+      yd += 30;
+    });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(GRIS); doc.text('CLABE INTERBANCARIA', M + 16, yd - 11);
+    doc.setFont('courier', 'bold'); doc.setFontSize(17); doc.setTextColor(20); doc.text(clabeTxt, M + 16, yd + 6);
+    yd += 30;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(GRIS); doc.text('CONCEPTO (escríbelo al transferir)', M + 16, yd - 11);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...ROJO); doc.text(String(n.folio), M + 16, yd + 4);
+  } else {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(60);
+    doc.text('En un momento te mandamos los datos para pagar.', M + 16, yd + 18);
+  }
+  y += altoDatos + 20;
+
+  // Plazo y comprobante
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(40);
+  const avisos = [
+    n.limite_pago ? `Paga antes de las ${cuando(n.limite_pago)}.` : '',
+    n.liberar_en ? `Si no recibimos tu pago, a las ${cuando(n.liberar_en)} tus prendas se liberan para otras clientas.` : '',
+    'Al pagar, mándanos tu comprobante por WhatsApp.',
+  ].filter(Boolean).join(' ');
+  doc.text(doc.splitTextToSize(avisos, W - 2 * M), M, y + 4, { lineHeightFactor: 1.35 });
+  y += 76;
+
+  linea(y);
+  doc.setFontSize(10); doc.setTextColor(GRIS);
+  centro('¡Gracias por tu compra! · Outlet Prime', y + 20);
+  return doc;
+}
+// Arma la nota en PDF de un pedido (solo Dueña) y la deja lista para descargar o compartir
+async function prepararNotaPdf(cuenta) {
+  const [n, jsPDF, logo] = await Promise.all([
+    rpc('live_nota_datos', { p_cuenta: cuenta }),
+    cargarJsPDF(),
+    fetch('icons/logo-nota.png').then(r => { if (!r.ok) throw new Error('No se pudo cargar el logo.'); return r.blob(); })
+      .then(b => new Promise((ok, mal) => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = mal; f.readAsDataURL(b); })),
+  ]);
+  const blob = pdfNota(n, jsPDF, logo).output('blob');
+  const nombre = `Nota ${n.folio} ${String(n.clienta || '').replace(/[^\p{L}\p{N} ]/gu, '').trim()}.pdf`.replace(/\s+/g, ' ');
+  let archivo = null;
+  try { archivo = new File([blob], nombre, { type: 'application/pdf' }); } catch (e) { /* navegadores viejos: solo descarga */ }
+  return { url: URL.createObjectURL(blob), nombre, archivo };
 }
 async function prepararPdfEtiquetas(lote) {
   const [jsPDF, logo] = await Promise.all([
@@ -1529,9 +1656,21 @@ async function mandarCobro(c) {
         ${tel.length === 10 ? `<a class="btn btn-wa" target="_blank" rel="noopener" href="https://wa.me/52${tel}?text=${encodeURIComponent(r.texto)}">Abrir WhatsApp</a>` : '<span class="nota">Esta clienta no tiene WhatsApp registrado.</span>'}
         <button type="button" class="btn btn-secundario" id="cobro-copiar">Copiar nota</button>
       </div>
-      <p class="nota">Se abre el chat de la clienta con la nota ya escrita: solo falta tocar enviar.</p></div>`,
+      <p class="nota">Se abre el chat de la clienta con la nota ya escrita: solo falta tocar enviar.</p>
+      ${puede.duena() ? `<div class="nota-pdf" id="nota-pdf"><b>Nota en PDF</b> <small>(con logo, prendas, total y datos para transferir)</small>
+        <div class="fila-botones" id="nota-pdf-botones"><span class="nota">Preparando el PDF…</span></div></div>` : ''}</div>`,
     botones: [{ texto: 'Cerrar', valor: true }],
     alAbrir: f => {
+      if (puede.duena()) {
+        const caja = $('#nota-pdf-botones', f);
+        prepararNotaPdf(c.id).then(pdf => {
+          const compartir = pdf.archivo && navigator.canShare && navigator.canShare({ files: [pdf.archivo] });
+          caja.innerHTML = `<a class="btn btn-primario" href="${pdf.url}" download="${esc(pdf.nombre)}">Descargar PDF</a>
+            ${compartir ? '<button type="button" class="btn btn-secundario" id="nota-compartir">Compartir PDF</button>' : ''}`;
+          const b = $('#nota-compartir', caja);
+          if (b) b.onclick = () => navigator.share({ files: [pdf.archivo], title: pdf.nombre }).catch(() => {});
+        }).catch(e => { caja.innerHTML = `<span class="nota">${esc(traducirError(e))}</span>`; });
+      }
       $('#cobro-copiar', f).onclick = async () => {
         try { await navigator.clipboard.writeText(r.texto); toast('Nota copiada'); }
         catch (e) { $('#cobro-texto', f).select(); toast('Mantén presionado el texto para copiarlo.', 'error'); }
