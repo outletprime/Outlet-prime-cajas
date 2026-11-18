@@ -75,7 +75,7 @@ Deno.serve(async req => {
   const { data: rol, error: errorRol } = await sb.rpc('mi_rol');
   if (errorRol || !rol || !NIVELES[rol]) return json({ error: 'sin_acceso' });
 
-  let cuerpo: { mensajes?: unknown } = {};
+  let cuerpo: { mensajes?: unknown; app?: unknown } = {};
   try { cuerpo = await req.json(); } catch { /* cuerpo vacío o ilegible */ }
   const messages = prepararMensajes(cuerpo.mensajes);
   if (!messages) return json({ error: 'sin_pregunta' });
@@ -94,7 +94,7 @@ Deno.serve(async req => {
       system: [
         // La guía no cambia entre preguntas: se guarda en caché para que cada consulta cueste menos.
         { type: 'text', text: SISTEMA_FIJO, cache_control: { type: 'ephemeral' } },
-        { type: 'text', text: `Quien pregunta tiene el nivel: ${NIVELES[rol]}.` },
+        { type: 'text', text: `Quien pregunta tiene el nivel: ${NIVELES[rol]}. Está usando ${cuerpo.app === 'cajas' ? 'la app de Cajas' : 'el panel del live'}.` },
       ],
       messages,
     }, { timeout: 45_000, maxRetries: 1 });

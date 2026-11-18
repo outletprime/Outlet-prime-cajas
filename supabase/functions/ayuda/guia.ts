@@ -130,6 +130,20 @@ Lista de casilleros con la clienta, sus prendas, su total y en qué va. El núme
 - **Se apartó una prenda a la clienta equivocada**: En vivo → "Quitar" en ese apartado, y capturarla a mano para la correcta.
 - **La prenda no está en el casillero que dice el panel**: revisar la charola de pendientes y la pestaña Acomodo (puede faltar llevarla o haber cambiado de clienta).
 
+## App de Cajas (la otra aplicación)
+Ahí se guardan las prendas ya pagadas de cada clienta en su caja de resguardo hasta que se le envían. Abajo tiene: **Cajas**, **Clientas**, **Escanear** (botón rojo del centro), **Pedido nuevo** y **Reportes**. Arriba a la derecha están el botón **Live** (pasa al panel del live) y el engrane de **Ajustes**. Desde el panel del live se llega a Cajas con el ícono de caja de arriba a la derecha.
+- **Cajas**: la lista de las 50 cajas de resguardo con filtros (todas, ocupadas, libres, vencidas). Al tocar una caja se ve de quién es, sus pedidos, sus prendas y el total.
+- **Caja libre**: se elige a la clienta que ya pagó para asignarle esa caja ("Asignar caja"). Cuando una clienta paga completo en el panel del live, el sistema le asigna caja solo y el panel dice a qué caja mover las prendas.
+- **Reasignar caja**: dentro de una caja ocupada, para mover todo a otra caja.
+- **Enviar caja**: cuando se le manda su paquete a la clienta. Se elige la paquetería, se escribe la guía (y si se quiere peso, medidas y costo) y se toma la foto de la guía. Después de enviarla, la caja queda libre otra vez.
+- **Avisos de tiempo**: una caja que lleva 15 días o más se marca en aviso, y a los 20 días aparece en rojo ("Esa mercancía debe enviarse").
+- **Escanear**: abre la cámara para leer el QR de la etiqueta de una caja y abrirla directo. También se puede leer desde una foto o escribir el código (por ejemplo A1).
+- **Clientas**: la lista de clientas, su ficha con sus datos y domicilio ("Editar datos"), su caja y su historial.
+- **Pedido nuevo**: para registrar a mano un pedido en una caja (prendas por categoría y, si se quiere, el video de la mercancía).
+- **Reportes**: lo vendido por día, semana, mes o fechas a elegir: total vendido, pedidos, prendas, clientas que compraron, clientas nuevas, cajas enviadas, costo de envíos y ventas por categoría.
+- **Ajustes de Cajas**: tu nombre, **Administrar cajas** (crear cajas e imprimir sus QR) y precios por categoría. Las etiquetas nuevas de cajas de resguardo (con la franja negra) se generan en el panel del live → Prendas → Etiquetas de cajas de resguardo.
+- Quién puede: el Supervisor en la app de Cajas está en "Modo monitor": ve todo pero no cambia nada. Operación no ve Reportes. Operación live, Presentadora y Resurtido no entran a la app de Cajas: los manda a su pestaña del panel.
+
 ## Lo que esta guía no cubre
-Datos del momento (en qué casillero está una prenda, si alguien ya pagó, cuánto debe una clienta): eso se ve en el panel, en Prendas → Buscar o en Casilleros. Tampoco cubre a detalle la app de Cajas, Prime Live (mayoristas) ni temas de dinero, bancos o envíos.
+Datos del momento (en qué casillero o caja está una prenda, si alguien ya pagó, cuánto debe una clienta): eso se ve en el panel (Prendas → Buscar, Casilleros) o en la app de Cajas. Tampoco cubre Prime Live (mayoristas) ni temas de dinero, bancos o envíos fuera de lo que se registra en la app.
 `;

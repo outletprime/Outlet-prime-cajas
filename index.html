@@ -103,6 +103,37 @@ small { color: var(--texto-2); font-size: 13px; }
 .barra-sup h1 { flex: 1; font-size: 18px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .btn-icono { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: #fff; }
 .btn-icono:active { background: rgba(255, 255, 255, .15); }
+/* ---------- Ayuda: burbuja movible y diálogo de dudas ---------- */
+.ayuda-burbuja { position: fixed; z-index: 60; left: 12px; bottom: calc(var(--inf) + 86px); width: 54px; height: 54px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: var(--marca); color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.3); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; transition: left .18s ease, top .18s ease, transform .12s ease; }
+.ayuda-burbuja svg { width: 27px; height: 27px; pointer-events: none; }
+.ayuda-burbuja:focus-visible { outline: 3px solid var(--primario); outline-offset: 2px; }
+.ayuda-burbuja.arrastrando { cursor: grabbing; transform: scale(1.1); transition: transform .12s ease; }
+.ayuda-fondo { position: fixed; left: 0; right: 0; top: 0; height: 100%; z-index: 70; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); }
+.ayuda-panel { width: 100%; max-width: 520px; height: min(640px, calc(100% - var(--sup) - 10px)); display: flex; flex-direction: column; overflow: hidden; border-radius: 20px 20px 0 0; background: var(--superficie); box-shadow: 0 -4px 24px rgba(0,0,0,.2); }
+@media (min-width: 600px) { .ayuda-fondo { align-items: center; } .ayuda-panel { border-radius: 20px; } }
+.ayuda-cab { display: flex; align-items: center; gap: 8px; padding: 12px 10px 12px 16px; border-bottom: 1px solid var(--borde); }
+.ayuda-cab > div { flex: 1; min-width: 0; }
+.ayuda-cab h2 { font-size: 18px; }
+.ayuda-cab small { display: block; }
+.ayuda-cab button { min-width: 44px; min-height: 44px; padding: 0 10px; border: 0; border-radius: 12px; background: none; color: var(--texto-2); font: inherit; font-size: 14px; cursor: pointer; }
+.ayuda-cab .ayuda-cerrar { font-size: 28px; line-height: 1; color: var(--texto); }
+.ayuda-cab button:active { background: var(--superficie-2); }
+.ayuda-msjs { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 8px; padding: 14px 14px 10px; background: var(--fondo); }
+.ayuda-msj { max-width: 88%; padding: 9px 12px; border-radius: 14px; font-size: 15px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ayuda-msj.bot { align-self: flex-start; background: var(--superficie); border: 1px solid var(--borde); border-bottom-left-radius: 4px; }
+.ayuda-msj.yo { align-self: flex-end; background: var(--primario); color: var(--primario-texto); border-bottom-right-radius: 4px; }
+.ayuda-msj.falla { background: var(--vencida-suave); border-color: transparent; color: var(--texto); }
+.ayuda-msj.espera { color: var(--texto-2); font-style: italic; }
+.ayuda-sugerencias { display: grid; gap: 6px; margin-top: 2px; }
+.ayuda-sugerencias button { min-height: 42px; padding: 8px 12px; text-align: left; border-radius: 12px; border: 1px solid var(--borde); background: var(--superficie); color: var(--texto); font: inherit; font-size: 15px; cursor: pointer; }
+.ayuda-sugerencias button:active { background: var(--superficie-2); }
+.ayuda-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; padding: 10px 12px calc(var(--inf) + 10px); border-top: 1px solid var(--borde); }
+.ayuda-form textarea { min-height: 46px; max-height: 120px; resize: none; }
+.ayuda-form .btn { width: 50px; padding: 0; }
+.btn-marca { background: var(--marca); color: #fff; }
+.btn-live { display: flex; align-items: center; gap: 5px; height: 36px; padding: 0 11px 0 9px; border-radius: 18px; border: 1.5px solid rgba(255,255,255,.35); color: #fff; font-weight: 700; font-size: 14px; text-decoration: none; }
+.btn-live svg { width: 20px; height: 20px; }
+.btn-live:active { background: rgba(255,255,255,.15); }
 .aviso-demo { background: var(--aviso-suave); color: var(--aviso); font-size: 13px; text-align: center; padding: 6px 12px; }
 
 #vista { padding: 14px 16px calc(var(--inf) + 110px); max-width: 720px; margin: 0 auto; }
@@ -1102,6 +1133,9 @@ const D = { cajas: [], categorias: [], clientas: [], asignaciones: [], pedidos: 
 /* ---------- Íconos ---------- */
 const svg = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 const IC = {
+  ayuda: svg('<path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.5L3 21l2-5.5A8.4 8.4 0 1 1 21 11.5z"/><path d="M9.8 9.3a2.4 2.4 0 0 1 4.6.9c0 1.5-2.3 1.9-2.3 3.3M12.1 16.3h.01"/>'),
+  enviar: svg('<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>'),
+  live: svg('<circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2"/>'),
   cajas: svg('<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>'),
   clientas: svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.5 3.3-5.5 6.5-5.5s5.9 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.7.8 2.8 2.6 3 5.2"/>'),
   escanear: svg('<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M7 12h10"/>'),
@@ -1185,6 +1219,7 @@ function montarShell() {
       <a class="btn-icono" id="btn-atras" hidden>${IC.atras}</a>
       <img class="logo-barra" id="logo-barra" src="icons/logo-oscuro.png" alt="${esc(CFG.nombreNegocio)}" hidden>
       <h1 id="titulo"></h1>
+      ${store.modo === 'nube' ? `<a class="btn-live" href="live.html" aria-label="Ir al panel del live">${IC.live}<span>Live</span></a>` : ''}
       <a class="btn-icono" href="#/ajustes" aria-label="Ajustes">${IC.ajustes}</a>
     </header>
     ${CFG.vistaPrevia ? '<div class="aviso-demo">Vista previa con datos de ejemplo. Lo que hagas aquí se queda solo en este navegador.</div>' : store.modo !== 'nube' ? '<div class="aviso-demo">Modo prueba: los datos solo se guardan en este dispositivo.</div>' : ''}
@@ -2352,6 +2387,189 @@ function pantallaLogin() {
   };
 }
 
+/* ---------- Ayuda: burbuja movible y diálogo de dudas ----------
+ * El mismo asistente del panel del live (función `ayuda`), aquí en la app de Cajas.
+ * Solo responde con la guía del equipo: no lee ni cambia nada. */
+const AYUDA = { mensajes: [], esperando: false };
+const AYUDA_SUGERENCIAS = {
+  duena: ['¿Cómo asigno una caja a una clienta que ya pagó?', '¿Cómo registro el envío de una caja?', '¿Cómo imprimo las etiquetas de las cajas?'],
+  operacion: ['¿Cómo asigno una caja a una clienta que ya pagó?', '¿Cómo uso Escanear?', '¿Cómo registro el envío de una caja?'],
+  supervisor: ['¿Cómo imprimo las etiquetas de las cajas?', '¿Cómo agrego a una clienta nueva?', '¿Qué es una caja de resguardo?'],
+  live: ['¿Qué hago con cada aviso que me llega?', '¿Qué es la charola de pendientes?', 'Palomeé una prenda por error'],
+  presentadora: ['¿Qué hago cuando me llega "Pide DM"?', 'No me llegan los avisos al celular', '¿Cómo instalo el panel en mi iPhone?'],
+  resurtido: ['¿Cuándo cuenta una prenda para resurtir?', 'Repuse solo una parte, ¿cómo lo anoto?', 'No me llegan los avisos al celular'],
+};
+const AYUDA_FALLAS = {
+  sin_llave: 'La ayuda todavía no está activada. Avísale a una dueña.',
+  llave: 'La ayuda no está bien configurada. Avísale a una dueña.',
+  limite: 'Hay muchas preguntas al mismo tiempo. Intenta de nuevo en un momento.',
+  tardo: 'La respuesta tardó demasiado. Intenta de nuevo.',
+  sin_acceso: 'Tu sesión expiró. Cierra la ayuda y vuelve a entrar.',
+  rechazo: 'Eso no te lo puedo responder. Pregúntame cómo hacer algo en la app.',
+};
+const ayudaTexto = t => esc(t).replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
+
+function montarAyuda() {
+  if ($('#ayuda-burbuja')) return;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.id = 'ayuda-burbuja';
+  b.className = 'ayuda-burbuja';
+  b.title = 'Ayuda';
+  b.setAttribute('aria-label', 'Ayuda: pregunta cómo usar la app');
+  b.innerHTML = IC.ayuda;
+  document.body.appendChild(b);
+
+  const LADO = 54, MARGEN = 10, LLAVE = 'op-ayuda-burbuja';
+  // No tapa la barra de arriba ni las pestañas de abajo
+  const limites = () => {
+    const barra = $('.barra-sup'), tabs = $('.tabs');
+    const arriba = (barra ? barra.getBoundingClientRect().bottom : 0) + MARGEN;
+    const abajo = (tabs ? tabs.getBoundingClientRect().top : innerHeight) - LADO - MARGEN;
+    return { x0: MARGEN, x1: Math.max(MARGEN, innerWidth - LADO - MARGEN), y0: Math.max(MARGEN, arriba), y1: Math.max(arriba, abajo) };
+  };
+  const colocar = (x, y) => {
+    const l = limites();
+    x = Math.min(l.x1, Math.max(l.x0, x));
+    y = Math.min(l.y1, Math.max(l.y0, y));
+    Object.assign(b.style, { left: x + 'px', top: y + 'px', right: 'auto', bottom: 'auto' });
+    return { x, y };
+  };
+  // Se guarda de qué lado quedó y a qué altura (en proporción), para que sirva si se gira el teléfono
+  const guardar = (x, y) => {
+    const l = limites();
+    try { localStorage.setItem(LLAVE, JSON.stringify({ derecha: x > (l.x0 + l.x1) / 2, alto: (y - l.y0) / Math.max(1, l.y1 - l.y0) })); } catch (e) { /* sin almacenamiento: no pasa nada */ }
+  };
+  const restaurar = () => {
+    let p = null;
+    try { p = JSON.parse(localStorage.getItem(LLAVE) || 'null'); } catch (e) { /* se queda en su lugar de siempre */ }
+    const l = limites();
+    // Sin lugar guardado empieza abajo a la izquierda
+    if (!p || typeof p.alto !== 'number') p = { derecha: false, alto: 1 };
+    colocar(p.derecha ? l.x1 : l.x0, l.y0 + Math.min(1, Math.max(0, p.alto)) * (l.y1 - l.y0));
+  };
+  restaurar();
+  addEventListener('resize', restaurar);
+
+  let toque = null;
+  b.addEventListener('pointerdown', e => {
+    if (e.button) return;
+    const r = b.getBoundingClientRect();
+    toque = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: e.clientX - r.left, dy: e.clientY - r.top, movio: false };
+    try { b.setPointerCapture(e.pointerId); } catch (err) { /* navegadores viejos */ }
+  });
+  b.addEventListener('pointermove', e => {
+    if (!toque || e.pointerId !== toque.id) return;
+    if (!toque.movio && Math.hypot(e.clientX - toque.x, e.clientY - toque.y) < 8) return;
+    toque.movio = true;
+    b.classList.add('arrastrando');
+    colocar(e.clientX - toque.dx, e.clientY - toque.dy);
+  });
+  const soltar = e => {
+    if (!toque || e.pointerId !== toque.id) return;
+    const t = toque;
+    toque = null;
+    b.classList.remove('arrastrando');
+    if (!t.movio) { if (e.type === 'pointerup') abrirAyuda(); return; }
+    // Al soltarla se pega a la orilla más cercana para no estorbar lo que se está leyendo
+    const r = b.getBoundingClientRect(), l = limites();
+    const p = colocar(r.left + LADO / 2 > innerWidth / 2 ? l.x1 : l.x0, r.top);
+    guardar(p.x, p.y);
+  };
+  b.addEventListener('pointerup', soltar);
+  b.addEventListener('pointercancel', soltar);
+  b.addEventListener('click', e => { if (e.detail === 0) abrirAyuda(); }); // con teclado (Enter o espacio)
+}
+
+function abrirAyuda() {
+  if ($('.ayuda-fondo')) return;
+  const fondo = document.createElement('div');
+  fondo.className = 'ayuda-fondo';
+  fondo.innerHTML = `<section class="ayuda-panel" role="dialog" aria-modal="true" aria-label="Ayuda">
+    <header class="ayuda-cab">
+      <div><h2>Ayuda</h2><small>Dudas sobre la app de Cajas o el panel del live</small></div>
+      <button type="button" class="ayuda-limpiar" hidden>Borrar</button>
+      <button type="button" class="ayuda-cerrar" aria-label="Cerrar ayuda">×</button>
+    </header>
+    <div class="ayuda-msjs" aria-live="polite"></div>
+    <form class="ayuda-form">
+      <textarea name="duda" rows="1" maxlength="1000" placeholder="Escribe tu duda…" aria-label="Tu duda" enterkeyhint="send"></textarea>
+      <button class="btn btn-marca" aria-label="Enviar">${IC.enviar}</button>
+    </form></section>`;
+  document.body.appendChild(fondo);
+  const lista = $('.ayuda-msjs', fondo), form = $('.ayuda-form', fondo), campo = form.duda;
+
+  const pintarMsjs = () => {
+    const sugerencias = AYUDA.mensajes.length ? '' : `<div class="ayuda-sugerencias">${(AYUDA_SUGERENCIAS[ROL] || AYUDA_SUGERENCIAS.operacion).map(t => `<button type="button" data-sugerencia="${esc(t)}">${esc(t)}</button>`).join('')}</div>`;
+    lista.innerHTML = `<div class="ayuda-msj bot">Hola. Pregúntame cómo hacer algo en la app de Cajas o en el panel del live y te digo los pasos.
+
+Solo explico cómo se usan: no veo las cajas, clientas ni pagos.</div>${sugerencias}`
+      + AYUDA.mensajes.map(m => `<div class="ayuda-msj ${m.rol === 'user' ? 'yo' : 'bot'}${m.falla ? ' falla' : ''}">${m.rol === 'user' ? esc(m.texto) : ayudaTexto(m.texto)}</div>`).join('')
+      + (AYUDA.esperando ? '<div class="ayuda-msj bot espera">Escribiendo…</div>' : '');
+    $('.ayuda-limpiar', fondo).hidden = !AYUDA.mensajes.length || AYUDA.esperando;
+    form.querySelector('button').disabled = AYUDA.esperando;
+    // Deja a la vista el inicio de la respuesta nueva (o el final, mientras se escribe)
+    const ultimo = lista.lastElementChild;
+    if (ultimo && AYUDA.mensajes.length) lista.scrollTop = AYUDA.esperando ? lista.scrollHeight : Math.max(0, ultimo.offsetTop - lista.offsetTop - 60);
+  };
+  const preguntar = async texto => {
+    texto = String(texto || '').trim();
+    if (!texto || AYUDA.esperando) return;
+    AYUDA.mensajes.push({ rol: 'user', texto });
+    AYUDA.esperando = true;
+    pintarMsjs();
+    let respuesta = null, falla = null;
+    try {
+      const { data, error } = await store.sb.functions.invoke('ayuda', {
+        body: { app: 'cajas', mensajes: AYUDA.mensajes.filter(m => !m.falla).slice(-12).map(m => ({ rol: m.rol, texto: m.texto })) },
+      });
+      if (error) throw error;
+      if (data && data.respuesta) respuesta = data.respuesta;
+      else falla = AYUDA_FALLAS[data && data.error] || 'No pude responder. Intenta de nuevo.';
+    } catch (e) {
+      console.error(e);
+      falla = /Failed to fetch|NetworkError|Load failed|Failed to send/i.test((e && e.message) || '') ? 'Sin conexión a internet. Revisa la señal e intenta de nuevo.' : 'No pude conectar con la ayuda. Intenta de nuevo en un momento.';
+    }
+    AYUDA.esperando = false;
+    AYUDA.mensajes.push(falla ? { rol: 'assistant', texto: falla, falla: true } : { rol: 'assistant', texto: respuesta });
+    if ($('.ayuda-fondo')) pintarMsjs();
+  };
+
+  // Con el teclado del celular abierto, el diálogo se ajusta a lo que queda visible
+  const vv = window.visualViewport;
+  const ajustar = () => { if (vv) Object.assign(fondo.style, { top: vv.offsetTop + 'px', height: vv.height + 'px' }); };
+  const tecla = e => { if (e.key === 'Escape') cerrar(); };
+  const cerrar = () => {
+    if (vv) { vv.removeEventListener('resize', ajustar); vv.removeEventListener('scroll', ajustar); }
+    document.removeEventListener('keydown', tecla);
+    fondo.remove();
+    const b = $('#ayuda-burbuja');
+    b && b.focus({ preventScroll: true });
+  };
+  if (vv) { vv.addEventListener('resize', ajustar); vv.addEventListener('scroll', ajustar); ajustar(); }
+  document.addEventListener('keydown', tecla);
+
+  fondo.addEventListener('click', e => {
+    const s = e.target.closest('[data-sugerencia]');
+    if (s) preguntar(s.dataset.sugerencia);
+    else if (e.target === fondo || e.target.closest('.ayuda-cerrar')) cerrar();
+    else if (e.target.closest('.ayuda-limpiar')) { AYUDA.mensajes = []; pintarMsjs(); }
+  });
+  const crecer = () => { campo.style.height = 'auto'; campo.style.height = Math.min(120, campo.scrollHeight + 2) + 'px'; };
+  campo.addEventListener('input', crecer);
+  campo.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); } });
+  form.onsubmit = e => {
+    e.preventDefault();
+    const t = campo.value;
+    if (!t.trim() || AYUDA.esperando) return;
+    campo.value = '';
+    crecer();
+    preguntar(t);
+  };
+  pintarMsjs();
+  $('.ayuda-cerrar', fondo).focus({ preventScroll: true });
+}
+
 let ROL = null;
 async function arrancar() {
   try { ROL = await store.rol(); } catch (e) { console.error(e); ROL = null; }
@@ -2361,6 +2579,7 @@ async function arrancar() {
   if (ROL === 'presentadora') { location.replace('live.html#dm'); return; }
   if (ROL === 'resurtido') { location.replace('live.html#resurtir'); return; }
   montarShell();
+  if (store.modo === 'nube') montarAyuda();
   await navegar();
   revisarAlertas();
 }
