@@ -123,9 +123,9 @@ En el panel:
 
 1. **Etiquetar.** Cada prenda lleva colgada su etiqueta impresa con una **clave** fija de **dos letras y
    dos números** (AB10 a ZY98), a $89. **No hay que registrarlas**: quedan dadas de alta al mandar a imprimir
-   sus etiquetas en Prendas → Imprimir etiquetas (`…_etiquetas_habilitan_prendas.sql`). Si alguien comenta una
-   clave que no está en lo impreso, se aparta igual para no perder la venta (`…_claves_al_comentar.sql`), pero
-   el panel la señala en Prendas para revisarla.
+   sus etiquetas en Prendas → Imprimir etiquetas (`…_etiquetas_habilitan_prendas.sql`). Una clave que no está
+   en ninguna etiqueta impresa no existe: ese comentario no aparta nada (`…_claves_solo_impresas.sql`). Así,
+   si una clienta escribe mal la clave y otra la escribe bien, la prenda es de quien la escribió bien.
    Letras sin O, I, L ni Ñ y siempre distintas (AB sí, AA no); números sin dígitos repetidos (11, 22 … 88
    no existen). Las claves de una letra o de un solo número (A23, AB7) solo valen si se registran a mano
    en Prendas → Registrar rango.
