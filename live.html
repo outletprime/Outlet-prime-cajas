@@ -119,6 +119,10 @@ small, .nota { color: var(--texto-2); font-size: 13px; }
 .casillero.e-pagada { border-left-color: var(--ok); }
 .casillero.e-vencida, .casillero.e-cancelada, .casillero.sin-caja { border-left-color: var(--vencida); }
 .casillero.e-abierta { border-left-color: var(--info); }
+/* Revisión física: amarillo = faltan prendas · verde = pedido completo */
+.casillero.rev-incompleto, .acomodo-fila.rev-incompleto { background: var(--aviso-suave); border-color: var(--aviso); border-left: 5px solid var(--aviso); border-style: solid; }
+.casillero.rev-completo, .acomodo-fila.rev-completo { background: var(--ok-suave); border-color: var(--ok); border-left: 5px solid var(--ok); border-style: solid; }
+.rev-incompleto .chip, .rev-completo .chip { background: var(--superficie); font-weight: 700; }
 .cas-id { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .cas-id small { display: block; font-size: 12px; font-weight: 500; margin-top: 4px; }
 .cas-cuerpo { display: grid; gap: 6px; min-width: 0; }
@@ -648,8 +652,8 @@ async function vistaAcomodo() {
 }
 function filaRevision(c) {
   const enc = +c.rev_encontradas || 0, no = +c.rev_no_encontradas || 0, pend = +c.rev_pendientes || 0, total = enc + no + pend;
-  const chip = no ? ['chip-vencida', 'Incompleto'] : pend === total ? ['chip-aviso', 'Por revisar'] : pend ? ['chip-aviso', `${enc} de ${total}`] : ['chip-ok', 'Confirmar'];
-  return `<button type="button" class="acomodo-fila rev-abrir${no ? ' regresar' : ''}" data-detalle="${c.id}">
+  const chip = no ? ['chip-aviso', 'Incompleto'] : pend === total ? ['chip', 'Por revisar'] : pend ? ['chip', `${enc} de ${total}`] : ['chip-ok', 'Completo ✓'];
+  return `<button type="button" class="acomodo-fila rev-abrir ${colorRevision(c)}" data-detalle="${c.id}">
     <div><b class="acomodo-cas">${esc(c.casillero || 'SIN CASILLERO')}</b> <b>${esc(nombreCorto(c.clienta))}</b>
       <small>${no ? `⚠️ Faltan ${no}: <b>${esc(c.rev_faltantes || '')}</b>` : pend ? `${enc} de ${total} prendas encontradas` : 'Todo encontrado · falta confirmar'}</small></div>
     <span class="chip ${chip[0]}">${chip[1]}</span></button>`;
@@ -1328,15 +1332,24 @@ function conectarPrime(raiz) {
 let filtroCas = 'todos';
 // Pedido en revisión: el live ya cerró y falta confirmar que todas sus prendas están en el casillero
 const esRevision = c => c.estado === 'abierta' && c.live_estado === 'cerrado';
+// Color de la revisión: amarillo si se marcaron prendas como no encontradas, verde si el pedido está completo
+const colorRevision = c => {
+  if (esRevision(c)) {
+    if (+c.rev_no_encontradas > 0) return 'rev-incompleto';
+    if (+c.rev_pendientes === 0 && +c.rev_encontradas > 0) return 'rev-completo';
+    return '';
+  }
+  return c.estado === 'por_pagar' && !c.cobro_enviado_en && c.live_estado === 'cerrado' ? 'rev-completo' : '';
+};
 function siguientePaso(c) {
   const falta = Number(c.total) - Number(c.monto_pagado);
   switch (c.estado) {
     case 'abierta': {
       if (!esRevision(c)) return { chip: ['chip-info', 'Live en curso'], paso: 'Guardar aquí lo que aparte' };
       const enc = +c.rev_encontradas || 0, no = +c.rev_no_encontradas || 0, pend = +c.rev_pendientes || 0;
-      if (no) return { chip: ['chip-vencida', `Incompleto · faltan ${no}`], paso: `No se encontraron: <b>${esc(c.rev_faltantes || '')}</b>. No se cobra hasta que aparezcan o se quiten del pedido.`, revisar: true };
+      if (no) return { chip: ['chip-aviso', `Incompleto · faltan ${no}`], paso: `No se encontraron: <b>${esc(c.rev_faltantes || '')}</b>. No se cobra hasta que aparezcan o se quiten del pedido.`, revisar: true };
       if (pend) return { chip: ['chip-aviso', 'En revisión'], paso: `${enc} de ${enc + pend} prendas encontradas. Revísalas una por una. Aún no se cobra.`, revisar: true };
-      return { chip: ['chip-ok', 'Todo encontrado'], paso: 'Todas las prendas están en el casillero. Falta confirmar el pedido.', revisar: true };
+      return { chip: ['chip-ok', 'Completo ✓'], paso: 'Todas las prendas están en el casillero. Toca <b>Confirmar pedido completo</b> dentro de la lista.', revisar: true };
     }
     case 'por_pagar':
       if (!c.cobro_enviado_en) return { chip: ['chip-ok', 'Listo para cobrar'], paso: 'Pedido completo. Falta mandar su nota de cobro; el plazo empieza al mandarla.', pago: true, cobro: 'mandar' };
@@ -1375,7 +1388,7 @@ async function vistaCasilleros() {
 }
 function tarjetaCasillero(c) {
   const s = siguientePaso(c);
-  return `<article class="casillero e-${c.estado}${s.sinCaja ? ' sin-caja' : ''}" data-detalle="${c.id}" tabindex="0" aria-label="Ver las prendas del casillero ${esc(c.casillero || '')}">
+  return `<article class="casillero e-${c.estado}${s.sinCaja ? ' sin-caja' : ''} ${colorRevision(c)}" data-detalle="${c.id}" tabindex="0" aria-label="Ver las prendas del casillero ${esc(c.casillero || '')}">
     <div class="cas-id">${esc(c.casillero || '—')}<small>${folio(c.folio)}</small></div>
     <div class="cas-cuerpo">
       <div class="cas-cab"><b>${esc(c.clienta)}</b><span class="chip ${s.chip[0]}">${esc(s.chip[1])}</span></div>
