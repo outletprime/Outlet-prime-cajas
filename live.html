@@ -488,10 +488,12 @@ const RED = { tiktok: 'TikTok', facebook: 'Facebook', instagram: 'Instagram', yo
 const ESTADO_AG = { conectado: 'leyendo', esperando: 'esperando live', error: 'error', apagado: 'apagado' };
 const mmss = seg => { const s = Math.max(0, Math.round(seg)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const nombreCorto = n => String(n || '').split(' ').slice(0, 2).join(' ');
-function textoDM(usuarioRed) {
-  return String(D.cfg.mensaje_dm || '')
+// Mensaje para contestarle a una clienta nueva por DM: solo se le pide su nombre y apellido
+const MENSAJE_DM = '¡Hola {usuario}! 💕 Para apartarte tus prendas mándanos por aquí tu nombre y por lo menos un apellido. Después de eso, todo lo que comentes en el live se te aparta solo.';
+function textoDM(d) {
+  return String(D.cfg.mensaje_dm || MENSAJE_DM)
     .replaceAll('{whatsapp}', (D.cfg.whatsapp_numero || '').trim() || '(número del bot)')
-    .replaceAll('{usuario}', usuarioRed ? '@' + usuarioRed : 'tu usuario');
+    .replaceAll('{usuario}', d && d.usuario ? '@' + d.usuario : 'tu usuario');
 }
 function htmlAgente() {
   if (!TIENE_COMENTARIOS) return '';
@@ -516,18 +518,18 @@ function tarjetaDM(d) {
     ${puede.operar() ? `<div class="fila-botones">
       ${d.pedido_en ? '' : `<button type="button" class="btn btn-mini btn-marca" data-dm-pedido="${d.id}">Ya se lo pedí</button>`}
       <button type="button" class="btn btn-mini btn-secundario" data-dm-copiar="${d.id}">Copiar mensaje</button>
-      <button type="button" class="btn btn-mini btn-secundario" data-dm-ligar="${d.id}">Ligar a mano</button>
+      <button type="button" class="btn btn-mini btn-secundario" data-dm-ligar="${d.id}">Registrar a mano</button>
       <button type="button" class="btn btn-mini btn-secundario" data-dm-mas="${d.id}">+${Number(D.cfg.minutos_registro) || 10} min</button>
       <button type="button" class="btn btn-mini btn-secundario" data-dm-soltar="${d.id}">Soltar</button></div>`
     : puede.ligar() ? `<div class="fila-botones">
-      <button type="button" class="btn btn-mini btn-marca" data-dm-ligar="${d.id}">Ligar con su WhatsApp</button>
+      <button type="button" class="btn btn-mini btn-marca" data-dm-ligar="${d.id}">Registrar a mano</button>
       <button type="button" class="btn btn-mini btn-secundario" data-dm-copiar="${d.id}">Copiar mensaje</button></div>` : ''}
   </div>`;
 }
 function htmlDMs() {
   if (!TIENE_COMENTARIOS || !D.dms.length) return '';
   return `<h3 class="seccion">🙋 Pide DM · ${D.dms.length}</h3>
-    <p class="nota">Comentaron pero todavía no están registradas. La host les pide mensaje directo; la bienvenida del DM les da el WhatsApp del bot. Al registrarse, lo que pidieron pasa solo a su casillero.</p>
+    <p class="nota">Comentaron pero todavía no están registradas. La host les pide mensaje directo; cuando escriban, contéstales con <b>Copiar mensaje</b> (les pide su nombre y apellido) y regístralas con <b>Registrar a mano</b>. Al registrarse, lo que pidieron pasa solo a su casillero.</p>
     ${D.dms.map(tarjetaDM).join('')}`;
 }
 function htmlCaptura() {
@@ -558,20 +560,29 @@ function avisoResultado(r) {
 }
 async function ligarAMano(d) {
   const datos = await modal({
-    titulo: `Ligar @${d.usuario} (${RED[d.red] || d.red})`,
+    titulo: `Registrar @${d.usuario} (${RED[d.red] || d.red})`,
     html: `<div class="formulario">
-      <p>Escribe el WhatsApp de la clienta. Si ya está registrada se liga a ella; si no, se crea con este nombre.</p>
-      <label>WhatsApp (10 dígitos)<input id="lg-tel" inputmode="tel" maxlength="16" autocomplete="off"></label>
-      <label>Nombre (si es nueva)<input id="lg-nombre" autocomplete="off"></label>
-      <p class="nota">Le llega por WhatsApp la confirmación con lo que quedó apartado.</p></div>`,
-    botones: [{ texto: 'Cancelar', valor: null }, { texto: 'Ligar', valor: el => {
+      <p>Escribe el nombre que te mandó por DM. Con eso queda registrada y lo que pidió pasa a su casillero.</p>
+      <div class="dos">
+        <label>Nombre<input id="lg-nombre" autocomplete="off" autocapitalize="words"></label>
+        <label>Apellido<input id="lg-apellidos" autocomplete="off" autocapitalize="words"></label>
+      </div>
+      <label>WhatsApp <small>(opcional, 10 dígitos)</small><input id="lg-tel" inputmode="tel" maxlength="16" autocomplete="off"></label>
+      <p class="nota">Si pones su WhatsApp y ya era clienta, se liga a la clienta que ya existe.</p></div>`,
+    botones: [{ texto: 'Cancelar', valor: null }, { texto: 'Registrar', valor: el => {
+      const nombre = $('#lg-nombre', el).value.trim(), apellidos = $('#lg-apellidos', el).value.trim();
       const tel = $('#lg-tel', el).value.replace(/\D/g, '').slice(-10);
-      if (tel.length !== 10) { toast('El WhatsApp debe tener 10 dígitos.', 'error'); return undefined; }
-      return { tel, nombre: $('#lg-nombre', el).value.trim() };
+      if (tel && tel.length !== 10) { toast('El WhatsApp debe tener 10 dígitos (o déjalo vacío).', 'error'); return undefined; }
+      if (!tel && (nombre.length < 2 || apellidos.length < 2)) { toast('Escribe su nombre y por lo menos un apellido.', 'error'); return undefined; }
+      return { tel, nombre, apellidos };
     } }],
   });
   if (!datos) return;
-  await accion(() => ligarDM(d, { p_telefono: datos.tel, p_nombre: datos.nombre || null }));
+  if (datos.tel) await accion(() => ligarDM(d, { p_telefono: datos.tel, p_nombre: [datos.nombre, datos.apellidos].filter(Boolean).join(' ') || null }));
+  else {
+    const r = await accion(() => rpc('live_dm_nombre', { p_dm: d.id, p_nombre: datos.nombre, p_apellidos: datos.apellidos, p_por: usuario.email }));
+    if (r && r !== true) toast(`@${d.usuario} registrada como ${r.clienta}${r.tuyas_txt ? ' · ' + r.tuyas_txt + ' a su casillero' : ''}`);
+  }
   pintar();
 }
 // Liga el @usuario del aviso a una clienta (por su WhatsApp o porque ya se sabe quién es)
@@ -594,7 +605,7 @@ function conectarDMs(raiz) {
     if (await accion(() => rpc('live_dm_pedido', { p_dm: b.dataset.dmPedido, p_por: usuario.nombre }))) pintar();
   });
   $$('[data-dm-copiar]', raiz).forEach(b => b.onclick = async () => {
-    const t = textoDM(dm(b.dataset.dmCopiar)?.usuario);
+    const t = textoDM(dm(b.dataset.dmCopiar));
     try { await navigator.clipboard.writeText(t); toast('Mensaje copiado'); }
     catch { modal({ titulo: 'Mensaje para el DM', html: `<p>${esc(t)}</p>`, botones: [{ texto: 'Listo', valor: true }] }); }
   });
@@ -2052,7 +2063,7 @@ async function vistaAjustes() {
       </div>
       <label>Red principal<select name="red_principal">${['tiktok', 'facebook', 'instagram', 'youtube'].map(r => `<option value="${r}" ${r === (v.red_principal || 'tiktok') ? 'selected' : ''}>${RED[r]}</option>`).join('')}</select></label>
       <label>Mensaje de bienvenida del DM<textarea name="mensaje_dm" maxlength="600">${esc(v.mensaje_dm || '')}</textarea></label>
-      <p class="nota">Pon este mensaje como <b>respuesta automática</b> de mensajes directos en TikTok, Instagram y Facebook. <b>{whatsapp}</b> se cambia por el número del bot y <b>{usuario}</b> por el usuario de la clienta (al copiarlo desde un aviso "Pide DM"). Si una clienta nueva comenta, su prenda se le guarda los minutos de arriba mientras se registra; si no, pasa a la siguiente. La red principal se usa cuando una clienta manda su @usuario por WhatsApp antes de comentar.</p>` : ''}
+      <p class="nota">Es el mensaje que se copia con <b>Copiar mensaje</b> en cada aviso "Pide DM", para contestarle a la clienta cuando escriba por DM. <b>{usuario}</b> se cambia por el usuario de la clienta y <b>{whatsapp}</b> por el número del bot. Si una clienta nueva comenta, su prenda se le guarda los minutos de arriba mientras se registra; si no, pasa a la siguiente. La red principal se usa cuando una clienta manda su @usuario por WhatsApp antes de comentar.</p>` : ''}
       <h3 class="seccion">Aviso de caja lista</h3>
       <div class="dos">
         <label>A los (días)<input name="dias_caja" type="number" min="1" step="1" value="${v.dias_caja ?? 20}"></label>
@@ -2096,7 +2107,7 @@ conectar.ajustes = raiz => {
       whatsapp_numero: f.whatsapp_numero.value.trim() || null,
       minutos_registro: Math.max(1, Math.min(120, +f.minutos_registro.value || 10)),
       red_principal: f.red_principal.value,
-      mensaje_dm: f.mensaje_dm.value.trim() || 'Para apartar mándanos un WhatsApp al {whatsapp} con tu nombre, tu usuario ({usuario}) y el número de la prenda.',
+      mensaje_dm: f.mensaje_dm.value.trim() || MENSAJE_DM,
     });
     if (datos.prime_video_url && !/^https:\/\//i.test(datos.prime_video_url)) { toast('El enlace del video debe empezar con https://', 'error'); return; }
     if (!(datos.horas_recordatorio < datos.horas_limite && datos.horas_limite <= datos.horas_liberar)) {

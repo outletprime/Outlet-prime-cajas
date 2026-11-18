@@ -21,7 +21,7 @@ export const GUIA = `# Guía del equipo · Outlet Prime (panel del live)
 2. La clienta comenta la clave en TikTok ("AB23", "la ab23 porfa").
 3. Si la clienta **ya está registrada** con ese usuario: la prenda se le aparta al momento y se le asigna casillero. A quien hace el acomodo le llega "📦 AB23 → B2 · Ana".
 4. Si la clienta es **nueva**: la prenda queda provisional (10 minutos, o lo que diga Ajustes → Minutos para registrarse) y sale el aviso "🙋 Pide DM a @usuaria". Quien presenta le pide al aire que mande DM. La prenda se deja en la charola de pendientes.
-5. La clienta nueva se registra de una de dos formas: (a) escribe al WhatsApp del bot con su nombre y su usuario, o (b) manda su WhatsApp por DM y alguien del equipo la liga a mano con "Ligar con su WhatsApp". En cuanto queda ligada, lo que pidió pasa a su casillero y de ahí en adelante todo lo que comente cae solo, en este live y en los siguientes.
+5. La clienta nueva manda DM. Se le contesta con "Copiar mensaje" (le pide su nombre y por lo menos un apellido; ya no se le pide WhatsApp por TikTok). Cuando manda su nombre, el Supervisor (o una Dueña u Operación) la registra en En vivo → Pide DM → "Registrar a mano" con su nombre y apellido. En cuanto queda ligada, lo que pidió pasa a su casillero y de ahí en adelante todo lo que comente cae solo, en este live y en los siguientes.
 6. Si no se registra a tiempo, la prenda pasa a la siguiente en espera o vuelve a estar disponible.
 7. Al terminar: En vivo → "Cerrar live". Ya no se puede apartar. Todavía NO se cobra: los pedidos quedan "En revisión".
 8. Revisión: se toca cada casillero (en Casilleros o en Acomodo → "Revisar pedidos") y se abre su lista de prendas. Cada prenda se busca en físico y se marca **Encontrada**, **No encontrada** o **No vendible** (dañada o con defecto). Cuando todas están encontradas aparece "Confirmar pedido completo". Si alguna no se encontró o no se puede vender, el pedido queda como "Incompleto · faltan N"; si de verdad no aparece, se toca "Cerrar pedido sin las faltantes": se quitan, el total se ajusta y la nota de cobro sale solo con lo que sí se cobra. En los dos casos sale un recuadro con las prendas, el precio de cada una y el total a pagar, y quien revisa debe tocar el botón para confirmar.
@@ -31,7 +31,7 @@ export const GUIA = `# Guía del equipo · Outlet Prime (panel del live)
 
 ## Niveles de acceso (qué puede cada quien)
 - **Dueña**: todo. Es la única que registra pagos, cambia Ajustes (CLABE, precios, tiempos), programa Prime Live, borra, y da o quita accesos.
-- **Supervisor**: solo ve. Dos excepciones: puede ligar a una clienta con su WhatsApp desde un aviso "Pide DM", y genera el PDF de las etiquetas para imprimirlas (pestaña Prendas → Imprimir etiquetas).
+- **Supervisor**: solo ve. Dos excepciones: registra a las clientas nuevas desde un aviso "Pide DM" (Registrar a mano, con su nombre y apellido; le llega al celular el aviso "📝 Registrar a @usuario"), y genera el PDF de las etiquetas para imprimirlas (pestaña Prendas → Imprimir etiquetas).
 - **Operación**: opera el live: inicia y cierra lives, captura comentarios a mano, libera prendas, liga clientas, marca acomodo. No registra pagos, no cambia Ajustes y no borra.
 - **Operación live (acomodo)**: lleva las prendas a los casilleros. Ve En vivo, Casilleros, Acomodo, Prendas y Ajustes. No ve la pestaña WhatsApp, ni la app de Cajas, ni los datos de las clientas.
 - **Presentadora**: solo ve la pestaña Pide DM y Ajustes. No ve clientas, pagos ni casilleros.
@@ -51,10 +51,10 @@ Si un botón no aparece o sale "Tu nivel de acceso no permite hacer esto", es po
 ## Avisos "🙋 Pide DM" (clientas nuevas)
 En cada aviso hay estas acciones:
 - **Ya se lo pedí**: marca que ya se le pidió al aire que mande DM.
-- **Copiar mensaje**: copia el mensaje de bienvenida para pegárselo en su DM.
-- **Ligar con su WhatsApp**: cuando la clienta ya mandó su número por DM. Se escribe su WhatsApp a 10 dígitos y su nombre si es nueva. Si ese número ya era de una clienta, se liga a ella. Lo que pidió pasa a su casillero y le llega la confirmación.
+- **Copiar mensaje**: copia el mensaje para contestarle por DM; le pide su nombre y por lo menos un apellido.
+- **Registrar a mano**: cuando la clienta ya mandó su nombre por DM. Se escribe su nombre y su apellido (el WhatsApp es opcional; si se pone y ya era clienta, se liga a la que ya existe). Lo que pidió pasa a su casillero y a Operación live le llega el aviso para acomodarlo.
 - **Soltar**: se le quita lo que tenía provisional; las prendas vuelven a estar disponibles o pasan a la siguiente en espera.
-Quién puede ligar: Dueña, Operación y Supervisor. Operación live y Presentadora no.
+Quién puede registrar: Dueña, Operación y Supervisor. Operación live y Presentadora no. Al Supervisor le llega al celular "📝 Registrar a @usuario" por cada clienta nueva, para que esté atento a su DM.
 Si un usuario quedó ligado a la clienta equivocada: Ajustes → Usuarios de redes ligados → buscarla → "Quitar". La próxima vez que comente se le pedirá DM otra vez.
 
 ## Pestaña Pide DM (Presentadora)
@@ -115,7 +115,7 @@ Lista de casilleros con la clienta, sus prendas, su total y en qué va. El núme
 - **iPhone**: primero instalar el panel: abrirlo en Safari → botón Compartir → "Agregar a pantalla de inicio". Luego abrirlo desde ese ícono, ir a Ajustes y tocar "🔔 Activar avisos en este teléfono". Debe llegar "🔔 Avisos activados". Necesita iOS 16.4 o más reciente.
 - **Android**: abrir el panel en Chrome → Ajustes → "🔔 Activar avisos en este teléfono".
 - Si no llegan: (1) en Ajustes debe decir que este teléfono recibe avisos; si no, activarlos otra vez. (2) Revisar en los ajustes del teléfono que las notificaciones de "OP Live" estén permitidas. (3) Revisar que no esté en modo No molestar o concentración. (4) En iPhone, abrir el panel desde el ícono de la pantalla de inicio, no desde Safari. (5) Probar con "Mandar aviso de prueba".
-- Cada nivel recibe avisos distintos: acomodo recibe los de llevar y regresar prendas; presentadora solo "Pide DM"; resurtido solo "🧺 Van N prendas por resurtir"; los demás, pagos, vencidos y cajas listas.
+- Cada nivel recibe avisos distintos: acomodo recibe los de llevar y regresar prendas; presentadora solo "Pide DM"; supervisor además recibe "📝 Registrar a @usuario"; resurtido solo "🧺 Van N prendas por resurtir"; los demás, pagos, vencidos y cajas listas.
 
 ## Problemas frecuentes
 - **"Tu sesión expiró"**: volver a entrar con correo y contraseña.
