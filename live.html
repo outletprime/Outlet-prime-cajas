@@ -248,6 +248,7 @@ body.host #vista { max-width: none; padding: calc(var(--sup) + 14px) 20px 24px; 
 .rev-fila.rev-encontrada { background: var(--ok-suave); border-color: transparent; }
 .rev-fila.rev-no_encontrada { background: var(--vencida-suave); border-color: transparent; }
 .rev-clave { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+.rev-cas { color: var(--marca); font-size: 18px; }
 .rev-btns { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
 .btn.rev-si { background: var(--ok); color: #fff; }
 .btn.rev-no { background: var(--vencida); color: #fff; }
@@ -654,7 +655,7 @@ function filaRevision(c) {
   const enc = +c.rev_encontradas || 0, no = +c.rev_no_encontradas || 0, pend = +c.rev_pendientes || 0, total = enc + no + pend;
   const chip = no ? ['chip-aviso', 'Incompleto'] : pend === total ? ['chip', 'Por revisar'] : pend ? ['chip', `${enc} de ${total}`] : ['chip-ok', 'Completo ✓'];
   return `<button type="button" class="acomodo-fila rev-abrir ${colorRevision(c)}" data-detalle="${c.id}">
-    <div><b class="acomodo-cas">${esc(c.casillero || 'SIN CASILLERO')}</b> <b>${esc(nombreCorto(c.clienta))}</b>
+    <div><b class="acomodo-cas">${esc(c.casilleros_txt || c.casillero || 'SIN CASILLERO')}</b> <b>${esc(nombreCorto(c.clienta))}</b>
       <small>${no ? `⚠️ Faltan ${no}: <b>${esc(c.rev_faltantes || '')}</b>` : pend ? `${enc} de ${total} prendas encontradas` : 'Todo encontrado · falta confirmar'}</small></div>
     <span class="chip ${chip[0]}">${chip[1]}</span></button>`;
 }
@@ -1393,6 +1394,7 @@ function tarjetaCasillero(c) {
     <div class="cas-cuerpo">
       <div class="cas-cab"><b>${esc(c.clienta)}</b><span class="chip ${s.chip[0]}">${esc(s.chip[1])}</span></div>
       <small>${c.tipo === 'prime' ? '<span class="chip chip-prime">Prime</span> ' : ''}${ROL === 'live' ? '' : telBonito(c.telefono) + ' · '}${c.piezas} ${c.piezas === 1 ? 'prenda' : 'prendas'} · ${dinero(c.total)}</small>
+      ${c.casilleros_txt && c.casilleros_txt !== c.casillero ? `<small><b>Ocupa los casilleros ${esc(c.casilleros_txt)}</b></small>` : ''}
       <div class="piezas">${esc(c.piezas_txt || '') || '<span class="nota">Sin prendas</span>'}</div>
       <p class="paso">${s.paso}</p>
       <div class="fila-botones">
@@ -1429,13 +1431,14 @@ function htmlDetalle(d) {
   const no = ps.filter(p => p.revision === 'no_encontrada');
   const pend = ps.filter(p => !p.revision).length;
   const editable = d.revisable && puede.confirmarPedido();
+  const varios = !!d.casilleros && d.casilleros !== d.casillero;   // la clienta ocupa más de un casillero
   const estado = p => p.revision === 'encontrada' ? '✓ Encontrada' : p.revision === 'no_encontrada' ? '✕ No encontrada' : 'Por revisar';
   return `
     <p class="rev-resumen"><b>${enc} de ${ps.length}</b> ${ps.length === 1 ? 'encontrada' : 'encontradas'}${no.length ? ` · <b style="color:var(--vencida)">${no.length} no ${no.length === 1 ? 'encontrada' : 'encontradas'}</b>` : ''}${pend ? ` · ${pend} por revisar` : ''}</p>
     ${d.revisable ? '' : `<p class="nota">${d.estado === 'abierta' ? 'El live sigue abierto: la revisión empieza al cerrarlo.' : 'Este pedido ya se confirmó; ya no está en revisión.'}</p>`}
     ${d.revisable && !editable ? '<p class="nota">Solo ver: Operación live marca cada prenda.</p>' : ''}
     <div class="rev-lista">${ps.map(p => `<div class="rev-fila${p.revision ? ' rev-' + p.revision : ''}">
-        <div><b class="rev-clave">${esc(p.clave)}</b><small>${estado(p)}${p.revision_por ? ' · ' + esc(String(p.revision_por).split('@')[0]) + ' ' + hora(p.revision_en) : ''}</small></div>
+        <div><b class="rev-clave">${esc(p.clave)}${varios && p.casillero ? ` <span class="rev-cas">→ ${esc(p.casillero)}</span>` : ''}</b><small>${estado(p)}${p.revision_por ? ' · ' + esc(String(p.revision_por).split('@')[0]) + ' ' + hora(p.revision_en) : ''}</small></div>
         ${editable ? `<div class="rev-btns">
           <button type="button" class="btn btn-mini ${p.revision === 'encontrada' ? 'rev-si' : 'btn-secundario'}" data-rev="encontrada" data-ap="${p.id}">Encontrada</button>
           <button type="button" class="btn btn-mini ${p.revision === 'no_encontrada' ? 'rev-no' : 'btn-secundario'}" data-rev="no_encontrada" data-ap="${p.id}">No encontrada</button>
@@ -1451,7 +1454,7 @@ async function abrirDetalle(id) {
   let d = await accion(() => rpc('live_pedido_detalle', { p_cuenta: id }));
   if (!d || d === true) return;
   await modal({
-    titulo: `Casillero ${d.casillero || '—'} · ${d.clienta}`,
+    titulo: `${d.casilleros && d.casilleros !== d.casillero ? 'Casilleros ' + d.casilleros : 'Casillero ' + (d.casillero || '—')} · ${d.clienta}`,
     html: `<div id="rev-cuerpo">${htmlDetalle(d)}</div>`,
     botones: [{ texto: 'Cerrar', valor: true }],
     alAbrir: (f, cerrar) => {

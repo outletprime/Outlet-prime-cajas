@@ -132,7 +132,8 @@ En el panel:
 2. **Iniciar live** en el panel.
 3. **Apartar.** La clienta comenta la clave en el live (ver arriba) o la manda por WhatsApp (`A23` o
    `A23 B7 AB15`). Gana la primera; si ya está apartada, queda en lista de espera con su lugar.
-4. **Casillero.** Al primer apartado se le asigna un casillero (30 casilleros nombrados por su posición, de A1 a F5: columna A–F y fila 1–5; `…_casilleros_por_posicion.sql` y `…_casilleros_sin_prefijo.sql`. Las cajas fijas también se llaman A1…H5, por eso los avisos de pago dicen "Mover casillero A1 → caja B3"). El panel muestra
+4. **Casillero.** En cada casillero caben 10 prendas (Ajustes: `prendas_por_casillero`); al llegar a 10, la
+   siguiente prenda va al siguiente casillero libre (`…_casillero_por_prendas.sql`). Al primer apartado se le asigna un casillero (30 casilleros nombrados por su posición, de A1 a F5: columna A–F y fila 1–5; `…_casilleros_por_posicion.sql` y `…_casilleros_sin_prefijo.sql`. Las cajas fijas también se llaman A1…H5, por eso los avisos de pago dicen "Mover casillero A1 → caja B3"). El panel muestra
    `A23 → B2` y quien hace el acomodo deja ahí la prenda.
 5. **Cerrar live.** Ya no se puede apartar. En los lives de redes todavía no se cobra: cada pedido queda
    **en revisión** (`…_revision_antes_de_cobrar.sql`). Se toca cada casillero, se abre su lista y cada prenda
