@@ -24,7 +24,7 @@ export const GUIA = `# Guía del equipo · Outlet Prime (panel del live)
 5. La clienta nueva se registra de una de dos formas: (a) escribe al WhatsApp del bot con su nombre y su usuario, o (b) manda su WhatsApp por DM y alguien del equipo la liga a mano con "Ligar con su WhatsApp". En cuanto queda ligada, lo que pidió pasa a su casillero y de ahí en adelante todo lo que comente cae solo, en este live y en los siguientes.
 6. Si no se registra a tiempo, la prenda pasa a la siguiente en espera o vuelve a estar disponible.
 7. Al terminar: En vivo → "Cerrar live". Ya no se puede apartar. Todavía NO se cobra: los pedidos quedan "En revisión".
-8. Revisión: en Acomodo, sección "Revisar pedidos", Operación live revisa en físico cada casillero contra su lista. Cuando están todas las prendas, toca "Pedido completo". Si falta alguna, el pedido se queda en revisión y a esa clienta no se le cobra hasta que aparezca o se le quite.
+8. Revisión: se toca cada casillero (en Casilleros o en Acomodo → "Revisar pedidos") y se abre su lista de prendas. Cada prenda se busca en físico y se marca **Encontrada** o **No encontrada**. Cuando todas están encontradas aparece "Confirmar pedido completo". Si falta alguna, el pedido queda como "Incompleto · faltan N" con sus claves, y a esa clienta no se le cobra hasta que aparezca o se le quite.
 9. Cobro: en Casilleros el pedido confirmado dice "Listo para cobrar". Una Dueña toca "Mandar nota de cobro": se abre WhatsApp con la nota ya escrita (total, CLABE y folio OP-001…). En ese momento empieza a correr el plazo de pago de esa clienta.
 10. Pago: una Dueña lo registra en Casilleros → "Registrar pago". Con el pago completo, las prendas pasan solas a su caja fija y se crea el pedido en Cajas.
 11. Sin pago: recordatorio, luego límite de pago y luego se libera solo. Los tiempos cuentan desde que se mandó la nota (Ajustes → Tiempos después de cerrar el live). El panel avisa "Regresar a racks".
@@ -65,7 +65,7 @@ Salen las clientas nuevas que fueron las primeras en pedir una prenda. Se les pi
 - **Regresar al rack**: prendas que se liberaron (no pagaron o se quitaron). Se sacan del casillero, se regresan al rack y se toca ✓.
 - **En la charola de pendientes**: prendas de clientas nuevas que aún no se registran. Se dejan en la charola; cuando la clienta se registra aparecen arriba con su casillero, y si no, se liberan solas.
 - Si se palomeó una por error: "Deshacer". "Todo acomodado 👌" significa que no hay nada pendiente.
-- **Revisar pedidos** (aparece cuando el live ya cerró): cada renglón es un casillero con su clienta y la lista de prendas que debe tener. Se revisa en físico. Si están todas, se toca **Pedido completo** y se confirma. Si falta alguna, el renglón dice "Falta ✓" con su clave: esa prenda sigue abajo en "Llevar a su casillero" y se le pone ✓ cuando aparezca; hasta entonces no se puede confirmar ni cobrar ese pedido. Si de plano no apareció, una Dueña u Operación toca "Quitar" junto a la clave para sacarla del pedido; Operación live no puede quitarla, tiene que avisar.
+- **Revisar pedidos** (aparece cuando el live ya cerró): cada renglón es un casillero con su clienta y cuántas prendas lleva encontradas. Al tocarlo se abre la lista de sus prendas, cada una con dos botones: **Encontrada** (verde) y **No encontrada** (rojo). Se busca cada prenda en el casillero y se marca. Si te equivocas, vuelve a tocar el mismo botón y la marca se quita. Arriba dice cuántas van ("6 de 8 encontradas · 2 no encontradas"). Cuando todas están encontradas aparece **Confirmar pedido completo**: con eso ya se le puede mandar su nota de cobro. Si alguna no se encontró, el pedido queda como **Incompleto** con las claves que faltan; cuando aparezca, se abre otra vez el casillero y se marca Encontrada. Si de plano no aparece, una Dueña u Operación toca **Quitar del pedido** junto a esa prenda; Operación live no puede quitarla, tiene que avisar.
 Avisos que llegan al celular de acomodo: "📦 AB23 → B2 · Ana" (llevarla), "🔁 AB23: de B2 a D2" (cambió de clienta: moverla al otro casillero) y "↩️ Regresar AB23 al rack".
 
 ## Pestaña Resurtir (nivel Resurtido)
@@ -80,7 +80,9 @@ Avisos que llegan al celular de acomodo: "📦 AB23 → B2 · Ana" (llevarla), "
 
 ## Pestaña Casilleros
 Lista de casilleros con la clienta, sus prendas, su total y en qué va. El número rojo en la pestaña son los que tienen algo pendiente. Después de cerrar el live, cada pedido pasa por estos pasos:
-- **En revisión**: falta que Operación live confirme en Acomodo que el pedido está completo. Aún no se cobra.
+- **En revisión**: al tocar la tarjeta (o el botón **Revisar prendas**) se abre la lista de prendas para marcarlas una por una como Encontrada o No encontrada. Aún no se cobra.
+- **Incompleto · faltan N**: hay prendas marcadas como No encontrada; la tarjeta dice cuáles. No se cobra hasta que aparezcan o se quiten del pedido. El filtro **Incompletos** arriba muestra solo esos.
+- **Todo encontrado**: todas las prendas están; falta tocar Confirmar pedido completo dentro de la lista.
 - **Listo para cobrar**: pedido confirmado. Una Dueña toca **Mandar nota de cobro**, confirma, y aparece la nota con dos botones: "Abrir WhatsApp" (abre el chat de la clienta con la nota ya escrita; solo falta enviar) y "Copiar nota". Al mandarla empieza a correr su plazo de pago.
 - **Pendiente** (con la hora límite): la nota ya se mandó y se espera el pago. "Ver nota de cobro" la muestra otra vez para reenviarla; no reinicia el plazo.
 - **Registrar pago** (solo Dueña): monto recibido y referencia opcional. Si el pago queda incompleto, avisa cuánto falta.
