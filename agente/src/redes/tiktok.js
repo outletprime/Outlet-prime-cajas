@@ -18,9 +18,10 @@ export function crearTikTok(cfg, eventos) {
         con.on(WebcastEvent.CHAT, d => {
           eventos.comentario({
             red: 'tiktok',
-            usuario: d.user?.uniqueId,
+            // TikTok ha cambiado los nombres de estos datos: se aceptan los de antes y los de ahora
+            usuario: d.user?.uniqueId || d.user?.displayId,
             nombre: d.user?.nickname,
-            texto: d.comment,
+            texto: d.comment ?? d.content,
             id: d.event?.msgId || d.common?.msgId || null,
             fecha: aFecha(d.event?.createTime || d.common?.createTime),
           });
