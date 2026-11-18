@@ -247,14 +247,22 @@ body.host #vista { max-width: none; padding: calc(var(--sup) + 14px) 20px 24px; 
 .rev-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--borde); background: var(--superficie); }
 .rev-fila.rev-encontrada { background: var(--ok-suave); border-color: transparent; }
 .rev-fila.rev-no_encontrada { background: var(--vencida-suave); border-color: transparent; }
+.rev-fila.rev-no_vendible { background: var(--aviso-suave); border-color: transparent; }
 .rev-clave { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
 .rev-cas { color: var(--marca); font-size: 18px; }
-.rev-btns { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.rev-btns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.rev-btns .btn { white-space: normal; line-height: 1.15; padding-left: 8px; padding-right: 8px; }
 .btn.rev-si { background: var(--ok); color: #fff; }
 .btn.rev-no { background: var(--vencida); color: #fff; }
+.btn.rev-nv { background: var(--aviso); color: #fff; }
+.rev-cuenta { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-variant-numeric: tabular-nums; }
+.rev-cuenta td { padding: 5px 2px; border-bottom: 1px solid var(--borde); }
+.rev-cuenta td:last-child { text-align: right; }
+.rev-cuenta .rev-total td { border-bottom: 0; font-size: 19px; font-weight: 800; padding-top: 9px; }
+.rev-cuenta .rev-fuera td { color: var(--texto-2); text-decoration: line-through; }
 .rev-abrir { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .casillero[data-detalle] { cursor: pointer; }
-@media (max-width: 420px) { .rev-fila { grid-template-columns: 1fr; } .rev-btns { justify-content: stretch; } .rev-btns .btn { flex: 1; } }
+@media (max-width: 420px) { .rev-fila { grid-template-columns: 1fr; } }
 .resurtir-num { justify-items: center; text-align: center; padding: 22px 14px; }
 .resurtir-num b { font-size: 76px; line-height: 1; font-variant-numeric: tabular-nums; }
 .resurtir-num .btn { width: 100%; }
@@ -652,11 +660,11 @@ async function vistaAcomodo() {
         ${puede.acomodar() ? `<button type="button" class="btn btn-mini btn-secundario" data-deshacer="${f.id}" data-cual="${f.regresada_en ? 'regresar' : 'acomodar'}">Deshacer</button>` : ''}</div>`).join('')}</div></details>` : ''}`;
 }
 function filaRevision(c) {
-  const enc = +c.rev_encontradas || 0, no = +c.rev_no_encontradas || 0, pend = +c.rev_pendientes || 0, total = enc + no + pend;
+  const enc = +c.rev_encontradas || 0, no = faltanRev(c), pend = +c.rev_pendientes || 0, total = enc + no + pend;
   const chip = no ? ['chip-aviso', 'Incompleto'] : pend === total ? ['chip', 'Por revisar'] : pend ? ['chip', `${enc} de ${total}`] : ['chip-ok', 'Completo ✓'];
   return `<button type="button" class="acomodo-fila rev-abrir ${colorRevision(c)}" data-detalle="${c.id}">
     <div><b class="acomodo-cas">${esc(c.casilleros_txt || c.casillero || 'SIN CASILLERO')}</b> <b>${esc(nombreCorto(c.clienta))}</b>
-      <small>${no ? `⚠️ Faltan ${no}: <b>${esc(c.rev_faltantes || '')}</b>` : pend ? `${enc} de ${total} prendas encontradas` : 'Todo encontrado · falta confirmar'}</small></div>
+      <small>${no ? `⚠️ ${textoFaltan(c)}` : pend ? `${enc} de ${total} prendas encontradas` : 'Todo encontrado · falta confirmar'}</small></div>
     <span class="chip ${chip[0]}">${chip[1]}</span></button>`;
 }
 function conectarAcomodo(raiz) {
@@ -1333,10 +1341,14 @@ function conectarPrime(raiz) {
 let filtroCas = 'todos';
 // Pedido en revisión: el live ya cerró y falta confirmar que todas sus prendas están en el casillero
 const esRevision = c => c.estado === 'abierta' && c.live_estado === 'cerrado';
+// Prendas que no se van a cobrar: no se encontraron o no se pueden vender
+const faltanRev = c => (+c.rev_no_encontradas || 0) + (+c.rev_no_vendibles || 0);
+const textoFaltan = c => [c.rev_faltantes ? 'No se encontraron: <b>' + esc(c.rev_faltantes) + '</b>' : '',
+  c.rev_no_vendibles_txt ? 'No vendibles: <b>' + esc(c.rev_no_vendibles_txt) + '</b>' : ''].filter(Boolean).join(' · ');
 // Color de la revisión: amarillo si se marcaron prendas como no encontradas, verde si el pedido está completo
 const colorRevision = c => {
   if (esRevision(c)) {
-    if (+c.rev_no_encontradas > 0) return 'rev-incompleto';
+    if (faltanRev(c) > 0) return 'rev-incompleto';
     if (+c.rev_pendientes === 0 && +c.rev_encontradas > 0) return 'rev-completo';
     return '';
   }
@@ -1347,8 +1359,9 @@ function siguientePaso(c) {
   switch (c.estado) {
     case 'abierta': {
       if (!esRevision(c)) return { chip: ['chip-info', 'Live en curso'], paso: 'Guardar aquí lo que aparte' };
-      const enc = +c.rev_encontradas || 0, no = +c.rev_no_encontradas || 0, pend = +c.rev_pendientes || 0;
-      if (no) return { chip: ['chip-aviso', `Incompleto · faltan ${no}`], paso: `No se encontraron: <b>${esc(c.rev_faltantes || '')}</b>. No se cobra hasta que aparezcan o se quiten del pedido.`, revisar: true };
+      const enc = +c.rev_encontradas || 0, no = faltanRev(c), pend = +c.rev_pendientes || 0;
+      if (no && pend) return { chip: ['chip-aviso', `Incompleto · faltan ${no}`], paso: `${textoFaltan(c)}. Faltan ${pend} por revisar.`, revisar: true };
+      if (no) return { chip: ['chip-aviso', `Incompleto · faltan ${no}`], paso: `${textoFaltan(c)}. Si de verdad no están, ciérralo sin ellas dentro de la lista: el total se ajusta solo.`, revisar: true };
       if (pend) return { chip: ['chip-aviso', 'En revisión'], paso: `${enc} de ${enc + pend} prendas encontradas. Revísalas una por una. Aún no se cobra.`, revisar: true };
       return { chip: ['chip-ok', 'Completo ✓'], paso: 'Todas las prendas están en el casillero. Toca <b>Confirmar pedido completo</b> dentro de la lista.', revisar: true };
     }
@@ -1368,7 +1381,7 @@ const FILTROS = [
   ['todos', 'Todos', () => true],
   ['accion', 'Por hacer', c => !!siguientePaso(c).accion],
   ['revision', 'En revisión', esRevision],
-  ['incompleto', 'Incompletos', c => esRevision(c) && +c.rev_no_encontradas > 0],
+  ['incompleto', 'Incompletos', c => esRevision(c) && faltanRev(c) > 0],
   ['cobrar', 'Por cobrar', c => c.estado === 'por_pagar' && !c.cobro_enviado_en],
   ['pago', 'Por pagar', c => ['por_pagar', 'pago_incompleto'].includes(c.estado) && !!c.cobro_enviado_en],
   ['vivo', 'En live', c => c.estado === 'abierta' && !esRevision(c)],
@@ -1428,13 +1441,13 @@ conectar.casilleros = raiz => {
 function htmlDetalle(d) {
   const ps = d.piezas || [];
   const enc = ps.filter(p => p.revision === 'encontrada').length;
-  const no = ps.filter(p => p.revision === 'no_encontrada');
+  const no = ps.filter(p => p.revision === 'no_encontrada' || p.revision === 'no_vendible');
   const pend = ps.filter(p => !p.revision).length;
   const editable = d.revisable && puede.confirmarPedido();
   const varios = !!d.casilleros && d.casilleros !== d.casillero;   // la clienta ocupa más de un casillero
-  const estado = p => p.revision === 'encontrada' ? '✓ Encontrada' : p.revision === 'no_encontrada' ? '✕ No encontrada' : 'Por revisar';
+  const estado = p => ({ encontrada: '✓ Encontrada', no_encontrada: '✕ No encontrada', no_vendible: '⚠ No vendible' })[p.revision] || 'Por revisar';
   return `
-    <p class="rev-resumen"><b>${enc} de ${ps.length}</b> ${ps.length === 1 ? 'encontrada' : 'encontradas'}${no.length ? ` · <b style="color:var(--vencida)">${no.length} no ${no.length === 1 ? 'encontrada' : 'encontradas'}</b>` : ''}${pend ? ` · ${pend} por revisar` : ''}</p>
+    <p class="rev-resumen"><b>${enc} de ${ps.length}</b> ${ps.length === 1 ? 'encontrada' : 'encontradas'}${no.length ? ` · <b style="color:var(--vencida)">${no.length} ${no.length === 1 ? 'no se cobra' : 'no se cobran'}</b>` : ''}${pend ? ` · ${pend} por revisar` : ''}</p>
     ${d.revisable ? '' : `<p class="nota">${d.estado === 'abierta' ? 'El live sigue abierto: la revisión empieza al cerrarlo.' : 'Este pedido ya se confirmó; ya no está en revisión.'}</p>`}
     ${d.revisable && !editable ? '<p class="nota">Solo ver: Operación live marca cada prenda.</p>' : ''}
     <div class="rev-lista">${ps.map(p => `<div class="rev-fila${p.revision ? ' rev-' + p.revision : ''}">
@@ -1442,13 +1455,30 @@ function htmlDetalle(d) {
         ${editable ? `<div class="rev-btns">
           <button type="button" class="btn btn-mini ${p.revision === 'encontrada' ? 'rev-si' : 'btn-secundario'}" data-rev="encontrada" data-ap="${p.id}">Encontrada</button>
           <button type="button" class="btn btn-mini ${p.revision === 'no_encontrada' ? 'rev-no' : 'btn-secundario'}" data-rev="no_encontrada" data-ap="${p.id}">No encontrada</button>
-          ${p.revision === 'no_encontrada' && puede.operar() ? `<button type="button" class="btn btn-mini btn-secundario" data-quitar="${p.id}" data-etq="${esc(p.clave)}">Quitar del pedido</button>` : ''}
+          <button type="button" class="btn btn-mini ${p.revision === 'no_vendible' ? 'rev-nv' : 'btn-secundario'}" data-rev="no_vendible" data-ap="${p.id}">No vendible</button>
         </div>` : ''}
       </div>`).join('')}</div>
-    ${editable ? (no.length
-      ? `<div class="banner banner-aviso">${IC.alerta}<span><b>Pedido incompleto: ${no.length === 1 ? 'falta 1 prenda' : `faltan ${no.length} prendas`}: ${esc(no.map(p => p.clave).join(', '))}.</b> No se cobra hasta que aparezcan (márcalas como Encontrada) o se quiten del pedido.</span></div>`
-      : pend ? '<p class="nota">Marca todas las prendas para poder confirmar el pedido. Si te equivocas, vuelve a tocar el botón para quitar la marca.</p>'
-      : '<button type="button" class="btn btn-marca btn-grande" data-confirmar="1">Confirmar pedido completo</button>') : ''}`;
+    ${editable ? (pend
+      ? '<p class="nota">Marca todas las prendas para poder cerrar el pedido. Si te equivocas, vuelve a tocar el botón para quitar la marca.</p>'
+      : no.length
+      ? `<div class="banner banner-aviso">${IC.alerta}<span><b>Pedido incompleto: ${no.length === 1 ? '1 prenda no se cobra' : `${no.length} prendas no se cobran`}: ${esc(no.map(p => p.clave).join(', '))}.</b> Si aparece, márcala como Encontrada. Si de verdad no está o no se puede vender, cierra el pedido sin ella: el total y la nota de cobro se ajustan solos.</span></div>
+         <button type="button" class="btn btn-marca btn-grande" data-confirmar="sin">Cerrar pedido sin las faltantes</button>`
+      : '<button type="button" class="btn btn-marca btn-grande" data-confirmar="completo">Confirmar pedido completo</button>') : ''}`;
+}
+function htmlCuentaFinal(d) {
+  const ps = d.piezas || [];
+  const si = ps.filter(p => p.revision === 'encontrada' || p.estado === 'pagada');
+  const fuera = ps.filter(p => p.revision === 'no_encontrada' || p.revision === 'no_vendible');
+  const total = si.reduce((t, p) => t + Number(p.precio || 0), 0);
+  const fila = p => `<tr><td><b>${esc(p.clave)}</b></td><td>${dinero(p.precio)}</td></tr>`;
+  return `<p><b>${esc(d.clienta)}</b> · ${si.length} ${si.length === 1 ? 'prenda' : 'prendas'}</p>
+    ${si.length ? `<table class="rev-cuenta">${si.map(fila).join('')}
+      <tr class="rev-total"><td>Total a pagar</td><td>${dinero(total)}</td></tr></table>` : ''}
+    ${fuera.length ? `<p><b>Se quitan del pedido</b> (no se cobran):</p>
+      <table class="rev-cuenta">${fuera.map(p => `<tr class="rev-fuera"><td>${esc(p.clave)} · ${p.revision === 'no_vendible' ? 'no vendible' : 'no se encontró'}</td><td>${dinero(p.precio)}</td></tr>`).join('')}</table>
+      <p class="nota">Las no encontradas quedan como disponibles (si aparecen se pueden volver a vender); las no vendibles se dan de baja.</p>` : ''}
+    ${si.length ? `<p>Su nota de cobro saldrá por <b>${dinero(total)}</b>.</p>`
+      : '<div class="banner banner-aviso"><span><b>No queda nada que cobrar:</b> el pedido se cancela y el casillero queda libre.</span></div>'}`;
 }
 async function abrirDetalle(id) {
   let d = await accion(() => rpc('live_pedido_detalle', { p_cuenta: id }));
@@ -1468,11 +1498,14 @@ async function abrirDetalle(id) {
           const nueva = p && p.revision === b.dataset.rev ? null : b.dataset.rev;   // tocar otra vez quita la marca
           repintar(await accion(() => rpc('live_revisar_prenda', { p_apartado: b.dataset.ap, p_revision: nueva, p_usuario: usuario.email })));
         } else if (b.dataset.confirmar) {
-          if (await accion(() => rpc('live_pedido_confirmar', { p_cuenta: d.id, p_usuario: usuario.email }), 'Pedido confirmado: listo para cobrar')) cerrar(true);
-        } else if (b.dataset.quitar) {
-          if (!(await confirmar(`¿Quitar la ${b.dataset.etq} del pedido?`, '<p>Se le quita a esta clienta porque no apareció y deja de cobrársele. Si alguien estaba en espera, pasa a la primera de la fila.</p>', 'Quitar', true))) return;
-          if (await accion(() => rpc('live_liberar_apartado', { p_apartado: b.dataset.quitar }), 'Prenda quitada del pedido'))
-            repintar(await accion(() => rpc('live_pedido_detalle', { p_cuenta: d.id })));
+          const sin = b.dataset.confirmar === 'sin';
+          if (!(await confirmar(sin ? '¿Cerrar el pedido sin las faltantes?' : '¿Pedido completo?', htmlCuentaFinal(d),
+            sin ? 'Sí, cerrar pedido' : 'Sí, confirmar pedido'))) return;
+          const r = await accion(() => rpc('live_pedido_confirmar', { p_cuenta: d.id, p_usuario: usuario.email, p_quitar_faltantes: sin }));
+          if (r && r !== true) {
+            toast(r.cancelada ? 'Pedido cancelado: no quedó nada que cobrar' : `Pedido cerrado: ${r.piezas} ${r.piezas === 1 ? 'prenda' : 'prendas'} · ${dinero(r.total)}. Listo para mandar su nota.`, 'ok');
+            cerrar(true);
+          }
         }
       });
     },
