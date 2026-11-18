@@ -122,8 +122,10 @@ En el panel:
 ## Cómo funciona el live (cobro y caja)
 
 1. **Etiquetar.** Cada prenda lleva colgada su etiqueta impresa con una **clave** fija de **dos letras y
-   dos números** (AB10 a ZY98), a $89. **No hay que registrarlas**: la primera vez que alguien comenta la
-   clave (o la manda al bot), la prenda se da de alta sola y se aparta (`…_claves_al_comentar.sql`).
+   dos números** (AB10 a ZY98), a $89. **No hay que registrarlas**: quedan dadas de alta al mandar a imprimir
+   sus etiquetas en Prendas → Imprimir etiquetas (`…_etiquetas_habilitan_prendas.sql`). Si alguien comenta una
+   clave que no está en lo impreso, se aparta igual para no perder la venta (`…_claves_al_comentar.sql`), pero
+   el panel la señala en Prendas para revisarla.
    Letras sin O, I, L ni Ñ y siempre distintas (AB sí, AA no); números sin dígitos repetidos (11, 22 … 88
    no existen). Las claves de una letra o de un solo número (A23, AB7) solo valen si se registran a mano
    en Prendas → Registrar rango.

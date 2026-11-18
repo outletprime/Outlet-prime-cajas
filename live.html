@@ -1449,13 +1449,14 @@ async function vistaPrendas() {
   // Prendas pagadas que falta reponer en la sala (si la base todavía no lo tiene, no se muestra)
   const resurtir = puede.verResurtido() ? await rpc('resurtido_estado').catch(() => null) : null;
   const etq = puede.etiquetas() ? await rpc('etiquetas_estado').catch(() => null) : null;
+  const fuera = await rpc('prendas_fuera_de_etiquetas').catch(() => []) || [];
   let detalle = '';
   if (buscada != null) {
     const [p] = await q(sb.from('prendas').select('*').eq('numero', buscada));
     if (!p) detalle = `<div class="tarjeta">
-        <div class="cas-cab"><b style="font-size:24px">${num4(buscada)}</b><span class="chip chip-ok">Disponible</span></div>
-        <p>Nadie ha pedido esta prenda en ningún live.</p>
-        <p class="nota">No es de ninguna clienta: va en el rack. Las prendas aparecen aquí con su dueña y su casillero en cuanto alguien comenta su clave.</p></div>`;
+        <div class="cas-cab"><b style="font-size:24px">${num4(buscada)}</b><span class="chip chip-aviso">Sin etiqueta</span></div>
+        <p>Esa clave no es de ninguna etiqueta impresa y nadie la ha pedido.</p>
+        <p class="nota">Revisa que esté bien escrita. Las etiquetas quedan dadas de alta al generarlas en "Imprimir etiquetas".</p></div>`;
     else {
       const hist = await q(sb.from('live_feed').select('*').eq('prenda', buscada).order('creado_en', { ascending: false }).limit(30));
       const ET = { disponible: ['chip-ok', 'Disponible'], apartada: ['chip-aviso', 'Apartada'], pagada: ['chip-info', 'Vendida'], enviada: ['chip', 'Enviada'], baja: ['chip-vencida', 'Baja'] };
@@ -1475,17 +1476,8 @@ async function vistaPrendas() {
       <div class="kpi"><small>Registradas</small><b>${disp + apar + pag}</b></div>
     </div>
     ${resurtir ? `<a href="#resurtir" data-ir="resurtir" class="banner ${resurtir.pendientes ? 'banner-aviso' : 'banner-info'}" style="text-decoration:none">${IC.prendas}<span><b>Por resurtir en ${esc(resurtir.sala)}: ${resurtir.pendientes}</b> ${resurtir.pendientes === 1 ? 'prenda pagada' : 'prendas pagadas'} · ver detalle</span></a>` : ''}
+    ${fuera.length ? `<div class="banner banner-aviso">${IC.alerta}<span><b>${fuera.length} ${fuera.length === 1 ? 'prenda apartada tiene' : 'prendas apartadas tienen'} una clave que no está en las etiquetas impresas.</b> Puede ser un error al escribirla. Revisa la etiqueta física:<br>${fuera.map(f => `<b>${esc(f.clave)}</b> · ${esc(nombreCorto(f.clienta))}${f.casillero ? ' · casillero ' + esc(f.casillero) : ''}`).join('<br>')}</span></div>` : ''}
     ${etq ? htmlEtiquetas(etq) : ''}
-    ${puede.operar() ? `<h3 class="seccion">Registrar etiquetas nuevas</h3>
-    <form class="tarjeta formulario" id="f-rango">
-      <div class="tres">
-        <label>Desde<input name="desde" required placeholder="A1" autocomplete="off" autocapitalize="characters"></label>
-        <label>Hasta<input name="hasta" required placeholder="A98" autocomplete="off" autocapitalize="characters"></label>
-        <label>Precio<input name="precio" type="number" inputmode="decimal" min="1" value="${Number((cfg[0] || {}).precio || 89)}"></label>
-      </div>
-      <button class="btn btn-primario">Registrar rango</button>
-      <p class="nota">Claves de A1 a ZY98: letras sin O, I, L ni Ñ; dos letras siempre distintas (AB sí, AA no); números del 1 al 98 sin 11, 22 … 88. Las claves que no existen se saltan solas (A1 a A98 son 90 prendas). Las que ya existían no se tocan.</p>
-    </form>` : ''}
     <h3 class="seccion">Buscar una prenda</h3>
     <form class="enviar" id="f-buscar">
       <input name="n" placeholder="Clave, por ejemplo A23" value="${buscada != null ? num4(buscada) : ''}" autocomplete="off" autocapitalize="characters" aria-label="Clave de la prenda">

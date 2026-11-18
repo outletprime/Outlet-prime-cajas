@@ -8,7 +8,7 @@ export const GUIA = `# Guía del equipo · Outlet Prime (panel del live)
 - **Panel del live**: la aplicación del equipo. Abajo tiene pestañas: En vivo, Casilleros, Acomodo, Prendas, WhatsApp y Ajustes. Cada nivel ve solo las suyas.
 - **Cajas**: la otra aplicación (ícono de caja arriba a la derecha del panel). Ahí está la caja fija de cada clienta, sus pedidos y envíos.
 - **Agente**: programa que corre en la computadora de la tienda. Lee los comentarios del live de TikTok y aparta solo. Se enciende con el ícono "Iniciar agente" del Escritorio de esa computadora.
-- **Clave**: lo que trae la etiqueta colgada de cada prenda: dos letras y dos números, por ejemplo AB23. No se registra antes: la primera vez que alguien la comenta, la prenda se da de alta sola. Cada prenda cuesta lo que diga Ajustes → Precio por prenda.
+- **Clave**: lo que trae la etiqueta colgada de cada prenda: dos letras y dos números, por ejemplo AB23. No hay que registrarla a mano: queda dada de alta desde que se manda a imprimir su etiqueta (Prendas → Imprimir etiquetas) y se aparta en cuanto alguien la comenta. Cada prenda cuesta lo que diga Ajustes → Precio por prenda.
 - **Casillero**: espacio temporal donde se juntan las prendas de una clienta durante el live, hasta que paga. Hay 30, de 10 prendas cada uno, y se llaman por su posición: la columna (A a F) y la fila (1 a 5), de A1 a F5. Por ejemplo, B3 es el casillero de la columna B, fila 3, y su etiqueta dice "CASILLERO B3". Ojo: las cajas fijas de la app de Cajas también se llaman con letra y número (A1, B3…). Por eso los avisos de pago dicen la palabra completa: "Mover casillero A1 → caja B3" quiere decir sacar las prendas del casillero A1 y pasarlas a la caja fija B3.
 - **Caja fija**: la caja permanente de la clienta en la app de Cajas. Las prendas pasan del casillero a la caja fija cuando paga completo.
 - **Pide DM**: aviso de que una clienta nueva (que el sistema todavía no conoce) fue la primera en pedir una prenda. Hay que pedirle al aire que mande mensaje directo.
@@ -88,7 +88,8 @@ Lista de casilleros con la clienta, sus prendas, su total y en qué va. El núme
 
 ## Pestaña Prendas
 - **Buscar una prenda**: se escribe la clave y dice si está disponible, apartada o vendida, y quién la tiene o está en espera.
-- Las claves de dos letras y dos números no se registran: se crean solas al comentarlas. "Registrar etiquetas nuevas" solo hace falta para claves de otro tipo.
+- No hay que registrar prendas ni rangos: las etiquetas que se mandaron a imprimir ya están en el sistema como disponibles. Si al buscar una clave dice "Sin etiqueta", esa clave no se ha impreso o está mal escrita.
+- Aviso amarillo "prendas apartadas con una clave que no está en las etiquetas impresas": una clienta pidió una clave que no corresponde a ninguna etiqueta impresa, casi siempre por un error al escribirla. Hay que revisar la etiqueta física de esa prenda; si la clave real es otra o la prenda no existe, una Dueña la quita del pedido.
 - **Imprimir etiquetas** (solo Supervisor y Dueña): se escribe cuántas etiquetas se necesitan, siempre en múltiplos de 6 porque cada hoja trae 6 (por ejemplo 60 etiquetas son 10 hojas; de 6 a 600 por vez). Se toca "Generar etiquetas" y después "Descargar PDF". El sistema sigue desde la última clave impresa, así que nunca se repite una clave. Las claves generadas quedan anotadas como impresas, por eso hay que imprimirlas todas. Si la descarga o la impresión falló, en "Lotes anteriores" está "Descargar otra vez". Se imprimen en etiquetas Janel J-5164 (hoja carta de 6), al 100 % o "Tamaño real", nunca "Ajustar a la página".
 
 ## Pestaña WhatsApp (simulador y mensajes)
