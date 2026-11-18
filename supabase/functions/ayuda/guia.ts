@@ -9,7 +9,7 @@ export const GUIA = `# Guía del equipo · Outlet Prime (panel del live)
 - **Cajas**: la otra aplicación (ícono de caja arriba a la derecha del panel). Ahí está la caja fija de cada clienta, sus pedidos y envíos.
 - **Agente**: programa que corre en la computadora de la tienda. Lee los comentarios del live de TikTok y aparta solo. Se enciende con el ícono "Iniciar agente" del Escritorio de esa computadora.
 - **Clave**: lo que trae la etiqueta colgada de cada prenda: dos letras y dos números, por ejemplo AB23. No se registra antes: la primera vez que alguien la comenta, la prenda se da de alta sola. Cada prenda cuesta lo que diga Ajustes → Precio por prenda.
-- **Casillero**: espacio temporal (C-001 a C-100) donde se juntan las prendas de una clienta durante el live, hasta que paga.
+- **Casillero**: espacio temporal donde se juntan las prendas de una clienta durante el live, hasta que paga. Hay 30, de 10 prendas cada uno, y se llaman por su posición: C- más la columna (A a F) y la fila (1 a 5). Por ejemplo, C-B3 es el casillero de la columna B, fila 3, y su etiqueta dice "CASILLERO B3". No hay que confundirlos con las cajas fijas, que se llaman A1, B3, etc., sin la C-.
 - **Caja fija**: la caja permanente de la clienta en la app de Cajas. Las prendas pasan del casillero a la caja fija cuando paga completo.
 - **Pide DM**: aviso de que una clienta nueva (que el sistema todavía no conoce) fue la primera en pedir una prenda. Hay que pedirle al aire que mande mensaje directo.
 - **Charola de pendientes**: donde se dejan las prendas que pidió una clienta nueva mientras se registra.
@@ -19,7 +19,7 @@ export const GUIA = `# Guía del equipo · Outlet Prime (panel del live)
 ## Cómo funciona un live, de principio a fin
 1. Se enciende el agente en la computadora de la tienda y se inicia el live en En vivo (si el agente detecta el live, lo inicia solo).
 2. La clienta comenta la clave en TikTok ("AB23", "la ab23 porfa").
-3. Si la clienta **ya está registrada** con ese usuario: la prenda se le aparta al momento y se le asigna casillero. A quien hace el acomodo le llega "📦 AB23 → C-007 · Ana".
+3. Si la clienta **ya está registrada** con ese usuario: la prenda se le aparta al momento y se le asigna casillero. A quien hace el acomodo le llega "📦 AB23 → C-B2 · Ana".
 4. Si la clienta es **nueva**: la prenda queda provisional (10 minutos, o lo que diga Ajustes → Minutos para registrarse) y sale el aviso "🙋 Pide DM a @usuaria". Quien presenta le pide al aire que mande DM. La prenda se deja en la charola de pendientes.
 5. La clienta nueva se registra de una de dos formas: (a) escribe al WhatsApp del bot con su nombre y su usuario, o (b) manda su WhatsApp por DM y alguien del equipo la liga a mano con "Ligar con su WhatsApp". En cuanto queda ligada, lo que pidió pasa a su casillero y de ahí en adelante todo lo que comente cae solo, en este live y en los siguientes.
 6. Si no se registra a tiempo, la prenda pasa a la siguiente en espera o vuelve a estar disponible.
@@ -59,11 +59,11 @@ Si un usuario quedó ligado a la clienta equivocada: Ajustes → Usuarios de red
 Salen las clientas nuevas que fueron las primeras en pedir una prenda. Se les pide al aire que manden DM y se toca la tarjeta cuando ya se les pidió. Si dice "Tu celular todavía no recibe los avisos", hay que activarlos en Ajustes. "Nadie pendiente 👌" significa que no hay nada que hacer.
 
 ## Pestaña Acomodo (Operación live)
-- **Llevar a su casillero**: cada renglón dice la clave y el casillero (AB23 → C-007). Se lleva la prenda y se toca ✓.
+- **Llevar a su casillero**: cada renglón dice la clave y el casillero (AB23 → C-B2). Se lleva la prenda y se toca ✓.
 - **Regresar al rack**: prendas que se liberaron (no pagaron o se quitaron). Se sacan del casillero, se regresan al rack y se toca ✓.
 - **En la charola de pendientes**: prendas de clientas nuevas que aún no se registran. Se dejan en la charola; cuando la clienta se registra aparecen arriba con su casillero, y si no, se liberan solas.
 - Si se palomeó una por error: "Deshacer". "Todo acomodado 👌" significa que no hay nada pendiente.
-Avisos que llegan al celular de acomodo: "📦 AB23 → C-007 · Ana" (llevarla), "🔁 AB23: de C-007 a C-009" (cambió de clienta: moverla al otro casillero) y "↩️ Regresar AB23 al rack".
+Avisos que llegan al celular de acomodo: "📦 AB23 → C-B2 · Ana" (llevarla), "🔁 AB23: de C-B2 a C-D2" (cambió de clienta: moverla al otro casillero) y "↩️ Regresar AB23 al rack".
 
 ## Pestaña Resurtir (nivel Resurtido)
 - Arriba sale un número grande: las prendas ya pagadas que faltan por reponer en Sala 1. Solo cuentan las que ya se pagaron completas; las apartadas que todavía no se pagan no aparecen. Las de ensayo tampoco cuentan.

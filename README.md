@@ -46,7 +46,7 @@ Las dos usan el mismo correo y contraseña de Supabase → Authentication → Us
 | Dar o quitar accesos | ✅ | ❌ | ❌ | ❌ | ❌ |
 
 **Operación live (acomodo)**: además de los avisos generales, le llega una notificación por cada prenda:
-"📦 A23 → C-007 · Ana" (llevarla a su casillero), "🔁 A23: de C-007 a C-009" (pasó a la siguiente en espera)
+"📦 A23 → C-B2 · Ana" (llevarla a su casillero), "🔁 A23: de C-B2 a C-D2" (pasó a la siguiente en espera)
 o "↩️ Regresar A23 al rack".
 
 **Presentadora**: solo le llegan notificaciones "🙋 Pide DM a @usuaria · fue la primera en pedir la 0023"
@@ -69,7 +69,7 @@ WhatsApp por mensaje directo, en el aviso "Pide DM" toca **Ligar con su WhatsApp
 nombre si es nueva) y listo: lo que pidió pasa a su casillero y le llega la confirmación por WhatsApp.
 
 **Acomodo** (para quien lleva las prendas del live a los casilleros): lista "Llevar a su casillero"
-(`0023 → C-007`), "Regresar al rack" (prendas liberadas) y "Charola de pendientes" (clientas nuevas que
+(`0023 → C-B2`), "Regresar al rack" (prendas liberadas) y "Charola de pendientes" (clientas nuevas que
 aún no se registran). Cada prenda se palomea con ✓; si se equivoca, puede deshacer.
 
 - Las reglas están **en la base de datos** (`…_niveles_acceso.sql`); esconder botones es solo comodidad.
@@ -130,8 +130,8 @@ En el panel:
 2. **Iniciar live** en el panel.
 3. **Apartar.** La clienta comenta la clave en el live (ver arriba) o la manda por WhatsApp (`A23` o
    `A23 B7 AB15`). Gana la primera; si ya está apartada, queda en lista de espera con su lugar.
-4. **Casillero.** Al primer apartado se le asigna un casillero (C-001 a C-100). El panel muestra
-   `A23 → C-007` y quien hace el acomodo deja ahí la prenda.
+4. **Casillero.** Al primer apartado se le asigna un casillero (30 casilleros nombrados por su posición, de C-A1 a C-F5: columna A–F y fila 1–5; `…_casilleros_por_posicion.sql`). El panel muestra
+   `A23 → C-B2` y quien hace el acomodo deja ahí la prenda.
 5. **Cerrar live.** El bot manda a cada clienta su total, la CLABE y su folio.
 6. **Pago.** Se registra en Casilleros (a mano por ahora; automático cuando haya CLABE por pedido).
    Al pagar completo, las prendas pasan solas a su **caja fija** y se crea el pedido en Cajas
@@ -152,7 +152,7 @@ En el panel:
 ## Avisos al celular del equipo
 
 Sin abrir el panel, le llega una notificación al equipo cuando:
-- ✅ se registra un **pago** → "Mover C-007 → caja B3 · piezas 0023, 0310"
+- ✅ se registra un **pago** → "Mover C-B2 → caja B3 · piezas 0023, 0310"
 - ⚠️ un **pago está incompleto** → "Faltan $89 · revisar con la clienta"
 - ⏰ un **apartado vence** → "Regresar 0932 a racks"
 - 📦 una **caja está lista** → a los 20 días (como Cajas) o al llegar a N prendas (Ajustes del panel)
