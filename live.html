@@ -413,6 +413,8 @@ const puede = {
   operar: () => ROL === 'duena' || ROL === 'operacion',
   duena: () => ROL === 'duena',
   acomodar: () => ['duena', 'operacion', 'live'].includes(ROL),
+  // Confirmar que un pedido está completo en su casillero (después de cerrar el live)
+  confirmarPedido: () => ['duena', 'operacion', 'live'].includes(ROL),
   // Supervisor solo cambia esto: ligar a una clienta que mandó su WhatsApp por DM
   ligar: () => ['duena', 'operacion', 'supervisor'].includes(ROL),
   // Ver cuántas prendas pagadas hay que reponer en la sala (el nivel Resurtido solo ve esto)
@@ -604,11 +606,26 @@ async function vistaAcomodo() {
   const hechas = filas.filter(f => f.tarea === 'hecho')
     .sort((a, b) => new Date(b.regresada_en || b.acomodada_en) - new Date(a.regresada_en || a.acomodada_en)).slice(0, 15);
   const charola = D.dms.flatMap(d => d.provisionales.map(n => ({ n, d })));
-  D.porAcomodar = acomodar.length + regresar.length;
+  // Pedidos de un live ya cerrado: se revisan en físico antes de cobrar
+  const revision = D.tablero.filter(esRevision)
+    .sort((a, b) => String(a.casillero || 'Z').localeCompare(String(b.casillero || 'Z')) || a.folio - b.folio);
+  const faltanDe = c => acomodar.filter(f => f.live_id === c.live_id && (c.casillero ? f.casillero === c.casillero : f.clienta === c.clienta));
+  D.porAcomodar = acomodar.length + regresar.length + revision.filter(c => !faltanDe(c).length).length;
   const boton = (f, tipo) => puede.acomodar()
     ? `<button type="button" class="btn btn-primario acomodo-ok" data-${tipo}="${f.id}" aria-label="Listo ${esc(f.etiqueta)}">${IC.ok}</button>` : '<span></span>';
   return `
     ${puede.acomodar() ? '' : '<p class="nota">Solo ver: la persona de acomodo marca cada prenda.</p>'}
+    ${revision.length ? `<h3 class="seccion">Revisar pedidos · ${revision.length}</h3>
+    <p class="nota">El live ya cerró. Revisa en físico cada casillero contra su lista. Cuando estén todas sus prendas, toca <b>Pedido completo</b>: hasta entonces no se le cobra a la clienta. Las prendas que falten se marcan con ✓ abajo, en "Llevar a su casillero", cuando aparezcan.</p>
+    <div class="acomodo">${revision.map(c => {
+      const faltan = faltanDe(c);
+      return `<div class="acomodo-fila${faltan.length ? ' regresar' : ''}">
+        <div><b class="acomodo-cas">${esc(c.casillero || 'SIN CASILLERO')}</b> <b>${esc(nombreCorto(c.clienta))}</b>
+          <small>${c.piezas} ${c.piezas === 1 ? 'prenda' : 'prendas'}: ${esc(c.piezas_txt || '')}</small>
+          ${faltan.length ? `<small><span class="chip chip-aviso">Falta ✓</span> ${faltan.map(f => `<b>${esc(f.etiqueta)}</b>${puede.operar() ? ` <button type="button" class="btn btn-mini btn-secundario" data-quitar-pedido="${f.id}" data-etq="${esc(f.etiqueta)}">Quitar</button>` : ''}`).join(' · ')}</small>` : ''}</div>
+        ${faltan.length ? '<span></span>' : puede.confirmarPedido() ? `<button type="button" class="btn btn-marca" data-pedido="${c.id}" data-cas="${esc(c.casillero || '')}">Pedido completo</button>` : '<span class="chip chip-ok">Completo</span>'}
+      </div>`;
+    }).join('')}</div>` : ''}
     <h3 class="seccion">Llevar a su casillero · ${acomodar.length}</h3>
     ${acomodar.length ? `<div class="acomodo">${acomodar.map(f => `<div class="acomodo-fila">
         <div><b class="acomodo-num">${esc(f.etiqueta)}</b> <span class="flecha">→</span> <b class="acomodo-cas">${esc(f.casillero || 'SIN CASILLERO')}</b><small>${esc(nombreCorto(f.clienta))} · ${hora(f.creado_en)}</small></div>
@@ -631,6 +648,14 @@ function conectarAcomodo(raiz) {
     if (await accion(() => rpc(fn, { p_apartado: id, p_por: usuario.email, p_deshacer: deshacer }))) pintar();
   };
   $$('[data-acomodar]', raiz).forEach(b => b.onclick = () => marcar('live_acomodar', b.dataset.acomodar));
+  $$('[data-pedido]', raiz).forEach(b => b.onclick = async () => {
+    if (!(await confirmar('¿Pedido completo?', `<p>Confirmas que <b>todas</b> las prendas de la lista están en el casillero ${esc(b.dataset.cas)}. Con esto ya se le puede mandar su nota de cobro.</p>`, 'Sí, está completo'))) return;
+    if (await accion(() => rpc('live_pedido_confirmar', { p_cuenta: b.dataset.pedido, p_usuario: usuario.email }), 'Pedido confirmado')) pintar();
+  });
+  $$('[data-quitar-pedido]', raiz).forEach(b => b.onclick = async () => {
+    if (!(await confirmar(`¿Quitar la ${b.dataset.etq} de este pedido?`, '<p>Se le quita a esta clienta porque no apareció. Si alguien estaba en espera, pasa a la primera de la fila.</p>', 'Quitar', true))) return;
+    if (await accion(() => rpc('live_liberar_apartado', { p_apartado: b.dataset.quitarPedido }), 'Prenda quitada del pedido')) pintar();
+  });
   $$('[data-regresar]', raiz).forEach(b => b.onclick = () => marcar('live_regresar_rack', b.dataset.regresar));
   $$('[data-deshacer]', raiz).forEach(b => b.onclick = () =>
     marcar(b.dataset.cual === 'regresar' ? 'live_regresar_rack' : 'live_acomodar', b.dataset.deshacer, true));
@@ -926,7 +951,9 @@ function vistaRedes() {
   const sinClabe = !(D.cfg.clabe || '').trim();
   if (!D.live) {
     const porCobrar = D.tablero.filter(c => ['por_pagar', 'pago_incompleto'].includes(c.estado));
+    const enRevision = D.tablero.filter(esRevision).length;
     return `
+      ${enRevision ? `<div class="banner banner-aviso">${IC.alerta}<span>${enRevision} ${enRevision === 1 ? 'pedido' : 'pedidos'} del último live por revisar antes de cobrar. <a href="#acomodo" data-ir="acomodo">Revisar en Acomodo</a></span></div>` : ''}
       <div class="vacio">${IC.vivo}<h2>No hay live en curso</h2><p>${TIENE_COMENTARIOS ? 'Al iniciar, el agente aparta lo que comenten en el live y el bot lo que manden por WhatsApp. Si el agente está encendido, el live se inicia solo al empezar a transmitir.' : 'Al iniciar, el bot de WhatsApp empieza a apartar por clave de prenda.'}</p></div>
       ${htmlAgente()}
       ${sinClabe ? `<div class="banner banner-aviso">${IC.alerta}<span>Falta la CLABE para cobrar. <a href="#ajustes" data-ir="ajustes">Ponla en Ajustes</a> antes de cerrar el live.</span></div>` : ''}
@@ -953,8 +980,8 @@ function vistaRedes() {
     </div>
     ${htmlAgente()}
     ${htmlDMs()}
-    ${puede.operar() ? `<button class="btn btn-peligro btn-grande" id="cerrar-live">Cerrar live y mandar cobros</button>
-    <p class="nota">Al cerrar, cada clienta recibe por WhatsApp su total y cómo pagar. Tiene ${horas(D.cfg.horas_limite)} para pagar; a las ${horas(D.cfg.horas_liberar)} lo no pagado se libera solo.</p>` : ''}
+    ${puede.operar() ? `<button class="btn btn-peligro btn-grande" id="cerrar-live">Cerrar live</button>
+    <p class="nota">Al cerrar ya no se puede apartar. Todavía no se cobra: primero se revisa cada pedido en Acomodo y, cuando esté completo, se manda su nota desde Casilleros.</p>` : ''}
     <div class="kpis">
       <div class="kpi"><small>Apartadas</small><b>${apartadas.length}</b></div>
       <div class="kpi"><small>Clientas</small><b>${clientas}</b></div>
@@ -991,9 +1018,9 @@ conectar.vivo = raiz => {
   const c = $('#cerrar-live', raiz);
   if (c) c.onclick = async () => {
     const n = new Set(D.feed.filter(a => a.estado === 'apartada').map(a => a.clienta_id)).size;
-    if (!(await confirmar('¿Cerrar el live?', `<p>Se manda por WhatsApp el total y cómo pagar a <b>${n} ${n === 1 ? 'clienta' : 'clientas'}</b>. Después de cerrar ya no se puede apartar.</p>`, 'Cerrar y cobrar', true))) return;
-    const r = await accion(() => rpc('live_cerrar', { p_live: D.live.id, p_usuario: usuario.nombre }), r => `Live cerrado. Cobro enviado a ${r} ${r === 1 ? 'clienta' : 'clientas'}.`);
-    if (r !== null) irA('casilleros');
+    if (!(await confirmar('¿Cerrar el live?', `<p>Después de cerrar ya no se puede apartar. Hay <b>${n} ${n === 1 ? 'clienta' : 'clientas'}</b> con prendas.</p><p>Todavía no se les cobra: primero se revisa cada pedido en Acomodo y, cuando esté completo, se manda su nota desde Casilleros.</p>`, 'Cerrar live', true))) return;
+    const r = await accion(() => rpc('live_cerrar', { p_live: D.live.id, p_usuario: usuario.nombre }), r => `Live cerrado. ${r} ${r === 1 ? 'pedido' : 'pedidos'} por revisar en Acomodo.`);
+    if (r !== null) irA(puede.acomodar() ? 'acomodo' : 'casilleros');
   };
   $$('[data-liberar]', raiz).forEach(b => b.onclick = async () => {
     const prime = /^#/.test(b.dataset.num);
@@ -1287,12 +1314,18 @@ function conectarPrime(raiz) {
 
 /* ---------- Casilleros ---------- */
 let filtroCas = 'todos';
+// Pedido en revisión: el live ya cerró y falta confirmar que todas sus prendas están en el casillero
+const esRevision = c => c.estado === 'abierta' && c.live_estado === 'cerrado';
 function siguientePaso(c) {
   const falta = Number(c.total) - Number(c.monto_pagado);
   switch (c.estado) {
-    case 'abierta': return { chip: ['chip-info', 'Live en curso'], paso: 'Guardar aquí lo que aparte' };
-    case 'por_pagar': return { chip: ['chip-aviso', `Pendiente · ${hora(c.limite_pago)}`], paso: `Esperar el pago (se libera a las ${hora(c.liberar_en)})`, accion: false, pago: true };
-    case 'pago_incompleto': return { chip: ['chip-aviso', `Faltan ${dinero(falta)}`], paso: 'Pago incompleto: revisar con la clienta', pago: true };
+    case 'abierta': return esRevision(c)
+      ? { chip: ['chip-aviso', 'En revisión'], paso: 'Falta confirmar en <b>Acomodo</b> que el pedido está completo. Aún no se cobra.' }
+      : { chip: ['chip-info', 'Live en curso'], paso: 'Guardar aquí lo que aparte' };
+    case 'por_pagar':
+      if (!c.cobro_enviado_en) return { chip: ['chip-ok', 'Listo para cobrar'], paso: 'Pedido completo. Falta mandar su nota de cobro; el plazo empieza al mandarla.', pago: true, cobro: 'mandar' };
+      return { cobro: 'ver', chip: ['chip-aviso', `Pendiente · ${hora(c.limite_pago)}`], paso: `Esperar el pago (se libera a las ${hora(c.liberar_en)})`, accion: false, pago: true };
+    case 'pago_incompleto': return { chip: ['chip-aviso', `Faltan ${dinero(falta)}`], paso: 'Pago incompleto: revisar con la clienta', pago: true, cobro: 'ver' };
     case 'pagada':
       if (!c.caja) return { chip: ['chip-vencida', 'Sin caja libre'], paso: 'No hay cajas libres: crea más en la app de Cajas', accion: 'caja', boton: 'Reintentar caja', sinCaja: true };
       return { chip: ['chip-ok', 'Pagado'], paso: `Mover a la caja <b>${esc(c.caja)}</b>`, accion: 'listo', boton: 'Ya está en la caja' };
@@ -1304,8 +1337,10 @@ function siguientePaso(c) {
 const FILTROS = [
   ['todos', 'Todos', () => true],
   ['accion', 'Por hacer', c => !!siguientePaso(c).accion],
-  ['pago', 'Por pagar', c => ['por_pagar', 'pago_incompleto'].includes(c.estado)],
-  ['vivo', 'En live', c => c.estado === 'abierta'],
+  ['revision', 'En revisión', esRevision],
+  ['cobrar', 'Por cobrar', c => c.estado === 'por_pagar' && !c.cobro_enviado_en],
+  ['pago', 'Por pagar', c => ['por_pagar', 'pago_incompleto'].includes(c.estado) && !!c.cobro_enviado_en],
+  ['vivo', 'En live', c => c.estado === 'abierta' && !esRevision(c)],
 ];
 async function vistaCasilleros() {
   await cargar();
@@ -1318,7 +1353,7 @@ async function vistaCasilleros() {
     <div class="filtros" role="group" aria-label="Filtrar">
       ${FILTROS.map(([id, nombre, fn]) => `<button type="button" class="filtro" data-filtro="${id}" aria-pressed="${filtroCas === id}">${nombre}<b>${lista.filter(fn).length}</b></button>`).join('')}
     </div>
-    <small>${ocupados} de 100 casilleros ocupados</small>
+    <small>${ocupados} ${ocupados === 1 ? 'casillero ocupado' : 'casilleros ocupados'}</small>
     ${visibles.length ? visibles.map(tarjetaCasillero).join('') : `<div class="vacio">${IC.casilleros}<h2>Nada por aquí</h2><p>${filtroCas === 'todos' ? 'No hay casilleros ocupados.' : 'No hay casilleros en este filtro.'}</p></div>`}`;
 }
 function tarjetaCasillero(c) {
@@ -1332,6 +1367,7 @@ function tarjetaCasillero(c) {
       <p class="paso">${s.paso}</p>
       <div class="fila-botones">
         ${s.accion && (s.accion === 'caja' ? puede.duena() : puede.operar()) ? `<button class="btn btn-mini btn-primario" data-${s.accion}="${c.id}">${esc(s.boton)}</button>` : ''}
+        ${s.cobro && puede.operar() ? `<button class="btn btn-mini ${s.cobro === 'mandar' ? 'btn-marca' : 'btn-secundario'}" data-cobro="${c.id}">${s.cobro === 'mandar' ? 'Mandar nota de cobro' : 'Ver nota de cobro'}</button>` : ''}
         ${s.pago && puede.duena() ? `<button class="btn btn-mini btn-primario" data-pago="${c.id}">Registrar pago</button>` : ''}
       </div>
     </div>
@@ -1348,7 +1384,36 @@ conectar.casilleros = raiz => {
     else if (caja) { toast(`Asignada a la caja ${caja}`); pintar(); }
   });
   $$('[data-pago]', raiz).forEach(b => b.onclick = () => registrarPago(D.tablero.find(c => c.id === b.dataset.pago)));
+  $$('[data-cobro]', raiz).forEach(b => b.onclick = () => mandarCobro(D.tablero.find(c => c.id === b.dataset.cobro)));
 };
+// Nota de cobro de una clienta: se manda a mano por WhatsApp mientras el bot no tenga número.
+// La primera vez empieza a correr su plazo de pago.
+async function mandarCobro(c) {
+  if (!c) return;
+  if (!c.cobro_enviado_en && !(await confirmar('¿Mandar la nota de cobro?',
+    `<p>En este momento empieza a correr el plazo de <b>${esc(c.clienta)}</b>: tiene ${horas(D.cfg.horas_limite)} para pagar y a las ${horas(D.cfg.horas_liberar)} lo no pagado se libera solo.</p>`, 'Sí, preparar nota'))) return;
+  const r = await accion(() => rpc('live_cobro_mandar', { p_cuenta: c.id, p_usuario: usuario.nombre }));
+  if (!r || r === true) return;
+  const tel = String(r.telefono || '').replace(/\D/g, '');
+  await modal({
+    titulo: `Nota de ${c.clienta}`,
+    html: `<div class="formulario">
+      <textarea readonly rows="8" id="cobro-texto">${esc(r.texto)}</textarea>
+      <div class="fila-botones">
+        ${tel.length === 10 ? `<a class="btn btn-wa" target="_blank" rel="noopener" href="https://wa.me/52${tel}?text=${encodeURIComponent(r.texto)}">Abrir WhatsApp</a>` : '<span class="nota">Esta clienta no tiene WhatsApp registrado.</span>'}
+        <button type="button" class="btn btn-secundario" id="cobro-copiar">Copiar nota</button>
+      </div>
+      <p class="nota">Se abre el chat de la clienta con la nota ya escrita: solo falta tocar enviar.</p></div>`,
+    botones: [{ texto: 'Cerrar', valor: true }],
+    alAbrir: f => {
+      $('#cobro-copiar', f).onclick = async () => {
+        try { await navigator.clipboard.writeText(r.texto); toast('Nota copiada'); }
+        catch (e) { $('#cobro-texto', f).select(); toast('Mantén presionado el texto para copiarlo.', 'error'); }
+      };
+    },
+  });
+  pintar();
+}
 async function registrarPago(c) {
   const falta = Math.max(0, Number(c.total) - Number(c.monto_pagado));
   const datos = await modal({
