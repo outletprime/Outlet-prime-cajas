@@ -1455,16 +1455,26 @@ async function vistaPrendas() {
     const [p] = await q(sb.from('prendas').select('*').eq('numero', buscada));
     if (!p) detalle = `<div class="tarjeta">
         <div class="cas-cab"><b style="font-size:24px">${num4(buscada)}</b><span class="chip chip-aviso">Sin etiqueta</span></div>
-        <p>Esa clave no es de ninguna etiqueta impresa y nadie la ha pedido.</p>
-        <p class="nota">Revisa que esté bien escrita. Las etiquetas quedan dadas de alta al generarlas en "Imprimir etiquetas".</p></div>`;
+        <p><b>Esa clave no es de ninguna etiqueta impresa y nadie la eligió.</b></p>
+        <p class="nota">Revisa en la etiqueta que esté bien escrita. Si la prenda no es de nadie, regrésala al rack.</p></div>`;
     else {
       const hist = await q(sb.from('live_feed').select('*').eq('prenda', buscada).order('creado_en', { ascending: false }).limit(30));
       const ET = { disponible: ['chip-ok', 'Disponible'], apartada: ['chip-aviso', 'Apartada'], pagada: ['chip-info', 'Vendida'], enviada: ['chip', 'Enviada'], baja: ['chip-vencida', 'Baja'] };
       const EA = { apartada: 'Apartada', espera: 'En espera', pagada: 'Pagada', liberada: 'Liberada', cancelada: 'Cancelada' };
+      // Qué es exactamente esta prenda y qué hacer con ella
+      const duena = hist.find(a => ['apartada', 'pagada'].includes(a.estado));
+      const esperan = hist.filter(a => a.estado === 'espera').length;
+      let que = '';
+      if (duena) que = `<b>Es de ${esc(duena.clienta)}.</b> ${duena.casillero ? `Va en el casillero <b>${esc(duena.casillero)}</b>.` : 'Todavía no tiene casillero.'}${duena.estado === 'pagada' ? ' Ya está pagada.' : ''}${esperan ? ` Hay ${esperan} en espera.` : ''}`;
+      else if (p.estado === 'apartada') que = '<b>La pidió una clienta nueva que todavía no se registra</b> (sale en "Pide DM"). Va en la charola de pendientes.';
+      else if (p.estado === 'disponible') que = hist.length
+        ? '<b>Ya no es de nadie:</b> se liberó. Regrésala al rack.'
+        : '<b>Nadie eligió esta prenda.</b> Regrésala al rack.';
       detalle = `<div class="tarjeta">
         <div class="cas-cab"><b style="font-size:24px">${num4(p.numero)}</b><span class="chip ${ET[p.estado][0]}">${ET[p.estado][1]}</span></div>
+        ${que ? `<p>${que}</p>` : ''}
         <small>${dinero(p.precio)} · registrada ${fechaHora(p.registrada_en)}</small>
-        ${hist.length ? `<div class="lista-simple">${hist.map(a => `<div><b>${esc(a.clienta)}</b> · ${EA[a.estado] || a.estado}${a.casillero ? ' · ' + esc(a.casillero) : ''}<br><small>${fechaHora(a.mensaje_en)}</small></div>`).join('')}</div>` : '<p class="nota">Nadie la ha pedido todavía.</p>'}
+        ${hist.length ? `<div class="lista-simple">${hist.map(a => `<div><b>${esc(a.clienta)}</b> · ${EA[a.estado] || a.estado}${a.casillero ? ' · ' + esc(a.casillero) : ''}<br><small>${fechaHora(a.mensaje_en)}</small></div>`).join('')}</div>` : ''}
       </div>`;
     }
   }
