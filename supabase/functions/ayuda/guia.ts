@@ -87,7 +87,7 @@ Lista de casilleros con la clienta, sus prendas, su total y en qué va. El núme
 - **Incompleto · faltan N**: hay prendas marcadas como No encontrada o No vendible; la tarjeta dice cuáles. No se cobra hasta que aparezcan o se cierre el pedido sin ellas (botón **Cerrar pedido sin las faltantes** dentro de la lista). El filtro **Incompletos** arriba muestra solo esos.
 - **Todo encontrado**: todas las prendas están; falta tocar Confirmar pedido completo dentro de la lista.
 - **Listo para cobrar**: pedido confirmado. Una Dueña toca **Mandar nota de cobro**, confirma, y aparece la nota con dos botones: "Abrir WhatsApp" (abre el chat de la clienta con la nota ya escrita; solo falta enviar) y "Copiar nota". Al mandarla empieza a correr su plazo de pago. Abajo, solo para la Dueña, está **Nota en PDF**: "Descargar PDF" (y en el celular "Compartir PDF", para mandarla directo por WhatsApp). El PDF trae el logo, el folio, el nombre de la clienta, la clave y el precio de cada prenda, el total a pagar (o lo que falta si ya pagó una parte), el banco, a nombre de quién, la CLABE, el concepto (su folio) y la hora límite para pagar.
-- **Pendiente** (con la hora límite): la nota ya se mandó y se espera el pago. "Ver nota de cobro" la muestra otra vez para reenviarla; no reinicia el plazo.
+- **Pendiente de pago** (con la hora límite): la nota ya se mandó y se espera el pago. "Ver nota de cobro" la muestra otra vez para reenviarla; no reinicia el plazo.
 - **Registrar pago** (solo Dueña): monto recibido y referencia opcional. Si el pago queda incompleto, avisa cuánto falta.
 - Con el pago completo las prendas pasan a su caja fija; el panel dice a qué caja mover el casillero. Si dice que no hay cajas libres, hay que crear más en la app de Cajas.
 

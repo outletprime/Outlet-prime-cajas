@@ -1494,7 +1494,7 @@ function siguientePaso(c) {
     }
     case 'por_pagar':
       if (!c.cobro_enviado_en) return { chip: ['chip-ok', 'Listo para cobrar'], paso: 'Pedido completo. Falta mandar su nota de cobro; el plazo empieza al mandarla.', pago: true, cobro: 'mandar' };
-      return { cobro: 'ver', chip: ['chip-aviso', `Pendiente · ${hora(c.limite_pago)}`], paso: `Esperar el pago (se libera a las ${hora(c.liberar_en)})`, accion: false, pago: true };
+      return { cobro: 'ver', chip: ['chip-aviso', `Pendiente de pago · ${hora(c.limite_pago)}`], paso: `Esperar el pago (se libera a las ${hora(c.liberar_en)})`, accion: false, pago: true };
     case 'pago_incompleto': return { chip: ['chip-aviso', `Faltan ${dinero(falta)}`], paso: 'Pago incompleto: revisar con la clienta', pago: true, cobro: 'ver' };
     case 'pagada':
       if (!c.caja) return { chip: ['chip-vencida', 'Sin caja libre'], paso: 'No hay cajas libres: crea más en la app de Cajas', accion: 'caja', boton: 'Reintentar caja', sinCaja: true };
