@@ -704,7 +704,8 @@ function conectarAcomodo(raiz) {
 /* ---------- Etiquetas: PDF con las claves que siguen, en hojas completas de 6 ----------
  * Hoja Janel J-5164 (igual que Avery 5164): carta, 2 columnas x 3 filas, cada etiqueta de 4 x 3⅓ pulgadas.
  * La base lleva la cuenta de qué claves ya se imprimieron; aquí solo se dibuja el PDF. */
-const ETQ = { listo: null };   // último PDF generado: { url, nombre, archivo, texto }
+const ETQ = { listo: null, cajas: null };
+let CAJAS_ETQ = [];   // cajas de resguardo para sus etiquetas (Dueña y Supervisor)   // último PDF generado: { url, nombre, archivo, texto }
 const etqNombre = l => `Etiquetas ${l.desde} a ${l.hasta} (${l.hojas} ${l.hojas === 1 ? 'hoja' : 'hojas'}).pdf`;
 
 function htmlEtiquetas(e) {
@@ -928,6 +929,166 @@ function conectarEtiquetas(raiz) {
   });
   const compartir = $('#etq-compartir', raiz);
   if (compartir) compartir.onclick = () => navigator.share({ files: [ETQ.listo.archivo], title: ETQ.listo.nombre }).catch(() => {});
+}
+
+/* ---------- Etiquetas de cajas de resguardo (Dueña y Supervisor) ----------
+ * Mismo diseño que el PDF impreso: franja "CAJA DE RESGUARDO", el QR de la caja (el mismo que genera
+ * la app de Cajas: abre esa caja al escanearlo), logo, la posición en grande y cuántas prendas caben.
+ * Hojas Janel J-5164 (carta, 6 por hoja). Además, el mapa de todas las cajas en una hoja horizontal. */
+function cargarQR() {
+  if (window.qrcode) return Promise.resolve(window.qrcode);
+  return new Promise((ok, mal) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+    s.onload = () => ok(window.qrcode);
+    s.onerror = () => { s.parentNode && s.parentNode.removeChild(s); mal(new Error('No se pudo cargar el generador de QR. Revisa tu conexión e intenta de nuevo.')); };
+    document.head.appendChild(s);
+  });
+}
+const partesCaja = id => { const m = /^([A-Z]+)(\d+)$/.exec(String(id || '').toUpperCase()); return m ? [m[1], +m[2]] : [String(id), 0]; };
+const ordenCajas = (a, b) => { const [la, na] = partesCaja(a.id), [lb, nb] = partesCaja(b.id); return na - nb || la.localeCompare(lb); };
+const textoQRCaja = id => new URL('./', location.href).href + '#/caja/' + encodeURIComponent(id);
+const ROJO_PDF = [206, 9, 30];
+// QR sólido: cada tramo de cuadritos negros de un renglón es un solo rectángulo (así no salen rayitas)
+function qrPdf(doc, qrcode, texto, x, y, tam) {
+  const q = qrcode(0, 'M');
+  q.addData(texto);
+  q.make();
+  const n = q.getModuleCount(), borde = 2, m = tam / (n + 2 * borde);
+  doc.setFillColor(255, 255, 255); doc.rect(x, y, tam, tam, 'F');
+  doc.setFillColor(0, 0, 0);
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n;) {
+      if (!q.isDark(r, c)) { c++; continue; }
+      const ini = c;
+      while (c < n && q.isDark(r, c)) c++;
+      doc.rect(x + (borde + ini) * m, y + (borde + r) * m - 0.15, (c - ini) * m, m + 0.3, 'F');
+    }
+  }
+}
+function pdfCajas(cajas, jsPDF, qrcode, logo) {
+  const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
+  const ANCHO = 288, ALTO = 240, IZQ = 11.25, SUP = 36, ENTRE = 13.5, FRANJA = 30;
+  cajas.forEach((caja, i) => {
+    const k = i % 6;
+    if (i && k === 0) doc.addPage('letter');
+    const x = IZQ + (k % 2) * (ANCHO + ENTRE), t = SUP + Math.floor(k / 2) * ALTO, cx = x + ANCHO / 2;
+    const [col, fila] = partesCaja(caja.id), cap = Number(caja.capacidad) || 30, grande = cap > 30;
+    // Franja negra: lo que la distingue de un casillero del live (que también se llaman A1, B1…)
+    doc.setFillColor(0, 0, 0); doc.rect(x + 10, t + 10, ANCHO - 20, FRANJA, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(255, 255, 255);
+    doc.text('CAJA DE RESGUARDO', cx, t + 10 + FRANJA - 9.5, { align: 'center' });
+    // QR a la izquierda
+    const arriba = t + 10 + FRANJA + 4, abajo = t + ALTO - 34, tq = abajo - arriba;
+    qrPdf(doc, qrcode, textoQRCaja(caja.id), x + 8, arriba, tq);
+    // Logo y la posición en grande a la derecha
+    const d0 = x + 8 + tq + 4, d1 = x + ANCHO - 12, dcx = (d0 + d1) / 2;
+    doc.addImage(logo, 'PNG', dcx - 44, arriba + 6, 88, 44, 'logo', 'FAST');
+    let tam = 96;
+    doc.setFontSize(tam);
+    while (doc.getTextWidth(caja.id) > d1 - d0 && tam > 30) doc.setFontSize(--tam);
+    const techo = arriba + 6 + 44 + 4, alto = 0.718 * tam;
+    doc.setTextColor(...ROJO_PDF);
+    doc.text(caja.id, dcx, techo + (abajo - techo - alto) / 2 + alto, { align: 'center' });
+    // Pie
+    doc.setFont('helvetica', grande ? 'bold' : 'normal'); doc.setFontSize(11); doc.setTextColor(50, 50, 50);
+    doc.text(`Columna ${col} · Fila ${fila} · Hasta ${cap} prendas`, cx, t + ALTO - 17, { align: 'center' });
+  });
+  return doc.output('blob');
+}
+function pdfMapaCajas(cajas, jsPDF, logo) {
+  const doc = new jsPDF({ unit: 'pt', format: 'letter', orientation: 'landscape', compress: true });
+  const W = 792, H = 612, M = 36;
+  const cols = [...new Set(cajas.map(c => partesCaja(c.id)[0]))].sort();
+  const filas = [...new Set(cajas.map(c => partesCaja(c.id)[1]))].sort((a, b) => a - b);
+  const porId = new Map(cajas.map(c => [c.id, Number(c.capacidad) || 30]));
+  const capCol = col => Math.max(...cajas.filter(c => partesCaja(c.id)[0] === col).map(c => porId.get(c.id)));
+  // Resumen: qué columnas tienen qué capacidad (p. ej. "A a H: hasta 30 prendas · I y J: hasta 40 prendas")
+  const grupos = [];
+  cols.forEach(col => { const cap = capCol(col), g = grupos[grupos.length - 1]; if (g && g.cap === cap) g.cols.push(col); else grupos.push({ cap, cols: [col] }); });
+  const nombreGrupo = g => g.cols.length === 1 ? g.cols[0] : g.cols.length === 2 ? g.cols.join(' y ') : `${g.cols[0]} a ${g.cols[g.cols.length - 1]}`;
+  const capMin = Math.min(...grupos.map(g => g.cap));
+  doc.setFillColor(255, 255, 255); doc.rect(0, 0, W, H, 'F');
+  doc.addImage(logo, 'PNG', M, M, 100, 50, 'logo', 'FAST');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(25); doc.setTextColor(0, 0, 0);
+  doc.text('Cajas de resguardo', M + 116, M + 24);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(12.5); doc.setTextColor(77, 77, 77);
+  doc.text(`${cajas.length} cajas · ${grupos.map(g => `${nombreGrupo(g)}: hasta ${g.cap} prendas`).join(' · ')} · aquí se guardan las prendas ya pagadas`, M + 116, M + 44, { maxWidth: W - M * 2 - 116 });
+  const izq = M + 30, arriba = M + 92, cw = (W - M - izq) / cols.length, ch = (H - M - 18 - arriba) / filas.length;
+  cols.forEach((col, i) => {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(...ROJO_PDF);
+    doc.text(col, izq + cw * (i + 0.5), arriba - 8, { align: 'center' });
+    if (capCol(col) > capMin) { doc.setFillColor(237, 237, 235); doc.roundedRect(izq + cw * i, arriba - 2, cw, ch * filas.length + 4, 6, 6, 'F'); }
+  });
+  filas.forEach((fila, j) => {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(...ROJO_PDF);
+    doc.text(String(fila), M + 11, arriba + ch * (j + 0.5) + 6, { align: 'center' });
+    cols.forEach((col, i) => {
+      const id = col + fila;
+      if (!porId.has(id)) return;
+      const cap = porId.get(id), x = izq + cw * i, y = arriba + ch * j;
+      doc.setDrawColor(38, 38, 38); doc.setLineWidth(cap > capMin ? 2 : 1.1); doc.setFillColor(255, 255, 255);
+      doc.roundedRect(x + 3.5, y + 3.5, cw - 7, ch - 7, 7, 7, 'FD');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(Math.min(30, cw * 0.42)); doc.setTextColor(0, 0, 0);
+      doc.text(id, x + cw / 2, y + ch / 2 + 6, { align: 'center' });
+      doc.setFont('helvetica', cap > capMin ? 'bold' : 'normal'); doc.setFontSize(9); doc.setTextColor(89, 89, 89);
+      doc.text(`${cap} prendas`, x + cw / 2, y + ch - 12, { align: 'center' });
+    });
+  });
+  const grandes = grupos.filter(g => g.cap > capMin);
+  if (grandes.length) {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(89, 89, 89);
+    doc.text(`Fondo gris: cajas grandes (${grandes.map(g => `${nombreGrupo(g)}: hasta ${g.cap} prendas`).join(' · ')}).`, izq, H - M + 4);
+  }
+  return doc.output('blob');
+}
+const logoNota = () => fetch('icons/logo-nota.png').then(r => { if (!r.ok) throw new Error('No se pudo cargar el logo.'); return r.blob(); })
+  .then(b => new Promise((ok, mal) => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = mal; f.readAsDataURL(b); }));
+const archivoPdf = (blob, nombre) => { let archivo = null; try { archivo = new File([blob], nombre, { type: 'application/pdf' }); } catch (e) { /* solo descarga */ } return { url: URL.createObjectURL(blob), nombre, archivo }; };
+async function prepararPdfCajas(todas, cuales) {
+  const elegidas = cuales.length ? todas.filter(c => cuales.includes(c.id)) : todas;
+  const [jsPDF, qrcode, logo] = await Promise.all([cargarJsPDF(), cargarQR(), logoNota()]);
+  if (ETQ.cajas) { URL.revokeObjectURL(ETQ.cajas.etiquetas.url); URL.revokeObjectURL(ETQ.cajas.mapa.url); }
+  const hojas = Math.ceil(elegidas.length / 6);
+  const rango = cuales.length && elegidas.length <= 4 ? elegidas.map(c => c.id).join(' ') : `${elegidas[0].id} a ${elegidas[elegidas.length - 1].id}`;
+  ETQ.cajas = {
+    etiquetas: archivoPdf(pdfCajas(elegidas, jsPDF, qrcode, logo), `Cajas de resguardo ${rango} (${hojas} ${hojas === 1 ? 'hoja' : 'hojas'}).pdf`),
+    mapa: archivoPdf(pdfMapaCajas(todas, jsPDF, logo), 'Mapa de cajas de resguardo.pdf'),
+    texto: `${elegidas.length} ${elegidas.length === 1 ? 'etiqueta' : 'etiquetas'} de cajas (${hojas} ${hojas === 1 ? 'hoja' : 'hojas'}) y el mapa`,
+  };
+}
+function htmlEtiquetasCajas(cajas) {
+  const listo = ETQ.cajas;
+  const compartible = a => a.archivo && navigator.canShare && navigator.canShare({ files: [a.archivo] });
+  return `<h3 class="seccion">Etiquetas de cajas de resguardo</h3>
+    <div class="tarjeta" id="etiquetas-cajas">
+      ${listo ? `<div class="banner banner-ok">${IC.ok}<span><b>PDF listo:</b> ${esc(listo.texto)}</span></div>
+        <div class="fila-botones">
+          <a class="btn btn-marca" href="${listo.etiquetas.url}" download="${esc(listo.etiquetas.nombre)}">Descargar etiquetas</a>
+          <a class="btn btn-secundario" href="${listo.mapa.url}" download="${esc(listo.mapa.nombre)}">Descargar mapa</a>
+          ${compartible(listo.etiquetas) ? '<button type="button" class="btn btn-secundario" id="etq-cajas-compartir">Compartir etiquetas</button>' : ''}
+        </div>` : ''}
+      <form id="f-etq-cajas" class="formulario">
+        <label>¿Cuáles cajas? <small>Déjalo vacío para todas (${cajas.length})</small>
+          <input name="cuales" placeholder="Ej. A1, B3, J2" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
+        <button class="btn btn-primario">Generar etiquetas de cajas</button>
+      </form>
+      <p class="nota">Cada etiqueta lleva el QR de su caja (el mismo de la app de Cajas: al escanearlo se abre esa caja), la franja "CAJA DE RESGUARDO" y cuántas prendas caben. Para etiquetas Janel J-5164 (6 por hoja) al <b>100 %</b>. El mapa es para papel normal.</p>
+    </div>`;
+}
+function conectarEtiquetasCajas(raiz, cajas) {
+  const f = $('#f-etq-cajas', raiz);
+  if (!f) return;
+  f.onsubmit = async e => {
+    e.preventDefault();
+    const pedidas = [...new Set((f.cuales.value.toUpperCase().match(/[A-Z]+\s*\d+/g) || []).map(t => t.replace(/\s+/g, '')))];
+    const malas = pedidas.filter(id => !cajas.some(c => c.id === id));
+    if (malas.length) return toast(`No existe ${malas.length === 1 ? 'la caja' : 'las cajas'} ${malas.join(', ')}.`, 'error');
+    if (f.cuales.value.trim() && !pedidas.length) return toast('Escribe las cajas así: A1, B3, J2 (o déjalo vacío para todas).', 'error');
+    if (await accion(() => prepararPdfCajas(cajas, pedidas), 'PDF listo para descargar')) pintar();
+  };
+  const b = $('#etq-cajas-compartir', raiz);
+  if (b) b.onclick = () => navigator.share({ files: [ETQ.cajas.etiquetas.archivo], title: ETQ.cajas.etiquetas.nombre }).catch(() => {});
 }
 
 /* ---------- Resurtido: prendas pagadas que hay que reponer en la sala ---------- */
@@ -1727,6 +1888,7 @@ async function vistaPrendas() {
   // Prendas pagadas que falta reponer en la sala (si la base todavía no lo tiene, no se muestra)
   const resurtir = puede.verResurtido() ? await rpc('resurtido_estado').catch(() => null) : null;
   const etq = puede.etiquetas() ? await rpc('etiquetas_estado').catch(() => null) : null;
+  CAJAS_ETQ = puede.etiquetas() ? (await q(sb.from('cajas').select('id, capacidad')).catch(() => [])).sort(ordenCajas) : [];
   const fuera = await rpc('prendas_fuera_de_etiquetas').catch(() => []) || [];
   let detalle = '';
   if (buscada != null) {
@@ -1766,6 +1928,7 @@ async function vistaPrendas() {
     ${resurtir ? `<a href="#resurtir" data-ir="resurtir" class="banner ${resurtir.pendientes ? 'banner-aviso' : 'banner-info'}" style="text-decoration:none">${IC.prendas}<span><b>Por resurtir en ${esc(resurtir.sala)}: ${resurtir.pendientes}</b> ${resurtir.pendientes === 1 ? 'prenda pagada' : 'prendas pagadas'} · ver detalle</span></a>` : ''}
     ${fuera.length ? `<div class="banner banner-aviso">${IC.alerta}<span><b>${fuera.length} ${fuera.length === 1 ? 'prenda apartada tiene' : 'prendas apartadas tienen'} una clave que no está en las etiquetas impresas.</b> Puede ser un error al escribirla. Revisa la etiqueta física:<br>${fuera.map(f => `<b>${esc(f.clave)}</b> · ${esc(nombreCorto(f.clienta))}${f.casillero ? ' · casillero ' + esc(f.casillero) : ''}`).join('<br>')}</span></div>` : ''}
     ${etq ? htmlEtiquetas(etq) : ''}
+    ${CAJAS_ETQ.length ? htmlEtiquetasCajas(CAJAS_ETQ) : ''}
     <h3 class="seccion">Buscar una prenda</h3>
     <form class="enviar" id="f-buscar">
       <input name="n" placeholder="Clave, por ejemplo A23" value="${buscada != null ? num4(buscada) : ''}" autocomplete="off" autocapitalize="characters" aria-label="Clave de la prenda">
@@ -1776,6 +1939,7 @@ async function vistaPrendas() {
 conectar.prendas = raiz => {
   $$('[data-ir]', raiz).forEach(a => a.onclick = e => { e.preventDefault(); irA(a.dataset.ir); });
   conectarEtiquetas(raiz);
+  conectarEtiquetasCajas(raiz, CAJAS_ETQ);
   if ($('#f-rango', raiz)) $('#f-rango', raiz).onsubmit = async e => {
     e.preventDefault();
     const f = e.target;
