@@ -1452,7 +1452,10 @@ async function vistaPrendas() {
   let detalle = '';
   if (buscada != null) {
     const [p] = await q(sb.from('prendas').select('*').eq('numero', buscada));
-    if (!p) detalle = `<div class="tarjeta"><b>${num4(buscada)}</b><p class="nota">Esa clave no está registrada. Regístrala con el rango de arriba.</p></div>`;
+    if (!p) detalle = `<div class="tarjeta">
+        <div class="cas-cab"><b style="font-size:24px">${num4(buscada)}</b><span class="chip chip-ok">Disponible</span></div>
+        <p>Nadie ha pedido esta prenda en ningún live.</p>
+        <p class="nota">No es de ninguna clienta: va en el rack. Las prendas aparecen aquí con su dueña y su casillero en cuanto alguien comenta su clave.</p></div>`;
     else {
       const hist = await q(sb.from('live_feed').select('*').eq('prenda', buscada).order('creado_en', { ascending: false }).limit(30));
       const ET = { disponible: ['chip-ok', 'Disponible'], apartada: ['chip-aviso', 'Apartada'], pagada: ['chip-info', 'Vendida'], enviada: ['chip', 'Enviada'], baja: ['chip-vencida', 'Baja'] };
