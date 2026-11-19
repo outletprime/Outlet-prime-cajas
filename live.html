@@ -243,6 +243,8 @@ body.host #vista { max-width: none; padding: calc(var(--sup) + 14px) 20px 24px; 
 .acomodo-btns { display: flex; gap: 8px; }
 .btn-arrep { display: inline-block; margin-top: 6px; padding: 4px 10px; min-height: 30px; border-radius: 10px; border: 1px solid var(--borde); background: var(--superficie); color: var(--texto-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .btn-arrep:active { background: var(--superficie-2); }
+.pt-casilla { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--borde); border-radius: 12px; font-weight: 600; }
+.pt-casilla input { width: 22px; height: 22px; flex: none; margin: 1px 0 0; }
 .acomodo-x { min-width: 52px; min-height: 52px; border-radius: 14px; padding: 0; background: var(--superficie); color: var(--vencida); border: 2px solid var(--vencida); font-size: 26px; font-weight: 700; line-height: 1; }
 .acomodo-x:active { background: var(--vencida-suave); }
 .acomodo-hecha { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -1689,7 +1691,7 @@ function siguientePaso(c) {
     case 'pagada':
       if (!c.caja) return { chip: ['chip-vencida', 'Sin caja libre'], paso: 'No hay cajas libres: crea más en la app de Cajas', accion: 'caja', boton: 'Reintentar caja', sinCaja: true };
       return { chip: ['chip-ok', 'Pagado'], paso: `Mover a la caja <b>${esc(c.caja)}</b>`, accion: 'listo', boton: 'Ya está en la caja' };
-    case 'vencida': return { chip: ['chip-vencida', 'Sin pago'], paso: '<b>Regresar las prendas a racks</b>', accion: 'listo', boton: 'Ya las regresé' };
+    case 'vencida': return { chip: ['chip-vencida', 'Sin pago'], paso: '<b>Regresar las prendas a racks</b>', accion: 'listo', boton: 'Ya las regresé', tardio: true };
     case 'cancelada': return { chip: ['chip', 'Cancelada'], paso: 'Vaciar el casillero', accion: 'listo', boton: 'Ya está vacío' };
     default: return { chip: ['chip', c.estado], paso: '' };
   }
@@ -1710,12 +1712,20 @@ async function vistaCasilleros() {
   const visibles = lista.filter(FILTROS.find(f => f[0] === filtroCas)[2])
     .sort((a, b) => String(a.casillero || 'Z').localeCompare(String(b.casillero || 'Z')) || a.folio - b.folio);
   const ocupados = lista.filter(c => c.casillero).length;
+  const regresados = puede.duena()
+    ? await q(sb.from('live_tablero').select('id, folio, clienta, casillero, vencida_en').eq('estado', 'vencida').not('casillero_liberado_en', 'is', null)
+        .gt('vencida_en', new Date(Date.now() - 7 * 864e5).toISOString()).order('vencida_en', { ascending: false }).limit(30)).catch(() => [])
+    : [];
   return `
     <div class="filtros" role="group" aria-label="Filtrar">
       ${FILTROS.map(([id, nombre, fn]) => `<button type="button" class="filtro" data-filtro="${id}" aria-pressed="${filtroCas === id}">${nombre}<b>${lista.filter(fn).length}</b></button>`).join('')}
     </div>
     <small>${ocupados} ${ocupados === 1 ? 'casillero ocupado' : 'casilleros ocupados'}</small>
-    ${visibles.length ? visibles.map(tarjetaCasillero).join('') : `<div class="vacio">${IC.casilleros}<h2>Nada por aquí</h2><p>${filtroCas === 'todos' ? 'No hay casilleros ocupados.' : 'No hay casilleros en este filtro.'}</p></div>`}`;
+    ${visibles.length ? visibles.map(tarjetaCasillero).join('') : `<div class="vacio">${IC.casilleros}<h2>Nada por aquí</h2><p>${filtroCas === 'todos' ? 'No hay casilleros ocupados.' : 'No hay casilleros en este filtro.'}</p></div>`}
+    ${regresados.length ? `<details class="tarjeta"><summary>Sin pago, ya regresados al rack (${regresados.length})</summary>
+      <p class="nota">Pedidos que vencieron en los últimos 7 días. Si la clienta pagó tarde, aquí se rescatan.</p>
+      <div class="lista-simple">${regresados.map(c => `<div class="acomodo-hecha"><span><b>${esc(c.clienta)}</b> · ${folio(c.folio)}<br><small>venció ${fechaHora(c.vencida_en)}${c.casillero ? ' · estaba en ' + esc(c.casillero) : ''}</small></span>
+        <button type="button" class="btn btn-mini btn-marca" data-tardio="${c.id}">Pago tardío</button></div>`).join('')}</div></details>` : ''}`;
 }
 function tarjetaCasillero(c) {
   const s = siguientePaso(c);
@@ -1732,6 +1742,7 @@ function tarjetaCasillero(c) {
         ${s.accion && (s.accion === 'caja' ? puede.duena() : puede.operar()) ? `<button class="btn btn-mini btn-primario" data-${s.accion}="${c.id}">${esc(s.boton)}</button>` : ''}
         ${s.cobro && puede.operar() ? `<button class="btn btn-mini ${s.cobro === 'mandar' ? 'btn-marca' : 'btn-secundario'}" data-cobro="${c.id}">${s.cobro === 'mandar' ? 'Mandar nota de cobro' : 'Ver nota de cobro'}</button>` : ''}
         ${s.pago && puede.duena() ? `<button class="btn btn-mini btn-primario" data-pago="${c.id}">Registrar pago</button>` : ''}
+        ${s.tardio && puede.duena() ? `<button class="btn btn-mini btn-marca" data-tardio="${c.id}">Pago tardío</button>` : ''}
       </div>
     </div>
   </article>`;
@@ -1752,6 +1763,7 @@ conectar.casilleros = raiz => {
     else if (caja) { toast(`Asignada a la caja ${caja}`); pintar(); }
   });
   $$('[data-pago]', raiz).forEach(b => b.onclick = () => registrarPago(D.tablero.find(c => c.id === b.dataset.pago)));
+  $$('[data-tardio]', raiz).forEach(b => b.onclick = () => pagoTardio(b.dataset.tardio));
   $$('[data-cobro]', raiz).forEach(b => b.onclick = () => mandarCobro(D.tablero.find(c => c.id === b.dataset.cobro)));
 };
 // Pedido de un casillero, prenda por prenda: Encontrada / No encontrada
@@ -1881,6 +1893,62 @@ async function mandarCobro(c) {
         catch (e) { $('#cobro-texto', f).select(); toast('Mantén presionado el texto para copiarlo.', 'error'); }
       };
     },
+  });
+  pintar();
+}
+// Pago tardío (solo Dueñas): rescata un pedido que ya había vencido. Sus prendas vuelven a su pedido,
+// queda pagado y pasan a su caja de resguardo.
+async function pagoTardio(id) {
+  const info = await accion(() => rpc('live_pago_tardio_info', { p_cuenta: id }));
+  if (!info || info === true) return;
+  const ps = info.prendas || [];
+  const libres = ps.filter(x => x.estado === 'libre'), otras = ps.filter(x => x.estado === 'otra'), no = ps.filter(x => x.estado === 'no');
+  const suma = l => l.reduce((t, x) => t + Number(x.precio || 0), 0);
+  const fila = (x, extra = '') => `<tr><td><b>${esc(x.clave)}</b>${extra}</td><td>${dinero(x.precio)}</td></tr>`;
+  const perdidas = no.length ? `<p class="nota">No se pueden recuperar: ${no.map(x => `${esc(x.clave)} (${esc(x.motivo)})`).join(', ')}.</p>` : '';
+  if (!libres.length && !otras.length) {
+    await modal({ titulo: `Pago tardío · ${info.folio}`, html: `<p>Ya no se puede rescatar el pedido de <b>${esc(info.clienta)}</b>.</p>${perdidas}`, botones: [{ texto: 'Cerrar', valor: true }] });
+    return;
+  }
+  const datos = await modal({
+    titulo: `Pago tardío · ${info.folio}`,
+    html: `<div class="formulario">
+      <p><b>${esc(info.clienta)}</b> pagó después del plazo. Sus prendas vuelven a su pedido, queda pagado y pasan a su caja de resguardo.</p>
+      ${libres.length ? `<p><b>Se recuperan</b> (${libres.length}):</p><table class="rev-cuenta">${libres.map(x => fila(x, x.en_rack ? ' <small>· ya está en el rack</small>' : '')).join('')}</table>` : ''}
+      ${otras.length ? `<p><b>Al vencer pasaron a otra clienta de la lista de espera</b> (${otras.length}), que todavía no paga:</p>
+        <table class="rev-cuenta">${otras.map(x => fila(x, ` <small>· ahora de ${esc(nombreCorto(x.otra))}</small>`)).join('')}</table>
+        <label class="pt-casilla"><input type="checkbox" id="pt-quitar"><span>Quitárselas y devolvérselas a ${esc(nombreCorto(info.clienta))}</span></label>` : ''}
+      ${perdidas}
+      <table class="rev-cuenta"><tr class="rev-total"><td>Total que pagó</td><td id="pt-total"></td></tr></table>
+      <label>Referencia (opcional)<input id="pt-ref" placeholder="Ej. rastreo SPEI" autocomplete="off"></label>
+      <p class="nota">El pago tardío es por el total. Confírmalo solo si ya recibiste ese pago completo.</p></div>`,
+    botones: [{ texto: 'Cancelar', valor: null }, { texto: 'Registrar pago tardío', valor: el => {
+      const quitar = !!($('#pt-quitar', el) || {}).checked;
+      if (!libres.length && !quitar) { toast('Marca la casilla para devolverle sus prendas, o cancela.', 'error'); return undefined; }
+      return { quitar, ref: $('#pt-ref', el).value };
+    } }],
+    alAbrir: f => {
+      const casilla = $('#pt-quitar', f);
+      const total = () => { $('#pt-total', f).textContent = dinero(suma(libres) + (casilla && casilla.checked ? suma(otras) : 0)); };
+      if (casilla) casilla.onchange = total;
+      total();
+    },
+  });
+  if (!datos) return;
+  const lista = datos.quitar ? libres.concat(otras) : libres, total = suma(lista);
+  if (!(await confirmar('¿Registrar el pago tardío?', `<p>Confirmas que <b>${esc(info.clienta)}</b> ya pagó <b>${dinero(total)}</b> por ${lista.length} ${lista.length === 1 ? 'prenda' : 'prendas'}: ${esc(lista.map(x => x.clave).join(', '))}.</p>
+    ${datos.quitar && otras.length ? `<p>Se le quitan a: ${esc(otras.map(x => `${x.clave} (${nombreCorto(x.otra)})`).join(', '))}.</p>` : ''}`, 'Sí, ya pagó'))) return;
+  const r = await accion(() => rpc('live_pago_tardio', { p_cuenta: id, p_quitar_a_otras: datos.quitar, p_usuario: usuario.nombre, p_referencia: datos.ref }));
+  if (!r || r === true) return;
+  const l = a => esc((a || []).join(', '));
+  await modal({
+    titulo: 'Pago tardío registrado',
+    html: `<p><b>${esc(r.clienta)}</b> · ${esc(r.folio)} · pagado ${dinero(r.monto_pagado)}</p>
+      <div class="banner banner-ok">${IC.ok}<span>${r.caja ? `Lleva sus prendas a la <b>caja de resguardo ${esc(r.caja)}</b>` : '<b>No hay cajas libres:</b> crea más en la app de Cajas'}: ${l(r.recuperadas)}.</span></div>
+      ${(r.en_rack || []).length ? `<p>Ya estaban en el rack, hay que sacarlas de ahí: <b>${l(r.en_rack)}</b>.</p>` : r.casillero ? `<p>Siguen en el casillero <b>${esc(r.casillero)}</b>.</p>` : ''}
+      ${(r.quitadas || []).length ? `<p>Se le quitaron a quien las recibió de la lista de espera: ${l(r.quitadas)}.</p>` : ''}
+      ${(r.no_recuperadas || []).length ? `<p>No se pudieron recuperar: ${l(r.no_recuperadas)}.</p>` : ''}`,
+    botones: [{ texto: 'Listo', valor: true }],
   });
   pintar();
 }
