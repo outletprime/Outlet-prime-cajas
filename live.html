@@ -243,6 +243,8 @@ body.host #vista { max-width: none; padding: calc(var(--sup) + 14px) 20px 24px; 
 .acomodo-btns { display: flex; gap: 8px; }
 .btn-arrep { display: inline-block; margin-top: 6px; padding: 4px 10px; min-height: 30px; border-radius: 10px; border: 1px solid var(--borde); background: var(--superficie); color: var(--texto-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .btn-arrep:active { background: var(--superficie-2); }
+.pagado-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+.pagado-fila small { display: block; }
 .pt-casilla { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--borde); border-radius: 12px; font-weight: 600; }
 .pt-casilla input { width: 22px; height: 22px; flex: none; margin: 1px 0 0; }
 .acomodo-x { min-width: 52px; min-height: 52px; border-radius: 14px; padding: 0; background: var(--superficie); color: var(--vencida); border: 2px solid var(--vencida); font-size: 26px; font-weight: 700; line-height: 1; }
@@ -458,6 +460,8 @@ const puede = {
   verResurtido: () => ['duena', 'operacion', 'supervisor', 'resurtido'].includes(ROL),
   // Generar el PDF de etiquetas con las claves que siguen (lo imprime el supervisor)
   etiquetas: () => ['duena', 'supervisor'].includes(ROL),
+  // Ver los pedidos ya pagados con sus claves e imprimir su PDF
+  pagados: () => ['duena', 'supervisor'].includes(ROL),
   // Agregar clientas desde Ajustes con los datos que mandaron por DM
   agregarClienta: () => ['duena', 'supervisor'].includes(ROL),
 };
@@ -799,8 +803,12 @@ function pdfNota(n, jsPDF, logo) {
 
   // Alto de la página según lo que lleva
   const altoPrendas = 30 + filas * FILA;
-  const altoDatos = clabe ? 58 + datos.length * 30 + 52 : 50;
-  const H = 238 + altoPrendas + 22 + (Number(n.pagado) > 0 ? 82 : 64) + 20 + altoDatos + 20 + 76 + 40;
+  const pagada = !!n.pagada;                       // pedido ya pagado: mismo diseño, sin datos para transferir
+  const abono = !pagada && Number(n.pagado) > 0;
+  const VERDE = [47, 125, 79];
+  const altoDatos = pagada ? 100 : clabe ? 58 + datos.length * 30 + 52 : 50;
+  const altoPie = pagada ? 44 : 76;
+  const H = 238 + altoPrendas + 22 + (abono ? 82 : 64) + 20 + altoDatos + 20 + altoPie + 40;
   const doc = new jsPDF({ unit: 'pt', format: [W, H], compress: true });
   const centro = (txt, y) => doc.text(txt, W / 2, y, { align: 'center' });
   const linea = (y, color = 215) => { doc.setDrawColor(color); doc.setLineWidth(0.8); doc.line(M, y, W - M, y); };
@@ -811,7 +819,7 @@ function pdfNota(n, jsPDF, logo) {
   // Encabezado
   doc.addImage(logo, 'PNG', (W - 190) / 2, 26, 190, 95, 'logo', 'FAST');
   doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(20);
-  centro('NOTA DE COBRO', 150);
+  centro(pagada ? 'PEDIDO PAGADO' : 'NOTA DE COBRO', 150);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(GRIS);
   centro(`Folio ${n.folio}${n.fecha ? ' · ' + (n.tipo === 'prime' ? 'Prime Live' : 'Live') + ' del ' + fecha(n.fecha) : ''}`, 167);
   doc.setDrawColor(...ROJO); doc.setLineWidth(2.5); doc.line(M, 182, W - M, 182);
@@ -840,16 +848,16 @@ function pdfNota(n, jsPDF, logo) {
 
   // Total
   y += 14;
-  if (Number(n.pagado) > 0) {
+  if (abono) {
     doc.setFontSize(11.5); doc.setTextColor(60);
     doc.text('Total del pedido', M, y + 2); doc.text(pesos(n.total), W - M, y + 2, { align: 'right' });
     doc.text('Ya pagaste', M, y + 20); doc.text('- ' + pesos(n.pagado), W - M, y + 20, { align: 'right' });
     y += 30;
   }
-  doc.setFillColor(...ROJO); doc.roundedRect(M, y, W - 2 * M, 52, 8, 8, 'F');
+  doc.setFillColor(...(pagada ? VERDE : ROJO)); doc.roundedRect(M, y, W - 2 * M, 52, 8, 8, 'F');
   doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
-  doc.text(Number(n.pagado) > 0 ? 'FALTA POR PAGAR' : 'TOTAL A PAGAR', M + 16, y + 31);
-  doc.setFontSize(25); doc.text(pesos(falta), W - M - 16, y + 35, { align: 'right' });
+  doc.text(pagada ? 'TOTAL PAGADO' : abono ? 'FALTA POR PAGAR' : 'TOTAL A PAGAR', M + 16, y + 31);
+  doc.setFontSize(25); doc.text(pesos(pagada ? n.total : falta), W - M - 16, y + 35, { align: 'right' });
   y += 52 + 22;
 
   // Datos para transferir
@@ -857,8 +865,15 @@ function pdfNota(n, jsPDF, logo) {
   doc.roundedRect(M, y, W - 2 * M, altoDatos, 8, 8, 'FD');
   let yd = y + 26;
   doc.setTextColor(20); doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5);
-  doc.text('DATOS PARA TRANSFERENCIA O DEPÓSITO', M + 16, yd);
-  if (clabe) {
+  doc.text(pagada ? 'PAGO RECIBIDO' : 'DATOS PARA TRANSFERENCIA O DEPÓSITO', M + 16, yd);
+  if (pagada) {
+    yd += 28;
+    [['Fecha de pago', n.pagada_en ? `${fecha(n.pagada_en)}, ${horaTxt(n.pagada_en)}` : '—'], ['Caja de resguardo', n.caja || 'Por asignar']].forEach(([k, v]) => {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(GRIS); doc.text(k.toUpperCase(), M + 16, yd - 11);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(20); doc.text(String(v), M + 16, yd + 4);
+      yd += 30;
+    });
+  } else if (clabe) {
     yd += 28;
     datos.forEach(([k, v]) => {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(GRIS); doc.text(k.toUpperCase(), M + 16, yd - 11);
@@ -878,29 +893,29 @@ function pdfNota(n, jsPDF, logo) {
 
   // Plazo y comprobante
   doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(40);
-  const avisos = [
+  const avisos = pagada ? 'Pedido pagado. Las prendas se guardan en su caja de resguardo hasta el envío.' : [
     n.limite_pago ? `Paga antes de las ${cuando(n.limite_pago)}.` : '',
     n.liberar_en ? `Si no recibimos tu pago, a las ${cuando(n.liberar_en)} tus prendas se liberan para otras clientas.` : '',
     'Al pagar, mándanos tu comprobante por WhatsApp.',
   ].filter(Boolean).join(' ');
   doc.text(doc.splitTextToSize(avisos, W - 2 * M), M, y + 4, { lineHeightFactor: 1.35 });
-  y += 76;
+  y += altoPie;
 
   linea(y);
   doc.setFontSize(10); doc.setTextColor(GRIS);
   centro('¡Gracias por tu compra! · Outlet Prime', y + 20);
   return doc;
 }
-// Arma la nota en PDF de un pedido (solo Dueña) y la deja lista para descargar o compartir
-async function prepararNotaPdf(cuenta) {
+// Arma en PDF la nota de cobro (solo Dueña) o el pedido ya pagado (Dueña y Supervisor), lista para descargar o compartir
+async function prepararNotaPdf(cuenta, pagado = false) {
   const [n, jsPDF, logo] = await Promise.all([
-    rpc('live_nota_datos', { p_cuenta: cuenta }),
+    rpc(pagado ? 'live_pedido_pagado_datos' : 'live_nota_datos', { p_cuenta: cuenta }),
     cargarJsPDF(),
     fetch('icons/logo-nota.png').then(r => { if (!r.ok) throw new Error('No se pudo cargar el logo.'); return r.blob(); })
       .then(b => new Promise((ok, mal) => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = mal; f.readAsDataURL(b); })),
   ]);
   const blob = pdfNota(n, jsPDF, logo).output('blob');
-  const nombre = `Nota ${n.folio} ${String(n.clienta || '').replace(/[^\p{L}\p{N} ]/gu, '').trim()}.pdf`.replace(/\s+/g, ' ');
+  const nombre = `${pagado ? 'Pedido pagado' : 'Nota'} ${n.folio} ${String(n.clienta || '').replace(/[^\p{L}\p{N} ]/gu, '').trim()}.pdf`.replace(/\s+/g, ' ');
   let archivo = null;
   try { archivo = new File([blob], nombre, { type: 'application/pdf' }); } catch (e) { /* navegadores viejos: solo descarga */ }
   return { url: URL.createObjectURL(blob), nombre, archivo };
@@ -1658,6 +1673,7 @@ function conectarPrime(raiz) {
 
 /* ---------- Casilleros ---------- */
 let filtroCas = 'todos';
+let pagadosAbierto = false;   // la sección "Pedidos pagados" se queda como la dejó la persona aunque el panel se actualice
 // Pedido en revisión: el live ya cerró y falta confirmar que todas sus prendas están en el casillero
 const esRevision = c => c.estado === 'abierta' && c.live_estado === 'cerrado';
 // Prendas que no se van a cobrar: no se encontraron o no se pueden vender
@@ -1712,6 +1728,10 @@ async function vistaCasilleros() {
   const visibles = lista.filter(FILTROS.find(f => f[0] === filtroCas)[2])
     .sort((a, b) => String(a.casillero || 'Z').localeCompare(String(b.casillero || 'Z')) || a.folio - b.folio);
   const ocupados = lista.filter(c => c.casillero).length;
+  const pagados = puede.pagados()
+    ? await q(sb.from('live_tablero').select('id, folio, clienta, casillero, caja, piezas, total, piezas_txt, pagada_en, casillero_liberado_en').eq('estado', 'pagada')
+        .gt('pagada_en', new Date(Date.now() - 30 * 864e5).toISOString()).order('pagada_en', { ascending: false }).limit(150)).catch(() => [])
+    : [];
   const regresados = puede.duena()
     ? await q(sb.from('live_tablero').select('id, folio, clienta, casillero, vencida_en').eq('estado', 'vencida').not('casillero_liberado_en', 'is', null)
         .gt('vencida_en', new Date(Date.now() - 7 * 864e5).toISOString()).order('vencida_en', { ascending: false }).limit(30)).catch(() => [])
@@ -1722,6 +1742,12 @@ async function vistaCasilleros() {
     </div>
     <small>${ocupados} ${ocupados === 1 ? 'casillero ocupado' : 'casilleros ocupados'}</small>
     ${visibles.length ? visibles.map(tarjetaCasillero).join('') : `<div class="vacio">${IC.casilleros}<h2>Nada por aquí</h2><p>${filtroCas === 'todos' ? 'No hay casilleros ocupados.' : 'No hay casilleros en este filtro.'}</p></div>`}
+    ${pagados.length ? `<details class="tarjeta" id="sec-pagados"${pagadosAbierto ? ' open' : ''}><summary>Pedidos pagados (${pagados.length})</summary>
+      <p class="nota">Pagados en los últimos 30 días, del más reciente al más antiguo, con las claves de sus prendas. El PDF trae lo mismo que la nota de cobro, ya como pedido pagado.</p>
+      <div class="lista-simple">${pagados.map(c => `<div class="pagado-fila"><div><b>${esc(c.clienta)}</b> · ${folio(c.folio)}
+          <small>${fechaHora(c.pagada_en)} · ${c.piezas} ${c.piezas === 1 ? 'prenda' : 'prendas'} · ${dinero(c.total)} · ${c.caja ? 'caja ' + esc(c.caja) : 'sin caja'}${c.casillero_liberado_en ? '' : ' · todavía en el casillero ' + esc(c.casillero || '—')}</small>
+          <div class="piezas">${esc(c.piezas_txt || '')}</div></div>
+        <button type="button" class="btn btn-mini btn-secundario" data-pdf-pagado="${c.id}">PDF</button></div>`).join('')}</div></details>` : ''}
     ${regresados.length ? `<details class="tarjeta"><summary>Sin pago, ya regresados al rack (${regresados.length})</summary>
       <p class="nota">Pedidos que vencieron en los últimos 7 días. Si la clienta pagó tarde, aquí se rescatan.</p>
       <div class="lista-simple">${regresados.map(c => `<div class="acomodo-hecha"><span><b>${esc(c.clienta)}</b> · ${folio(c.folio)}<br><small>venció ${fechaHora(c.vencida_en)}${c.casillero ? ' · estaba en ' + esc(c.casillero) : ''}</small></span>
@@ -1769,6 +1795,22 @@ conectar.casilleros = raiz => {
   });
   $$('[data-pago]', raiz).forEach(b => b.onclick = () => registrarPago(D.tablero.find(c => c.id === b.dataset.pago)));
   $$('[data-tardio]', raiz).forEach(b => b.onclick = () => pagoTardio(b.dataset.tardio));
+  const secPagados = $('#sec-pagados', raiz);
+  if (secPagados) secPagados.ontoggle = () => { pagadosAbierto = secPagados.open; };
+  $$('[data-pdf-pagado]', raiz).forEach(b => b.onclick = async () => {
+    const pdf = await accion(() => prepararNotaPdf(b.dataset.pdfPagado, true));
+    if (!pdf || pdf === true) return;
+    const compartir = pdf.archivo && navigator.canShare && navigator.canShare({ files: [pdf.archivo] });
+    await modal({
+      titulo: 'PDF del pedido pagado',
+      html: `<p>${esc(pdf.nombre)}</p>
+        <div class="fila-botones"><a class="btn btn-primario" href="${pdf.url}" download="${esc(pdf.nombre)}">Descargar PDF</a>
+          ${compartir ? '<button type="button" class="btn btn-secundario" id="pp-compartir">Compartir o imprimir</button>' : ''}</div>
+        <p class="nota">En el celular, "Compartir o imprimir" abre las opciones del teléfono, donde está Imprimir.</p>`,
+      botones: [{ texto: 'Cerrar', valor: true }],
+      alAbrir: f => { const c = $('#pp-compartir', f); if (c) c.onclick = () => navigator.share({ files: [pdf.archivo], title: pdf.nombre }).catch(() => {}); },
+    });
+  });
   $$('[data-cobro]', raiz).forEach(b => b.onclick = () => mandarCobro(D.tablero.find(c => c.id === b.dataset.cobro)));
 };
 // Pedido de un casillero, prenda por prenda: Encontrada / No encontrada
