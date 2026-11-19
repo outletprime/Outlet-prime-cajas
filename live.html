@@ -240,6 +240,9 @@ body.host #vista { max-width: none; padding: calc(var(--sup) + 14px) 20px 24px; 
 .acomodo-cas { color: var(--marca); }
 .acomodo-ok { min-width: 64px; min-height: 52px; border-radius: 14px; }
 .acomodo-ok svg { width: 26px; height: 26px; }
+.acomodo-btns { display: flex; gap: 8px; }
+.acomodo-x { min-width: 52px; min-height: 52px; border-radius: 14px; padding: 0; background: var(--superficie); color: var(--vencida); border: 2px solid var(--vencida); font-size: 26px; font-weight: 700; line-height: 1; }
+.acomodo-x:active { background: var(--vencida-suave); }
 .acomodo-hecha { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
 .rev-resumen { font-size: 16px; }
@@ -643,8 +646,8 @@ async function vistaAcomodo() {
   const filas = await q(sb.from('live_acomodo').select('*').order('creado_en', { ascending: true }).limit(500));
   const acomodar = filas.filter(f => f.tarea === 'acomodar');
   const regresar = filas.filter(f => f.tarea === 'regresar');
-  const hechas = filas.filter(f => f.tarea === 'hecho')
-    .sort((a, b) => new Date(b.regresada_en || b.acomodada_en) - new Date(a.regresada_en || a.acomodada_en)).slice(0, 15);
+  const cuando = f => new Date(f.regresada_en || f.codigo_equivocado_en || f.acomodada_en);
+  const hechas = filas.filter(f => f.tarea === 'hecho').sort((a, b) => cuando(b) - cuando(a)).slice(0, 15);
   const charola = D.dms.flatMap(d => d.provisionales.map(n => ({ n, d })));
   // Pedidos de un live ya cerrado: se revisan en físico antes de cobrar
   const revision = D.tablero.filter(esRevision)
@@ -660,7 +663,7 @@ async function vistaAcomodo() {
     <h3 class="seccion">Llevar a su casillero · ${acomodar.length}</h3>
     ${acomodar.length ? `<div class="acomodo">${acomodar.map(f => `<div class="acomodo-fila">
         <div><b class="acomodo-num">${esc(f.etiqueta)}</b> <span class="flecha">→</span> <b class="acomodo-cas">${esc(f.casillero || 'SIN CASILLERO')}</b><small>${esc(nombreCorto(f.clienta))} · ${hora(f.creado_en)}</small></div>
-        ${boton(f, 'acomodar')}</div>`).join('')}</div>`
+        ${puede.acomodar() ? `<div class="acomodo-btns"><button type="button" class="btn acomodo-x" data-equivocado="${f.id}" data-etq="${esc(f.etiqueta)}" data-cl="${esc(nombreCorto(f.clienta))}" aria-label="Código equivocado ${esc(f.etiqueta)}">✕</button>${boton(f, 'acomodar')}</div>` : boton(f, 'acomodar')}</div>`).join('')}</div>`
       : '<div class="vacio"><p>Todo acomodado 👌</p></div>'}
     ${regresar.length ? `<h3 class="seccion">Regresar al rack · ${regresar.length}</h3>
     <p class="nota">Prendas que se liberaron (no pagaron o se quitaron). Sácalas del casillero y regrésalas al rack.</p>
@@ -671,8 +674,8 @@ async function vistaAcomodo() {
     <p class="nota">Las pidieron clientas nuevas que aún no se registran. Déjalas en la charola: cuando se registren aparecen arriba con su casillero; si no, se liberan solas.</p>
     <div class="tarjeta"><div class="lista-simple">${charola.map(x => `<div><b>${num4(x.n)}</b> · @${esc(x.d.usuario)} · ${esc(RED[x.d.red] || x.d.red)} · <span data-fin="${D.cargadoEn + x.d.segundos * 1000}">${mmss(x.d.segundos)}</span></div>`).join('')}</div></div>` : ''}
     ${hechas.length ? `<details class="tarjeta"><summary>Hechas recientemente (${hechas.length})</summary>
-      <div class="lista-simple">${hechas.map(f => `<div class="acomodo-hecha"><span><b>${esc(f.etiqueta)}</b> ${f.regresada_en ? '→ rack' : '→ ' + esc(f.casillero || '—')} · <small>${hora(f.regresada_en || f.acomodada_en)} · ${esc((f.regresada_por || f.acomodada_por || '').split('@')[0])}</small></span>
-        ${puede.acomodar() ? `<button type="button" class="btn btn-mini btn-secundario" data-deshacer="${f.id}" data-cual="${f.regresada_en ? 'regresar' : 'acomodar'}">Deshacer</button>` : ''}</div>`).join('')}</div></details>` : ''}`;
+      <div class="lista-simple">${hechas.map(f => { const malo = !f.regresada_en && !f.acomodada_en && f.codigo_equivocado_en; return `<div class="acomodo-hecha"><span><b>${esc(f.etiqueta)}</b> ${f.regresada_en ? '→ rack' : malo ? '<span class="chip chip-vencida">✕ código equivocado</span>' : '→ ' + esc(f.casillero || '—')} · <small>${hora(f.regresada_en || (malo ? f.codigo_equivocado_en : f.acomodada_en))} · ${esc((f.regresada_por || (malo ? f.codigo_equivocado_por : f.acomodada_por) || '').split('@')[0])}</small></span>
+        ${puede.acomodar() ? `<button type="button" class="btn btn-mini btn-secundario" data-deshacer="${f.id}" data-cual="${f.regresada_en ? 'regresar' : malo ? 'equivocado' : 'acomodar'}">Deshacer</button>` : ''}</div>`; }).join('')}</div></details>` : ''}`;
 }
 function filaRevision(c) {
   const enc = +c.rev_encontradas || 0, no = faltanRev(c), pend = +c.rev_pendientes || 0, total = enc + no + pend;
@@ -698,7 +701,13 @@ function conectarAcomodo(raiz) {
   });
   $$('[data-regresar]', raiz).forEach(b => b.onclick = () => marcar('live_regresar_rack', b.dataset.regresar));
   $$('[data-deshacer]', raiz).forEach(b => b.onclick = () =>
-    marcar(b.dataset.cual === 'regresar' ? 'live_regresar_rack' : 'live_acomodar', b.dataset.deshacer, true));
+    marcar({ regresar: 'live_regresar_rack', equivocado: 'live_codigo_equivocado' }[b.dataset.cual] || 'live_acomodar', b.dataset.deshacer, true));
+  // X: la clave no corresponde (no aparece esa etiqueta o no es la prenda). Sale de la lista y se avisa al equipo.
+  $$('[data-equivocado]', raiz).forEach(b => b.onclick = async () => {
+    if (!(await confirmar('Código equivocado', `<p>¿Marcar la <b>${esc(b.dataset.etq)}</b>${b.dataset.cl ? ` de <b>${esc(b.dataset.cl)}</b>` : ''} como <b>código equivocado</b>?</p>
+      <p>Sale de tu lista y le llega un aviso a la dueña para revisarlo con la clienta. Si te equivocaste, la regresas con <b>Deshacer</b> en "Hechas recientemente".</p>`, 'Sí, código equivocado', true))) return;
+    if (await accion(() => rpc('live_codigo_equivocado', { p_apartado: b.dataset.equivocado, p_por: usuario.nombre || usuario.email }), 'Marcada: código equivocado')) pintar();
+  });
 }
 
 /* ---------- Etiquetas: PDF con las claves que siguen, en hojas completas de 6 ----------
@@ -1746,7 +1755,7 @@ function htmlDetalle(d) {
   const pend = ps.filter(p => !p.revision).length;
   const editable = d.revisable && puede.confirmarPedido();
   const varios = !!d.casilleros && d.casilleros !== d.casillero;   // la clienta ocupa más de un casillero
-  const estado = p => ({ encontrada: '✓ Encontrada', no_encontrada: '✕ No encontrada', no_vendible: '⚠ No vendible' })[p.revision] || 'Por revisar';
+  const estado = p => (({ encontrada: '✓ Encontrada', no_encontrada: '✕ No encontrada', no_vendible: '⚠ No vendible' })[p.revision] || 'Por revisar') + (p.codigo_equivocado ? ' · ⚠️ marcada con código equivocado' : '');
   return `
     <p class="rev-resumen"><b>${enc} de ${ps.length}</b> ${ps.length === 1 ? 'encontrada' : 'encontradas'}${no.length ? ` · <b style="color:var(--vencida)">${no.length} ${no.length === 1 ? 'no se cobra' : 'no se cobran'}</b>` : ''}${pend ? ` · ${pend} por revisar` : ''}</p>
     ${d.revisable ? '' : `<p class="nota">${d.estado === 'abierta' ? 'El live sigue abierto: la revisión empieza al cerrarlo.' : 'Este pedido ya se confirmó; ya no está en revisión.'}</p>`}
