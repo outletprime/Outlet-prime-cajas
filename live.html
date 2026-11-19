@@ -1263,7 +1263,7 @@ function montar() {
       <img src="icons/logo-oscuro.png" alt="Outlet Prime">
       <h1 id="titulo">Live</h1>
       ${ROL === 'supervisor' ? '<span class="chip chip-monitor">Monitor</span>' : ROL === 'operacion' ? '<span class="chip chip-monitor">Operación</span>' : ROL === 'live' ? '<span class="chip chip-monitor">Acomodo</span>' : ROL === 'resurtido' ? '<span class="chip chip-monitor">Resurtido</span>' : ROL === 'presentadora' ? '<span class="chip chip-monitor">Presentadora</span>' : ''}
-      ${['live', 'presentadora', 'resurtido'].includes(ROL) ? '' : `<a class="btn-cambio" href="index.html" aria-label="Ir a la app de Cajas">${IC.cajas}<span>Cajas</span></a>`}
+      ${['presentadora', 'resurtido'].includes(ROL) ? '' : `<a class="btn-cambio" href="index.html#/cajas" aria-label="Ir a la app de Cajas">${IC.cajas}<span>Cajas</span></a>`}
     </header>
     <main id="vista"></main>
     <nav class="tabs" aria-label="Secciones" style="grid-template-columns:repeat(${VISTAS.filter(vistaVisible).length}, 1fr)">
@@ -2452,7 +2452,7 @@ async function vistaAjustes() {
     </div>` : ''}
     <div class="tarjeta">
       <p>Sesión: <b>${esc(usuario.nombre)}</b> <small>${esc(usuario.email)}</small> <span class="chip">${esc(NIVELES[ROL] || '')}</span></p>
-      <div class="fila-botones"><a class="btn btn-secundario" href="index.html">${IC.cajas} App de Cajas</a><button class="btn btn-secundario" id="salir">Cerrar sesión</button></div>
+      <div class="fila-botones"><a class="btn btn-secundario" href="index.html#/cajas">${IC.cajas} App de Cajas</a><button class="btn btn-secundario" id="salir">Cerrar sesión</button></div>
     </div>`;
 }
 conectar.ajustes = raiz => {

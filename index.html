@@ -547,7 +547,13 @@ class SupaStore {
     if (error) throw error;
     if (!data.length) throw new Error('Tu nivel de acceso no permite borrar esto.');
   }
-  // Nivel de acceso: duena, supervisor, operacion o null (sin acceso)
+  // Guardar el video de un pedido: por función de la base, para que también pueda Operación live
+  async videoPedido(id, d) {
+    const { data, error } = await this.sb.rpc('pedido_poner_video', { p_pedido: id, p_ruta: d.video, p_mb: d.video_mb });
+    if (error) throw error;
+    return data;
+  }
+  // Nivel de acceso: duena, supervisor, operacion, live (solo ver y agregar videos) o null (sin acceso)
   async rol() {
     const { data, error } = await this.sb.rpc('mi_rol');
     if (error) {
@@ -605,6 +611,8 @@ function traducirError(err) {
     return 'Ese registro ya existe.';
   }
   if (/FALTA_VIDEO/.test(m)) return 'Falta el video de un pedido de esta caja. Agrégalo antes de enviarla.';
+  if (/YA_TIENE_VIDEO/.test(m)) return 'Ese pedido ya tiene video. Si hay que cambiarlo, pídeselo a una Dueña u Operación.';
+  if (/SIN_PERMISO/.test(m)) return 'Tu nivel de acceso no permite hacer esto.';
   if (/Failed to fetch|NetworkError|Load failed|network/i.test(m)) return 'Sin conexión a internet. Revisa la señal e intenta de nuevo.';
   if (/Invalid login credentials/i.test(m)) return 'Correo o contraseña incorrectos.';
   if (/JWT|session/i.test(m)) return 'Tu sesión expiró. Cierra y vuelve a entrar.';
@@ -1224,17 +1232,18 @@ function montarShell() {
       <img class="logo-barra" id="logo-barra" src="icons/logo-oscuro.png" alt="${esc(CFG.nombreNegocio)}" hidden>
       <h1 id="titulo"></h1>
       ${store.modo === 'nube' ? `<a class="btn-live" href="live.html" aria-label="Ir al panel del live">${IC.live}<span>Live</span></a>` : ''}
-      <a class="btn-icono" href="#/ajustes" aria-label="Ajustes">${IC.ajustes}</a>
+      ${ROL === 'live' ? '' : `<a class="btn-icono" href="#/ajustes" aria-label="Ajustes">${IC.ajustes}</a>`}
     </header>
     ${CFG.vistaPrevia ? '<div class="aviso-demo">Vista previa con datos de ejemplo. Lo que hagas aquí se queda solo en este navegador.</div>' : store.modo !== 'nube' ? '<div class="aviso-demo">Modo prueba: los datos solo se guardan en este dispositivo.</div>' : ''}
     ${ROL === 'supervisor' ? '<div class="aviso-demo">Modo monitor: puedes ver todo y editar los datos de las clientas; lo demás no se cambia.</div>' : ''}
+    ${ROL === 'live' ? '<div class="aviso-demo">Operación live: puedes ver las cajas y agregar el video de cada pedido; lo demás no se cambia.</div>' : ''}
     <main id="vista"></main>
     <nav class="tabs">
       <a href="#/cajas" data-tab="cajas">${IC.cajas}<span>Cajas</span></a>
-      <a href="#/clientas" data-tab="clientas">${IC.clientas}<span>Clientas</span></a>
+      ${ROL === 'live' ? '<span></span>' : `<a href="#/clientas" data-tab="clientas">${IC.clientas}<span>Clientas</span></a>`}
       <a href="#" data-tab="escanear" class="tab-escanear" id="tab-escanear"><b>${IC.escanear}</b><span>Escanear</span></a>
-      ${ROL === 'supervisor' ? '<span></span>' : `<a href="#/pedido" data-tab="pedido">${IC.pedido}<span>Pedido nuevo</span></a>`}
-      ${ROL === 'operacion' ? '<span></span>' : `<a href="#/reportes" data-tab="reportes">${IC.reportes}<span>Reportes</span></a>`}
+      ${ROL === 'supervisor' || ROL === 'live' ? '<span></span>' : `<a href="#/pedido" data-tab="pedido">${IC.pedido}<span>Pedido nuevo</span></a>`}
+      ${ROL === 'operacion' || ROL === 'live' ? '<span></span>' : `<a href="#/reportes" data-tab="reportes">${IC.reportes}<span>Reportes</span></a>`}
     </nav>`;
   $('#tab-escanear').onclick = async e => {
     e.preventDefault();
@@ -1284,6 +1293,8 @@ async function navegar() {
   if (!ruta) { ir('cajas'); return; }
   const [re, fn, tab, recargable] = ruta;
   if (tab === 'reportes' && ROL === 'operacion') { ir('cajas'); return; }
+  // Operación live solo ve las cajas: nada de fichas de clientas, pedidos nuevos, envíos, reportes ni ajustes
+  if (ROL === 'live' && !/^(cajas)?$|^caja\/[^/]+$/.test(path)) { ir('cajas'); return; }
   const args = path.match(re).slice(1).filter(x => x !== undefined && x !== 'cajas').map(decodeURIComponent);
   $$('.tabs a').forEach(a => a.classList.toggle('activa', a.dataset.tab === tab));
   rutaRecargable = recargable;
@@ -1306,7 +1317,7 @@ async function navegar() {
 let ultimaAlerta = 0;
 function revisarAlertas() {
   ultimaAlerta = Date.now();
-  const v = vencidas();
+  const v = ROL === 'live' ? [] : vencidas();   // a Operación live no le toca enviar: sin aviso de cajas vencidas
   if (navigator.setAppBadge) (v.length ? navigator.setAppBadge(v.length) : navigator.clearAppBadge()).catch(() => {});
   if (!v.length) return;
   modal({
@@ -1389,11 +1400,11 @@ async function vistaCaja(id) {
       <div><small>Prendas</small><b>${r.prendas}</b></div>
       <div><small>Total</small><b>${dinero(r.total)}</b></div>
     </div>
-    <div class="acciones">
+    ${ROL === 'live' ? '' : `<div class="acciones">
       <a class="btn btn-primario" href="#/pedido/${encodeURIComponent(id)}">${IC.mas} Nuevo pedido</a>
       <a class="btn btn-secundario" href="#/enviar/${encodeURIComponent(id)}">${IC.camion} Marcar como enviado</a>
       <a class="btn btn-secundario" href="#/reasignar/${encodeURIComponent(id)}">${IC.mover} Reasignar a otra caja</a>
-    </div>
+    </div>`}
     ${pedidos.some(p => !p.video) ? `<div class="banner banner-aviso">${IC.video}<span>${faltaVideoTxt(pedidos)}<br><small>Sin video no se puede enviar la caja. Toca "Sin video · Agregar" en el pedido.</small></span></div>` : ''}
     <h3 class="seccion">Historial de pedidos</h3>
     ${pedidos.length ? pedidos.slice().reverse().map(p => tarjetaPedido(p, true)).join('') : '<p class="nota">Esta caja todavía no tiene pedidos.</p>'}
@@ -1409,6 +1420,8 @@ function faltaVideoTxt(pedidos) {
 
 function tarjetaClienta(cl, enlace = true) {
   if (!cl) return '<div class="tarjeta"><p>Clienta no encontrada.</p></div>';
+  // Operación live solo ve de quién es la caja: sin teléfono, dirección ni ficha
+  if (ROL === 'live') return `<div class="tarjeta clienta"><div class="clienta-cabeza"><div><b class="clienta-nombre">${esc(nombreCompleto(cl))}</b></div></div></div>`;
   return `
     <div class="tarjeta clienta">
       <div class="clienta-cabeza">
@@ -1436,7 +1449,7 @@ function tarjetaPedido(p, borrable) {
           ${p.video ? `<button class="btn btn-mini" data-ver-video="${p.id}">${IC.video} Ver video${p.video_comprimido ? ' (comprimido)' : ''}</button>`
             : ROL === 'supervisor' ? '<small class="nota">Sin video</small>'
             : `<button class="btn btn-mini btn-falta-video" data-poner-video="${p.id}">${IC.video} Sin video · Agregar</button>`}
-          ${borrable ? `<button class="btn btn-mini btn-icono-solo" data-borrar-pedido="${p.id}" aria-label="Eliminar pedido">${IC.basura}</button>` : ''}
+          ${borrable && ROL !== 'live' ? `<button class="btn btn-mini btn-icono-solo" data-borrar-pedido="${p.id}" aria-label="Eliminar pedido">${IC.basura}</button>` : ''}
         </span>
       </div>
     </div>`;
@@ -1514,7 +1527,7 @@ async function ponerVideo(p) {
     await store.upload(ruta, blob, x => espera.mostrar('Subiendo video…', x));
     espera.mostrar('Guardando…');
     const datos = { video: ruta, video_mb: Number(mb(blob.size)), video_comprimido: false };
-    try { await store.update('pedidos', p.id, datos); } catch (err) { store.removeFile(ruta).catch(() => {}); throw err; }
+    try { await (store.videoPedido ? store.videoPedido(p.id, datos) : store.update('pedidos', p.id, datos)); } catch (err) { store.removeFile(ruta).catch(() => {}); throw err; }
     Object.assign(p, datos);
     espera.ocultar();
     toast('Video guardado');
@@ -1533,6 +1546,10 @@ async function verVideo(p) {
 
 function vistaCajaLibre(caja) {
   const id = caja.id;
+  if (ROL === 'live') {
+    vista().innerHTML = `<div class="banner banner-libre">${IC.cajas}<span><b>Caja ${esc(id)} libre.</b> No tiene clienta ni prendas asignadas.</span></div>`;
+    return;
+  }
   const lista = D.clientas.slice().sort((a, b) => ordenNatural(nombreCompleto(a), nombreCompleto(b)));
   vista().innerHTML = `
     <div class="banner banner-libre">${IC.cajas}<span><b>Caja ${esc(id)} libre.</b> Selecciona la clienta que ya pagó para asignarle esta caja.</span></div>
@@ -2485,7 +2502,7 @@ const AYUDA_SUGERENCIAS = {
   duena: ['¿Cómo asigno una caja a una clienta que ya pagó?', '¿Cómo registro el envío de una caja?', '¿Cómo imprimo las etiquetas de las cajas?'],
   operacion: ['¿Cómo asigno una caja a una clienta que ya pagó?', '¿Cómo uso Escanear?', '¿Cómo registro el envío de una caja?'],
   supervisor: ['¿Cómo imprimo las etiquetas de las cajas?', '¿Cómo agrego a una clienta nueva?', '¿Qué es una caja de resguardo?'],
-  live: ['¿Qué hago con cada aviso que me llega?', '¿Qué es la charola de pendientes?', 'Palomeé una prenda por error'],
+  live: ['¿Cómo agrego el video de un pedido?', '¿Cómo uso Escanear?', '¿Qué es una caja de resguardo?'],
   presentadora: ['¿Qué hago cuando me llega "Pide DM"?', 'No me llegan los avisos al celular', '¿Cómo instalo el panel en mi iPhone?'],
   resurtido: ['¿Cuándo cuenta una prenda para resurtir?', 'Repuse solo una parte, ¿cómo lo anoto?', 'No me llegan los avisos al celular'],
 };
@@ -2664,8 +2681,9 @@ let ROL = null;
 async function arrancar() {
   try { ROL = await store.rol(); } catch (e) { console.error(e); ROL = null; }
   if (!ROL) return pantallaSinAcceso();
-  // "Operación live" solo trabaja en el panel del live (acomodo de prendas), no en Cajas
-  if (ROL === 'live') { location.replace('live.html#acomodo'); return; }
+  // "Operación live" trabaja en el panel del live (acomodo). A Cajas entra solo con el botón
+  // "Cajas" del panel o escaneando el QR de una caja: ve todo y agrega videos, nada más.
+  if (ROL === 'live' && !/^#\/./.test(location.hash)) { location.replace('live.html#acomodo'); return; }
   if (ROL === 'presentadora') { location.replace('live.html#dm'); return; }
   if (ROL === 'resurtido') { location.replace('live.html#resurtir'); return; }
   montarShell();
