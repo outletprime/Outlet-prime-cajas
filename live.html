@@ -274,6 +274,9 @@ body.host #vista { max-width: none; padding: calc(var(--sup) + 14px) 20px 24px; 
 
 /* ---------- Ayuda: burbuja movible y diálogo de dudas ---------- */
 .ayuda-burbuja { position: fixed; z-index: 60; left: 12px; bottom: calc(var(--inf) + 86px); width: 54px; height: 54px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: var(--marca); color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.3); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; transition: left .18s ease, top .18s ease, transform .12s ease; }
+.btn-cambio { display: flex; align-items: center; gap: 5px; height: 36px; padding: 0 11px 0 9px; border-radius: 18px; border: 1.5px solid rgba(255,255,255,.35); color: #fff; font-weight: 700; font-size: 14px; text-decoration: none; flex: none; }
+.btn-cambio svg { width: 20px; height: 20px; }
+.btn-cambio:active { background: rgba(255,255,255,.15); }
 .ayuda-burbuja svg { width: 27px; height: 27px; pointer-events: none; }
 .ayuda-burbuja:focus-visible { outline: 3px solid var(--primario); outline-offset: 2px; }
 .ayuda-burbuja.arrastrando { cursor: grabbing; transform: scale(1.1); transition: transform .12s ease; }
@@ -1222,7 +1225,7 @@ function montar() {
       <img src="icons/logo-oscuro.png" alt="Outlet Prime">
       <h1 id="titulo">Live</h1>
       ${ROL === 'supervisor' ? '<span class="chip chip-monitor">Monitor</span>' : ROL === 'operacion' ? '<span class="chip chip-monitor">Operación</span>' : ROL === 'live' ? '<span class="chip chip-monitor">Acomodo</span>' : ROL === 'resurtido' ? '<span class="chip chip-monitor">Resurtido</span>' : ROL === 'presentadora' ? '<span class="chip chip-monitor">Presentadora</span>' : ''}
-      ${['live', 'presentadora', 'resurtido'].includes(ROL) ? '' : `<a class="btn-icono" href="index.html" aria-label="Ir a la app de Cajas" title="Cajas">${IC.cajas}</a>`}
+      ${['live', 'presentadora', 'resurtido'].includes(ROL) ? '' : `<a class="btn-cambio" href="index.html" aria-label="Ir a la app de Cajas">${IC.cajas}<span>Cajas</span></a>`}
     </header>
     <main id="vista"></main>
     <nav class="tabs" aria-label="Secciones" style="grid-template-columns:repeat(${VISTAS.filter(vistaVisible).length}, 1fr)">
