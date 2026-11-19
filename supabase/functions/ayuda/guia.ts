@@ -62,6 +62,7 @@ Salen las clientas nuevas que fueron las primeras en pedir una prenda. Se les pi
 
 ## Pestaña Acomodo (Operación live)
 - **Llevar a su casillero**: cada renglón dice la clave y el casillero (AB23 → B2). Se lleva la prenda y se toca ✓.
+- **✕ (código equivocado)**: junto al ✓ de cada prenda. Se toca cuando la clave no corresponde (no aparece esa etiqueta o no es la prenda). Sale un recuadro "Código equivocado" para confirmar; al aceptar, la prenda sale de la lista, aparece en "Hechas recientemente" como código equivocado (con Deshacer) y al equipo le llega el aviso "⚠️ Código equivocado: AB23" para revisarlo con la clienta. No se le quita la prenda a nadie: eso lo decide una Dueña u Operación (si pidió otra clave, se quita del pedido y se captura la correcta).
 - **Regresar al rack**: prendas que se liberaron (no pagaron o se quitaron). Se sacan del casillero, se regresan al rack y se toca ✓.
 - **En la charola de pendientes**: prendas de clientas nuevas que aún no se registran. Se dejan en la charola; cuando la clienta se registra aparecen arriba con su casillero, y si no, se liberan solas.
 - Si se palomeó una por error: "Deshacer". "Todo acomodado 👌" significa que no hay nada pendiente.

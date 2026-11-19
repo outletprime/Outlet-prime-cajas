@@ -129,6 +129,38 @@ async function principal() {
   }
   decir(C.verde, `Conectado a Supabase como ${s.correo} (${rol === 'duena' ? 'Dueña' : 'Operación'})`);
 
+  // Sesión: si se pierde (por ejemplo, si la computadora se quedó sin internet cuando tocaba renovarla),
+  // el sistema rechaza todo con "permission denied". Se revisa cada minuto y también en cuanto algo es
+  // rechazado; si se perdió, el agente vuelve a entrar solo con el mismo usuario.
+  const esDeSesion = e => !!e && (['42501', 'PGRST301', 'PGRST303'].includes(e.code)
+    || /JWT|permission denied|not authorized|Auth session missing|Invalid Refresh Token/i.test(e.message || ''));
+  let reentrando = null;
+  function volverAEntrar(motivo) {
+    reentrando ??= (async () => {
+      try {
+        const { error: eRef } = await sb.auth.refreshSession();
+        let ok = !eRef && !!(await sb.rpc('mi_rol')).data;
+        if (!ok) {
+          const { error } = await sb.auth.signInWithPassword({ email: s.correo, password: s.contrasena });
+          ok = !error && !!(await sb.rpc('mi_rol')).data;
+          if (!ok) { decir(C.rojo, `No pude volver a entrar a Supabase (${error?.message || 'sin nivel'}). Lo intento otra vez en un minuto.`); return false; }
+        }
+        decir(C.verde, `🔑 Volví a entrar a Supabase (${motivo})`);
+        return true;
+      } catch (e) {
+        decir(C.rojo, `No pude volver a entrar a Supabase: ${e.message}. Lo intento otra vez en un minuto.`);
+        return false;
+      }
+    })().finally(() => { reentrando = null; });
+    return reentrando;
+  }
+  setInterval(async () => {
+    try {
+      const { data, error } = await sb.rpc('mi_rol');
+      if (error ? esDeSesion(error) : !data) await volverAEntrar('la sesión se había perdido');
+    } catch { /* sin internet: se revisa en el siguiente minuto */ }
+  }, 60000);
+
   const ia = crearIA(cfg.ia);
   decir(ia ? C.verde : C.amarillo, ia ? `IA activa (${cfg.ia.modelo || 'claude-opus-5-5'}) para comentarios poco claros` : 'IA apagada: solo se entienden comentarios claros ("23", "la 23")');
 
@@ -167,7 +199,8 @@ async function principal() {
       const { data } = await sb.from('lives').select('id').eq('estado', 'activo').eq('tipo', 'redes').limit(1);
       if (data?.length) return true;
       const titulo = 'Live ' + new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'short' });
-      const { error } = await sb.rpc('live_iniciar', { p_titulo: titulo, p_usuario: 'Agente' });
+      let { error } = await sb.rpc('live_iniciar', { p_titulo: titulo, p_usuario: 'Agente' });
+      if (esDeSesion(error) && await volverAEntrar('al iniciar el live')) ({ error } = await sb.rpc('live_iniciar', { p_titulo: titulo, p_usuario: 'Agente' }));
       if (error && !/Ya hay un live/.test(error.message)) { decir(C.rojo, 'No pude iniciar el live en el panel: ' + error.message); return false; }
       decir(C.verde, `▶️  Live iniciado en el panel: ${titulo}`);
       return true;
@@ -185,6 +218,7 @@ async function principal() {
       p_interpretado_por: i.por, p_simulado: !!c.simulado,
     });
     if (error) {
+      if (esDeSesion(error) && intento < 4 && await volverAEntrar('el sistema rechazó un comentario')) return enviar(c, i, intento + 1);
       const reintentar = ['40P01', '40001', '57014', ''].includes(error.code || '') || /fetch|network|timeout|ECONN/i.test(error.message);
       if (reintentar && intento < 4) { await esperar(400 * intento); return enviar(c, i, intento + 1); }
       decir(C.rojo, `❌ No se pudo apartar ${lista(i.prendas)} a @${c.usuario}: ${error.message} → capturar a mano`);
@@ -262,7 +296,10 @@ async function principal() {
     filas.push({ red: 'agente', estado: apagado ? 'apagado' : 'conectado', equipo, comentarios: 0, pedidos: 0,
       detalle: `IA ${ia ? 'activa' : 'apagada'} · ${fila.pendientes} en fila`, actualizado_en: new Date().toISOString() });
     const { error } = await sb.from('live_agente').upsert(filas);
-    if (error) decir(C.amarillo, 'No pude actualizar el estado en el panel: ' + error.message);
+    if (error) {
+      decir(C.amarillo, 'No pude actualizar el estado en el panel: ' + error.message);
+      if (esDeSesion(error)) volverAEntrar('el panel rechazó el estado');
+    }
     const t = redes.map(r => `${r.estado.red}: ${r.estado.detalle}`).join(' | ');
     if (t !== ultimoTexto) { decir(C.gris, t); ultimoTexto = t; }
   }
