@@ -31,7 +31,7 @@ export const GUIA = `# Guía del equipo · Outlet Prime (panel del live)
 
 ## Niveles de acceso (qué puede cada quien)
 - **Dueña**: todo. Es la única que registra pagos, cambia Ajustes (CLABE, precios, tiempos), programa Prime Live, borra, y da o quita accesos.
-- **Supervisor**: solo ve. Dos excepciones: registra a las clientas nuevas, ya sea desde un aviso "Pide DM" (Registrar a mano) o en Ajustes → Agregar clienta, con su usuario, nombre y apellido (le llega al celular el aviso "📝 Registrar a @usuario"), y genera el PDF de las etiquetas de prendas y de las cajas de resguardo para imprimirlas (pestaña Prendas).
+- **Supervisor**: ve todo. Puede editar los datos de las clientas en la app de Cajas (Clientas → su ficha → "Editar datos"). Además: registra a las clientas nuevas, ya sea desde un aviso "Pide DM" (Registrar a mano) o en Ajustes → Agregar clienta, con su usuario, nombre y apellido (le llega al celular el aviso "📝 Registrar a @usuario"), y genera el PDF de las etiquetas de prendas y de las cajas de resguardo para imprimirlas (pestaña Prendas).
 - **Operación**: opera el live: inicia y cierra lives, captura comentarios a mano, libera prendas, liga clientas, marca acomodo. No registra pagos, no cambia Ajustes y no borra.
 - **Operación live (acomodo)**: lleva las prendas a los casilleros. Ve En vivo, Casilleros, Acomodo, Prendas y Ajustes. No ve la pestaña WhatsApp, ni la app de Cajas, ni los datos de las clientas.
 - **Presentadora**: solo ve la pestaña Pide DM y Ajustes. No ve clientas, pagos ni casilleros.
@@ -143,7 +143,7 @@ Ahí se guardan las prendas ya pagadas de cada clienta en su caja de resguardo h
 - **Pedido nuevo**: para registrar a mano un pedido en una caja (prendas por categoría y, si se quiere, el video de la mercancía).
 - **Reportes**: lo vendido por día, semana, mes o fechas a elegir: total vendido, pedidos, prendas, clientas que compraron, clientas nuevas, cajas enviadas, costo de envíos y ventas por categoría.
 - **Ajustes de Cajas**: tu nombre, **Administrar cajas** (crear cajas e imprimir sus QR) y precios por categoría. Las etiquetas nuevas de cajas de resguardo (con la franja negra) se generan en el panel del live → Prendas → Etiquetas de cajas de resguardo.
-- Quién puede: el Supervisor en la app de Cajas está en "Modo monitor": ve todo pero no cambia nada. Operación no ve Reportes. Operación live, Presentadora y Resurtido no entran a la app de Cajas: los manda a su pestaña del panel.
+- Quién puede: el Supervisor en la app de Cajas está en "Modo monitor": ve todo y puede editar los datos de las clientas (Clientas → su ficha → "Editar datos"); no puede borrar clientas ni cambiar cajas o pedidos. Para agregar una clienta nueva usa el panel del live → Ajustes → Agregar clienta. Operación no ve Reportes. Operación live, Presentadora y Resurtido no entran a la app de Cajas: los manda a su pestaña del panel.
 
 ## Lo que esta guía no cubre
 Datos del momento (en qué casillero o caja está una prenda, si alguien ya pagó, cuánto debe una clienta): eso se ve en el panel (Prendas → Buscar, Casilleros) o en la app de Cajas. Tampoco cubre Prime Live (mayoristas) ni temas de dinero, bancos o envíos fuera de lo que se registra en la app.
