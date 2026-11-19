@@ -140,7 +140,8 @@ Ahí se guardan las prendas ya pagadas de cada clienta en su caja de resguardo h
 - **Cajas**: la lista de las 50 cajas de resguardo con filtros (todas, ocupadas, libres, vencidas). Al tocar una caja se ve de quién es, sus pedidos, sus prendas y el total.
 - **Caja libre**: se elige a la clienta que ya pagó para asignarle esa caja ("Asignar caja"). Cuando una clienta paga completo en el panel del live, el sistema le asigna caja solo y el panel dice a qué caja mover las prendas.
 - **Reasignar caja**: dentro de una caja ocupada, para mover todo a otra caja.
-- **Enviar caja**: cuando se le manda su paquete a la clienta. Se elige la paquetería, se escribe la guía (y si se quiere peso, medidas y costo) y se toma la foto de la guía. Después de enviarla, la caja queda libre otra vez.
+- **Video del pedido**: cada pedido de una caja debe tener su video de la mercancía. Si un pedido dice **Sin video · Agregar** (por ejemplo los que llegan del live), se toca ese botón y se elige **Grabar video** (abre la cámara) o **Cargar del celular**; después **Guardar video**. Si el video es muy pesado se comprime solo antes de subir. Lo pueden hacer Dueña y Operación.
+- **Enviar caja** (solo si todos sus pedidos ya tienen video; si falta alguno, la pantalla de envío dice cuáles y ahí mismo se agregan): cuando se le manda su paquete a la clienta. Se elige la paquetería, se escribe la guía (y si se quiere peso, medidas y costo) y se toma la foto de la guía. Después de enviarla, la caja queda libre otra vez.
 - **Avisos de tiempo**: una caja que lleva 15 días o más se marca en aviso, y a los 20 días aparece en rojo ("Esa mercancía debe enviarse").
 - **Escanear**: abre la cámara para leer el QR de la etiqueta de una caja y abrirla directo. También se puede leer desde una foto o escribir el código (por ejemplo A1).
 - **Clientas**: la lista de clientas, su ficha con sus datos y domicilio ("Editar datos"), su caja y su historial.

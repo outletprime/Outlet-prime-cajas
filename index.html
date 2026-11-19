@@ -167,6 +167,9 @@ small { color: var(--texto-2); font-size: 13px; }
 .btn-grande { width: 100%; min-height: 52px; font-size: 17px; }
 .btn-mini { min-height: 36px; padding: 0 12px; font-size: 14px; background: var(--superficie-2); }
 .btn-mini svg { width: 18px; height: 18px; }
+.btn-falta-video { background: var(--aviso-suave); color: var(--aviso); font-weight: 700; }
+.video-opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+.video-opciones .btn { min-height: 52px; }
 .btn-icono-solo { display: inline-grid; place-items: center; min-width: 36px; min-height: 36px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--texto-2); cursor: pointer; }
 .btn-icono-solo svg { width: 19px; height: 19px; }
 .acciones { display: grid; gap: 10px; margin: 14px 0; }
@@ -601,6 +604,7 @@ function traducirError(err) {
     if (/una_caja_por_clienta/.test(m)) return 'Esa clienta ya tiene una caja asignada.';
     return 'Ese registro ya existe.';
   }
+  if (/FALTA_VIDEO/.test(m)) return 'Falta el video de un pedido de esta caja. Agrégalo antes de enviarla.';
   if (/Failed to fetch|NetworkError|Load failed|network/i.test(m)) return 'Sin conexión a internet. Revisa la señal e intenta de nuevo.';
   if (/Invalid login credentials/i.test(m)) return 'Correo o contraseña incorrectos.';
   if (/JWT|session/i.test(m)) return 'Tu sesión expiró. Cierra y vuelve a entrar.';
@@ -1390,11 +1394,17 @@ async function vistaCaja(id) {
       <a class="btn btn-secundario" href="#/enviar/${encodeURIComponent(id)}">${IC.camion} Marcar como enviado</a>
       <a class="btn btn-secundario" href="#/reasignar/${encodeURIComponent(id)}">${IC.mover} Reasignar a otra caja</a>
     </div>
+    ${pedidos.some(p => !p.video) ? `<div class="banner banner-aviso">${IC.video}<span>${faltaVideoTxt(pedidos)}<br><small>Sin video no se puede enviar la caja. Toca "Sin video · Agregar" en el pedido.</small></span></div>` : ''}
     <h3 class="seccion">Historial de pedidos</h3>
     ${pedidos.length ? pedidos.slice().reverse().map(p => tarjetaPedido(p, true)).join('') : '<p class="nota">Esta caja todavía no tiene pedidos.</p>'}
     ${historialCaja.length ? `<details class="plegable"><summary>Envíos anteriores de esta caja (${historialCaja.length})</summary>
       ${historialCaja.map(x => `<a class="fila" href="#/clienta/${x.clienta_id}"><span>${esc(nombreCompleto(idx.clienta(x.clienta_id)))}</span><small>Enviada ${fechaCorta(x.enviada_en)}</small></a>`).join('')}</details>` : ''}`;
   conectarPedidos(vista());
+}
+
+function faltaVideoTxt(pedidos) {
+  const n = pedidos.filter(p => !p.video).length;
+  return n === 1 ? 'Falta el video de 1 pedido.' : `Falta el video de ${n} pedidos.`;
 }
 
 function tarjetaClienta(cl, enlace = true) {
@@ -1423,7 +1433,9 @@ function tarjetaPedido(p, borrable) {
       <div class="pedido-pie">
         <small>Registró: ${esc(p.creado_por || '')}</small>
         <span>
-          ${p.video ? `<button class="btn btn-mini" data-ver-video="${p.id}">${IC.video} Ver video${p.video_comprimido ? ' (comprimido)' : ''}</button>` : '<small class="nota">Sin video</small>'}
+          ${p.video ? `<button class="btn btn-mini" data-ver-video="${p.id}">${IC.video} Ver video${p.video_comprimido ? ' (comprimido)' : ''}</button>`
+            : ROL === 'supervisor' ? '<small class="nota">Sin video</small>'
+            : `<button class="btn btn-mini btn-falta-video" data-poner-video="${p.id}">${IC.video} Sin video · Agregar</button>`}
           ${borrable ? `<button class="btn btn-mini btn-icono-solo" data-borrar-pedido="${p.id}" aria-label="Eliminar pedido">${IC.basura}</button>` : ''}
         </span>
       </div>
@@ -1431,6 +1443,7 @@ function tarjetaPedido(p, borrable) {
 }
 function conectarPedidos(raiz) {
   $$('[data-ver-video]', raiz).forEach(b => { b.onclick = () => verVideo(D.pedidos.find(p => p.id === b.dataset.verVideo)); });
+  $$('[data-poner-video]', raiz).forEach(b => { b.onclick = () => ponerVideo(D.pedidos.find(p => p.id === b.dataset.ponerVideo)); });
   $$('[data-borrar-pedido]', raiz).forEach(b => {
     b.onclick = async () => {
       const p = D.pedidos.find(x => x.id === b.dataset.borrarPedido);
@@ -1444,6 +1457,73 @@ function conectarPedidos(raiz) {
       }, 'Eliminando…');
     };
   });
+}
+/* Video de un pedido que se guardó sin él: se graba con la cámara o se elige uno del celular. */
+async function ponerVideo(p) {
+  if (!p) return;
+  let archivo = null;
+  const r = await modal({
+    titulo: 'Video del pedido',
+    html: `<p class="nota">Pedido del ${fechaHora(p.fecha)} · ${p.prendas} ${p.prendas === 1 ? 'prenda' : 'prendas'} · ${dinero(p.total)}. Graba o carga el video donde se ve la mercancía. Sin video no se puede enviar la caja.</p>
+      <div class="video-opciones">
+        <label class="btn btn-secundario">${IC.video} Grabar video<input type="file" accept="video/*" capture="environment" hidden data-video></label>
+        <label class="btn btn-secundario">Cargar del celular<input type="file" accept="video/*" hidden data-video></label>
+      </div>
+      <div id="pv-vista"></div>`,
+    botones: [
+      { texto: 'Cancelar', valor: null },
+      {
+        texto: 'Guardar video',
+        antes: () => {
+          if (!archivo) { toast('Primero graba o carga el video.', 'error'); return false; }
+          if (archivo.size > LIMITE_VIDEO && !puedeComprimir()) { toast(`El video pesa ${mb(archivo.size)} MB (máximo ${CFG.limiteVideoMB} MB). Graba uno más corto.`, 'error'); return false; }
+        },
+        // Sin "await" antes de comprimir: el iPhone exige que empiece con el toque del botón.
+        valor: () => ({
+          archivo,
+          compresion: archivo.size > LIMITE_VIDEO
+            ? comprimirVideo(archivo, 'subida', x => espera.mostrar('Comprimiendo video…', x), { maxBytes: LIMITE_VIDEO * 0.92 }) : null,
+        }),
+      },
+    ],
+    alAbrir: f => $$('[data-video]', f).forEach(i => {
+      i.onchange = e => {
+        const elegido = e.target.files[0];
+        if (!elegido) return;
+        if (!/^video\//.test(elegido.type || 'video/')) { toast('Ese archivo no es un video.', 'error'); return; }
+        archivo = elegido;
+        const grande = archivo.size > LIMITE_VIDEO;
+        $('#pv-vista', f).innerHTML = `<video class="video-modal" src="${URL.createObjectURL(archivo)}" controls playsinline muted></video>
+          <p class="nota">${mb(archivo.size)} MB${grande ? (puedeComprimir() ? ' · se comprimirá antes de subir' : ' · demasiado grande') : ''}. Si no es el correcto, graba o carga otro.</p>`;
+      };
+    }),
+  });
+  if (!r) return;
+  let ruta = null;
+  try {
+    let blob = r.archivo;
+    if (r.compresion) {
+      espera.mostrar('Comprimiendo video…', 0);
+      espera.nota('Tarda lo que dura el video. No cierres la app ni apagues la pantalla.');
+      blob = await r.compresion;
+      espera.nota('');
+      if (blob.size > LIMITE_VIDEO) throw new Error(`El video sigue pesando ${mb(blob.size)} MB. Graba uno más corto.`);
+    }
+    ruta = `videos/${p.id}.${extensionVideo(blob)}`;
+    espera.mostrar('Subiendo video…', 0);
+    await store.upload(ruta, blob, x => espera.mostrar('Subiendo video…', x));
+    espera.mostrar('Guardando…');
+    const datos = { video: ruta, video_mb: Number(mb(blob.size)), video_comprimido: false };
+    try { await store.update('pedidos', p.id, datos); } catch (err) { store.removeFile(ruta).catch(() => {}); throw err; }
+    Object.assign(p, datos);
+    espera.ocultar();
+    toast('Video guardado');
+    navegar();
+  } catch (err) {
+    console.error(err);
+    espera.ocultar();
+    toast(traducirError(err), 'error');
+  }
 }
 async function verVideo(p) {
   const url = await accion(() => store.fileUrl(p.video), 'Abriendo video…');
@@ -1526,6 +1606,15 @@ function formEnvio(id) {
   const cl = idx.clienta(a.clienta_id);
   const pedidos = idx.pedidosDe(a.id);
   const r = resumenPedidos(pedidos);
+  const sinVideo = pedidos.filter(p => !p.video);
+  if (sinVideo.length) {
+    vista().innerHTML = `
+      ${tarjetaClienta(cl, false)}
+      <div class="banner banner-vencida">${IC.alerta}<span>No se puede enviar todavía. ${faltaVideoTxt(pedidos)}<br><small>${ROL === 'supervisor' ? 'Pídele a una Dueña u Operación que lo agregue.' : 'Graba o carga el video de cada pedido y después registra el envío.'}</small></span></div>
+      ${sinVideo.slice().reverse().map(p => tarjetaPedido(p, false)).join('')}`;
+    conectarPedidos(vista());
+    return;
+  }
   let foto = null;
   vista().innerHTML = `
     ${tarjetaClienta(cl, false)}
@@ -1560,6 +1649,7 @@ function formEnvio(id) {
       await refrescar(true);
       const actual = idx.asig(a.id);
       if (!actual || actual.estado !== 'activa') throw new Error('Esta caja ya fue enviada o cambió. Revisa de nuevo.');
+      if (idx.pedidosDe(a.id).some(x => !x.video)) throw new Error('FALTA_VIDEO');
       espera.mostrar('Subiendo foto…', 0);
       const reducida = await reducirFoto(foto);
       const ruta = `guias/${a.id}.jpg`;
@@ -1937,7 +2027,7 @@ function formPedido(id) {
     if (!prendas) { toast('Agrega al menos una prenda.', 'error'); return; }
     if (sinPrecio.length) { toast(`Escribe el precio de cada ${sinPrecio[0].nombre.toLowerCase() === 'calzado' ? 'par' : 'pieza'}.`, 'error'); return; }
     if (!video) {
-      confirmar('No cargaste el video de la mercancía. El video sirve como respaldo en caso de reclamo.', { titulo: '¿Guardar sin video?', si: 'Guardar sin video', no: 'Cargar video' })
+      confirmar('No cargaste el video de la mercancía. Puedes agregarlo después desde la caja, pero sin video no se podrá enviar.', { titulo: '¿Guardar sin video?', si: 'Guardar sin video', no: 'Cargar video' })
         .then(ok => { if (ok) guardarPedido(null, null); else $('#zona-video').classList.add('invalido'); });
       return;
     }
