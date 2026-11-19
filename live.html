@@ -808,7 +808,15 @@ function pdfNota(n, jsPDF, logo) {
   const VERDE = [47, 125, 79];
   const altoDatos = pagada ? 100 : clabe ? 58 + datos.length * 30 + 52 : 50;
   const altoPie = pagada ? 44 : 76;
-  const H = 238 + altoPrendas + 22 + (abono ? 82 : 64) + 20 + altoDatos + 20 + altoPie + 40;
+  // Datos del live: a cuál corresponde, su fecha, la host y el casillero (la caja de resguardo solo sale ya pagado)
+  const info = [
+    ['Live', n.live_titulo || (n.tipo === 'prime' ? 'Prime Live' : n.fecha ? 'Live de la ' + (h => h < 12 ? 'mañana' : h < 19 ? 'tarde' : 'noche')(new Date(n.fecha).getHours()) : 'Live')],
+    ['Fecha del live', n.fecha ? `${fecha(n.fecha)}, ${horaTxt(n.fecha)}` : '—'],
+    ['Host', n.host || '—'],
+    [/ y |,/.test(String(n.casilleros || '')) ? 'Casilleros' : 'Casillero', n.casilleros || '—'],
+  ];
+  const altoInfo = 74;
+  const H = 238 + altoInfo + altoPrendas + 22 + (abono ? 82 : 64) + 20 + altoDatos + 20 + altoPie + 40;
   const doc = new jsPDF({ unit: 'pt', format: [W, H], compress: true });
   const centro = (txt, y) => doc.text(txt, W / 2, y, { align: 'center' });
   const linea = (y, color = 215) => { doc.setDrawColor(color); doc.setLineWidth(0.8); doc.line(M, y, W - M, y); };
@@ -821,7 +829,7 @@ function pdfNota(n, jsPDF, logo) {
   doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(20);
   centro(pagada ? 'PEDIDO PAGADO' : 'NOTA DE COBRO', 150);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(GRIS);
-  centro(`Folio ${n.folio}${n.fecha ? ' · ' + (n.tipo === 'prime' ? 'Prime Live' : 'Live') + ' del ' + fecha(n.fecha) : ''}`, 167);
+  centro(`Folio ${n.folio}`, 167);
   doc.setDrawColor(...ROJO); doc.setLineWidth(2.5); doc.line(M, 182, W - M, 182);
 
   // Clienta
@@ -830,8 +838,17 @@ function pdfNota(n, jsPDF, logo) {
   doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(20);
   doc.text(doc.splitTextToSize(n.clienta || '', W - 2 * M)[0], M, y + 19);
 
+  // Live, fecha, host y casillero (dos columnas)
+  const mitad = (W - 2 * M) / 2;
+  info.forEach(([k, v], i) => {
+    const x = M + (i % 2) * mitad, yy = 250 + Math.floor(i / 2) * 32;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(GRIS); doc.text(k.toUpperCase(), x, yy);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5); doc.setTextColor(20);
+    doc.text(doc.splitTextToSize(String(v), mitad - 10)[0], x, yy + 15);
+  });
+
   // Prendas
-  y = 230 + 22;
+  y = 230 + 22 + altoInfo;
   doc.setFontSize(10.5); doc.setTextColor(20);
   doc.text(`${ps.length} ${ps.length === 1 ? 'PRENDA' : 'PRENDAS'}`, M, y);
   doc.setFont('helvetica', 'normal'); doc.setTextColor(GRIS); doc.text('PRECIO', W - M, y, { align: 'right' });
@@ -1318,6 +1335,7 @@ function vistaRedes() {
       ${sinClabe ? `<div class="banner banner-aviso">${IC.alerta}<span>Falta la CLABE para cobrar. <a href="#ajustes" data-ir="ajustes">Ponla en Ajustes</a> antes de cerrar el live.</span></div>` : ''}
       ${puede.operar() ? `<form class="tarjeta" id="f-iniciar">
         <label>Nombre del live (opcional)<input name="titulo" placeholder="Ej. Live mañana" maxlength="60" autocomplete="off"></label>
+        <label>Host<input name="host" value="${esc((D.cfg && D.cfg.host) || '')}" maxlength="40" placeholder="Quién presenta" autocomplete="off" autocapitalize="words"></label>
         <button class="btn btn-marca btn-grande">${IC.vivo} Iniciar live</button>
       </form>` : ''}
       ${porCobrar.length ? `<div class="banner banner-info">${IC.info}<span>${porCobrar.length} ${porCobrar.length === 1 ? 'clienta tiene' : 'clientas tienen'} pago pendiente del último live. <a href="#casilleros" data-ir="casilleros">Ver casilleros</a></span></div>` : ''}`;
@@ -1334,7 +1352,7 @@ function vistaRedes() {
   return `
     <div class="fila-botones" style="justify-content:space-between;align-items:center">
       <span class="chip chip-vivo"><span class="punto-vivo"></span>EN VIVO desde ${hora(D.live.iniciado_en)}</span>
-      <small>${esc(D.live.titulo || '')}</small>
+      <small>${esc(D.live.titulo || '')}${D.live.titulo ? ' · ' : ''}Host: <b>${esc(D.live.host || '—')}</b>${puede.operar() ? ' <button type="button" class="btn-arrep" id="cambiar-host" style="margin:0">Cambiar</button>' : ''}</small>
       ${TIENE_COMENTARIOS ? '<button type="button" class="btn btn-mini btn-secundario" data-ir="host">Pantalla host</button>' : ''}
     </div>
     ${htmlAgente()}
@@ -1371,8 +1389,23 @@ conectar.vivo = raiz => {
   const f = $('#f-iniciar', raiz);
   if (f) f.onsubmit = async e => {
     e.preventDefault();
-    const ok = await accion(() => rpc('live_iniciar', { p_titulo: f.titulo.value, p_usuario: usuario.nombre }), 'Live iniciado. El bot ya está apartando.');
+    const ok = await accion(async () => {
+      const l = await rpc('live_iniciar', { p_titulo: f.titulo.value, p_usuario: usuario.nombre });
+      const host = f.host ? f.host.value.trim() : '';
+      if (l && l.id && host && host !== (l.host || '')) await rpc('live_host', { p_live: l.id, p_host: host });
+      return l;
+    }, 'Live iniciado. El bot ya está apartando.');
     if (ok) { D.vistos.clear(); D.primeraCarga = true; pintar(); }
+  };
+  const ch = $('#cambiar-host', raiz);
+  if (ch) ch.onclick = async () => {
+    const nueva = await modal({
+      titulo: 'Host de este live',
+      html: `<div class="formulario"><label>Quién presenta<input id="host-live" value="${esc(D.live.host || '')}" maxlength="40" autocomplete="off" autocapitalize="words"></label>
+        <p class="nota">Sale en las notas de cobro de este live. Para cambiar la host de todos los lives nuevos: Ajustes → Host de los lives.</p></div>`,
+      botones: [{ texto: 'Cancelar', valor: null }, { texto: 'Guardar', valor: el => $('#host-live', el).value.trim() || (toast('Escribe el nombre de la host.', 'error'), undefined) }],
+    });
+    if (nueva && await accion(() => rpc('live_host', { p_live: D.live.id, p_host: nueva }), 'Host guardada')) pintar();
   };
   const c = $('#cerrar-live', raiz);
   if (c) c.onclick = async () => {
@@ -2358,6 +2391,8 @@ async function vistaAjustes() {
         <label>A nombre de<input name="titular" value="${esc(v.titular || '')}" placeholder="Titular de la cuenta"></label>
       </div>
       <p class="nota">Mientras no haya una CLABE distinta por pedido (Fintoc o Conekta), todas pagan a esta CLABE con su folio en el concepto, y el pago se registra a mano en Casilleros.</p>
+      <label>Host de los lives<input name="host" value="${esc(v.host || '')}" maxlength="40" placeholder="Quién presenta el live" autocapitalize="words"></label>
+      <p class="nota">Sale en las notas de cobro y de pedido pagado. Cada live nuevo empieza con esta host; si un día presenta otra persona, se cambia en ese live (En vivo → Host).</p>
       <h3 class="seccion">Tiempos después de cerrar el live</h3>
       <div class="tres">
         <label>Recordatorio (h)<input name="horas_recordatorio" type="number" step="0.25" min="0.25" value="${v.horas_recordatorio ?? 1}"></label>
@@ -2434,6 +2469,7 @@ conectar.ajustes = raiz => {
     if (clabe && clabe.length !== 18) { toast('La CLABE debe tener 18 dígitos.', 'error'); return; }
     const datos = {
       clabe: clabe || null, banco: f.banco.value.trim() || null, titular: f.titular.value.trim() || null,
+      host: f.host.value.trim() || null,
       horas_recordatorio: +f.horas_recordatorio.value, horas_limite: +f.horas_limite.value, horas_liberar: +f.horas_liberar.value,
       precio: +f.precio.value, limite_por_clienta: f.limite_por_clienta.value ? +f.limite_por_clienta.value : null,
       mensaje_sin_live: f.mensaje_sin_live.value.trim() || 'Ahorita no hay live en curso.', actualizado_en: new Date().toISOString(),
