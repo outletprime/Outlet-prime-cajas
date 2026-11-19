@@ -241,6 +241,8 @@ body.host #vista { max-width: none; padding: calc(var(--sup) + 14px) 20px 24px; 
 .acomodo-ok { min-width: 64px; min-height: 52px; border-radius: 14px; }
 .acomodo-ok svg { width: 26px; height: 26px; }
 .acomodo-btns { display: flex; gap: 8px; }
+.btn-arrep { display: inline-block; margin-top: 6px; padding: 4px 10px; min-height: 30px; border-radius: 10px; border: 1px solid var(--borde); background: var(--superficie); color: var(--texto-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-arrep:active { background: var(--superficie-2); }
 .acomodo-x { min-width: 52px; min-height: 52px; border-radius: 14px; padding: 0; background: var(--superficie); color: var(--vencida); border: 2px solid var(--vencida); font-size: 26px; font-weight: 700; line-height: 1; }
 .acomodo-x:active { background: var(--vencida-suave); }
 .acomodo-hecha { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -665,7 +667,8 @@ async function vistaAcomodo() {
     <div class="acomodo">${revision.map(filaRevision).join('')}</div>` : ''}
     <h3 class="seccion">Llevar a su casillero · ${acomodar.length}</h3>
     ${acomodar.length ? `<div class="acomodo">${acomodar.map(f => `<div class="acomodo-fila">
-        <div><b class="acomodo-num">${esc(f.etiqueta)}</b> <span class="flecha">→</span> <b class="acomodo-cas">${esc(f.casillero || 'SIN CASILLERO')}</b><small>${esc(nombreCorto(f.clienta))} · ${hora(f.creado_en)}</small></div>
+        <div><b class="acomodo-num">${esc(f.etiqueta)}</b> <span class="flecha">→</span> <b class="acomodo-cas">${esc(f.casillero || 'SIN CASILLERO')}</b><small>${esc(nombreCorto(f.clienta))} · ${hora(f.creado_en)}</small>
+          ${puede.acomodar() ? `<button type="button" class="btn-arrep" data-arrep="${f.id}">Se arrepintió</button>` : ''}</div>
         ${puede.acomodar() ? `<div class="acomodo-btns"><button type="button" class="btn acomodo-x" data-equivocado="${f.id}" data-etq="${esc(f.etiqueta)}" data-cl="${esc(nombreCorto(f.clienta))}" aria-label="Código equivocado ${esc(f.etiqueta)}">✕</button>${boton(f, 'acomodar')}</div>` : boton(f, 'acomodar')}</div>`).join('')}</div>`
       : '<div class="vacio"><p>Todo acomodado 👌</p></div>'}
     ${regresar.length ? `<h3 class="seccion">Regresar al rack · ${regresar.length}</h3>
@@ -706,6 +709,7 @@ function conectarAcomodo(raiz) {
   $$('[data-deshacer]', raiz).forEach(b => b.onclick = () =>
     marcar({ regresar: 'live_regresar_rack', equivocado: 'live_codigo_equivocado' }[b.dataset.cual] || 'live_acomodar', b.dataset.deshacer, true));
   // X: la clave no corresponde (no aparece esa etiqueta o no es la prenda). Sale de la lista y se avisa al equipo.
+  $$('[data-arrep]', raiz).forEach(b => b.onclick = async () => { if (await seArrepintio(b.dataset.arrep)) pintar(); });
   $$('[data-equivocado]', raiz).forEach(b => b.onclick = async () => {
     if (!(await confirmar('Código equivocado', `<p>¿Marcar la <b>${esc(b.dataset.etq)}</b>${b.dataset.cl ? ` de <b>${esc(b.dataset.cl)}</b>` : ''} como <b>código equivocado</b>?</p>
       <p>Sale de tu lista y le llega un aviso a la dueña para revisarlo con la clienta. Si te equivocaste, la regresas con <b>Deshacer</b> en "Hechas recientemente".</p>`, 'Sí, código equivocado', true))) return;
@@ -1764,7 +1768,8 @@ function htmlDetalle(d) {
     ${d.revisable ? '' : `<p class="nota">${d.estado === 'abierta' ? 'El live sigue abierto: la revisión empieza al cerrarlo.' : 'Este pedido ya se confirmó; ya no está en revisión.'}</p>`}
     ${d.revisable && !editable ? '<p class="nota">Solo ver: Operación live marca cada prenda.</p>' : ''}
     <div class="rev-lista">${ps.map(p => `<div class="rev-fila${p.revision ? ' rev-' + p.revision : ''}">
-        <div><b class="rev-clave">${esc(p.clave)}${varios && p.casillero ? ` <span class="rev-cas">→ ${esc(p.casillero)}</span>` : ''}</b><small>${estado(p)}${p.revision_por ? ' · ' + esc(String(p.revision_por).split('@')[0]) + ' ' + hora(p.revision_en) : ''}</small></div>
+        <div><b class="rev-clave">${esc(p.clave)}${varios && p.casillero ? ` <span class="rev-cas">→ ${esc(p.casillero)}</span>` : ''}</b><small>${estado(p)}${p.revision_por ? ' · ' + esc(String(p.revision_por).split('@')[0]) + ' ' + hora(p.revision_en) : ''}</small>
+          ${p.estado === 'apartada' && puede.acomodar() ? `<button type="button" class="btn-arrep" data-arrep="${p.id}">Se arrepintió</button>` : ''}</div>
         ${editable ? `<div class="rev-btns">
           <button type="button" class="btn btn-mini ${p.revision === 'encontrada' ? 'rev-si' : 'btn-secundario'}" data-rev="encontrada" data-ap="${p.id}">Encontrada</button>
           <button type="button" class="btn btn-mini ${p.revision === 'no_encontrada' ? 'rev-no' : 'btn-secundario'}" data-rev="no_encontrada" data-ap="${p.id}">No encontrada</button>
@@ -1793,6 +1798,18 @@ function htmlCuentaFinal(d) {
     ${si.length ? `<p>Su nota de cobro saldrá por <b>${dinero(total)}</b>.</p>`
       : '<div class="banner banner-aviso"><span><b>No queda nada que cobrar:</b> el pedido se cancela y el casillero queda libre.</span></div>'}`;
 }
+// "Se arrepintió": la clienta ya no quiere la prenda. Dos confirmaciones; pasa sola a la siguiente en espera.
+async function seArrepintio(apartado) {
+  const info = await accion(() => rpc('live_arrepentimiento_info', { p_apartado: apartado }));
+  if (!info || info === true) return false;
+  const destino = info.siguiente ? `pasa a <b>${esc(info.siguiente)}</b>, la primera en espera` : 'nadie la espera, así que <b>regresa al rack</b>';
+  if (!(await confirmar('¿Se arrepintió?', `<p>¿<b>${esc(info.clienta)}</b> ya no quiere la <b>${esc(info.clave)}</b>?</p><p>Se le quita de su pedido y ${destino}.</p>`, 'Sí, se arrepintió', true))) return false;
+  if (!(await confirmar('Confírmalo otra vez', `<p>Vas a quitarle la <b>${esc(info.clave)}</b> a <b>${esc(info.clienta)}</b>.</p><p>Esto no se puede deshacer desde el panel. Toca otra vez para confirmar.</p>`, `Sí, quitar la ${info.clave}`, true))) return false;
+  const r = await accion(() => rpc('live_se_arrepintio', { p_apartado: apartado, p_por: usuario.nombre || usuario.email }));
+  if (!r || r === true) return false;
+  toast(r.nueva ? `${r.clave}: ahora es de ${r.nueva}${r.casillero ? ' · llévala al ' + r.casillero : ''}` : `${r.clave}: regrésala al rack`);
+  return true;
+}
 async function abrirDetalle(id) {
   let d = await accion(() => rpc('live_pedido_detalle', { p_cuenta: id }));
   if (!d || d === true) return;
@@ -1806,7 +1823,9 @@ async function abrirDetalle(id) {
       cuerpo.addEventListener('click', async e => {
         const b = e.target.closest('button');
         if (!b) return;
-        if (b.dataset.rev) {
+        if (b.dataset.arrep) {
+          if (await seArrepintio(b.dataset.arrep)) repintar(await accion(() => rpc('live_pedido_detalle', { p_cuenta: d.id })));
+        } else if (b.dataset.rev) {
           const p = d.piezas.find(x => x.id === b.dataset.ap);
           const nueva = p && p.revision === b.dataset.rev ? null : b.dataset.rev;   // tocar otra vez quita la marca
           repintar(await accion(() => rpc('live_revisar_prenda', { p_apartado: b.dataset.ap, p_revision: nueva, p_usuario: usuario.email })));
