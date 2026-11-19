@@ -2002,16 +2002,19 @@ async function vistaPrendas() {
       const EA = { apartada: 'Apartada', espera: 'En espera', pagada: 'Pagada', liberada: 'Liberada', cancelada: 'Cancelada' };
       // Qué es exactamente esta prenda y qué hacer con ella
       const duena = hist.find(a => ['apartada', 'pagada'].includes(a.estado));
-      const esperan = hist.filter(a => a.estado === 'espera').length;
+      const enEspera = hist.filter(a => a.estado === 'espera').sort((a, b) => new Date(a.mensaje_en || a.creado_en) - new Date(b.mensaje_en || b.creado_en));
+      const esperan = enEspera.length;
       let que = '';
       if (duena) que = `<b>Es de ${esc(duena.clienta)}.</b> ${duena.casillero ? `Va en el casillero <b>${esc(duena.casillero)}</b>.` : 'Todavía no tiene casillero.'}${duena.estado === 'pagada' ? ' Ya está pagada.' : ''}${esperan ? ` Hay ${esperan} en espera.` : ''}`;
       else if (p.estado === 'apartada') que = '<b>La pidió una clienta nueva que todavía no se registra</b> (sale en "Pide DM"). Va en la charola de pendientes.';
+      else if (p.estado === 'disponible' && esperan) que = `<b>Está libre</b> y ${esperan === 1 ? 'hay 1 clienta en espera' : `hay ${esperan} clientas en espera`}. La primera es <b>${esc(enEspera[0].clienta)}</b>. No se le pasó sola a nadie: una Dueña decide si se la da.`;
       else if (p.estado === 'disponible') que = hist.length
         ? '<b>Ya no es de nadie:</b> se liberó. Regrésala al rack.'
         : '<b>Nadie eligió esta prenda.</b> Regrésala al rack.';
       detalle = `<div class="tarjeta">
         <div class="cas-cab"><b style="font-size:24px">${num4(p.numero)}</b><span class="chip ${ET[p.estado][0]}">${ET[p.estado][1]}</span></div>
         ${que ? `<p>${que}</p>` : ''}
+        ${p.estado === 'disponible' && esperan && puede.duena() ? `<div class="fila-botones"><button type="button" class="btn btn-mini btn-marca" data-dar-espera="${p.numero}" data-quien="${esc(enEspera[0].clienta)}">Dársela a quien espera</button></div>` : ''}
         <small>${dinero(p.precio)} · registrada ${fechaHora(p.registrada_en)}</small>
         ${hist.length ? `<div class="lista-simple">${hist.map(a => `<div><b>${esc(a.clienta)}</b> · ${EA[a.estado] || a.estado}${a.casillero ? ' · ' + esc(a.casillero) : ''}<br><small>${fechaHora(a.mensaje_en)}</small></div>`).join('')}</div>` : ''}
       </div>`;
@@ -2053,6 +2056,13 @@ conectar.prendas = raiz => {
     toast(nuevas === total ? `${nuevas} prendas registradas` : `${nuevas} nuevas; ${total - nuevas} ya existían`);
     pintar();
   };
+  // La Dueña decide darle una prenda libre a la primera clienta de su lista de espera
+  $$('[data-dar-espera]', raiz).forEach(b => b.onclick = async () => {
+    const clave = num4(+b.dataset.darEspera);
+    if (!(await confirmar(`¿Darle la ${clave} a ${b.dataset.quien}?`, '<p>Es la primera en la lista de espera. La prenda se suma a su pedido de ese live; si ya había pagado, se le abre un pedido nuevo que hay que revisar y cobrar aparte.</p>', 'Sí, dársela'))) return;
+    const r = await accion(() => rpc('live_espera_dar', { p_prenda: +b.dataset.darEspera }));
+    if (r && r !== true) { toast(`${r.clave} ahora es de ${r.clienta}${r.casillero ? ' · casillero ' + r.casillero : ''}`); pintar(); }
+  });
   $('#f-buscar', raiz).onsubmit = e => {
     e.preventDefault();
     const v = e.target.n.value.trim();
