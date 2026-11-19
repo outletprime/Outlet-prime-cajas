@@ -1223,7 +1223,7 @@ function montarShell() {
       <a class="btn-icono" href="#/ajustes" aria-label="Ajustes">${IC.ajustes}</a>
     </header>
     ${CFG.vistaPrevia ? '<div class="aviso-demo">Vista previa con datos de ejemplo. Lo que hagas aquí se queda solo en este navegador.</div>' : store.modo !== 'nube' ? '<div class="aviso-demo">Modo prueba: los datos solo se guardan en este dispositivo.</div>' : ''}
-    ${ROL === 'supervisor' ? '<div class="aviso-demo">Modo monitor: puedes ver todo, pero no cambiar nada.</div>' : ''}
+    ${ROL === 'supervisor' ? '<div class="aviso-demo">Modo monitor: puedes ver todo y editar los datos de las clientas; lo demás no se cambia.</div>' : ''}
     <main id="vista"></main>
     <nav class="tabs">
       <a href="#/cajas" data-tab="cajas">${IC.cajas}<span>Cajas</span></a>
@@ -1639,7 +1639,7 @@ function vistaClientas() {
   titulo('Clientas');
   const lista = D.clientas.slice().sort((a, b) => ordenNatural(nombreCompleto(a), nombreCompleto(b)));
   vista().innerHTML = `
-    <div class="acciones"><a class="btn btn-primario" href="#/clienta/nueva">${IC.mas} Registrar clienta</a></div>
+    ${ROL === 'supervisor' ? '<p class="nota centro">Para agregar una clienta nueva: panel del live → Ajustes → Agregar clienta.</p>' : `<div class="acciones"><a class="btn btn-primario" href="#/clienta/nueva">${IC.mas} Registrar clienta</a></div>`}
     <input type="search" class="buscador" id="buscar" placeholder="Buscar por nombre, teléfono o colonia…" autocomplete="off">
     <p class="nota">${lista.length} ${lista.length === 1 ? 'clienta registrada' : 'clientas registradas'}</p>
     <div class="lista" id="lista">
