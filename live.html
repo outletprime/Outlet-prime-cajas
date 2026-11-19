@@ -1739,7 +1739,7 @@ function tarjetaCasillero(c) {
       <p class="paso">${s.paso}</p>
       <div class="fila-botones">
         ${s.revisar ? '<button type="button" class="btn btn-mini btn-marca abrir-detalle">Revisar prendas</button>' : ''}
-        ${s.accion && (s.accion === 'caja' ? puede.duena() : puede.operar()) ? `<button class="btn btn-mini btn-primario" data-${s.accion}="${c.id}">${esc(s.boton)}</button>` : ''}
+        ${s.accion && (s.accion === 'caja' ? puede.duena() : (puede.operar() || (c.estado === 'pagada' && puede.acomodar()))) ? `<button class="btn btn-mini btn-primario" data-${s.accion}="${c.id}">${esc(s.boton)}</button>` : ''}
         ${s.cobro && puede.operar() ? `<button class="btn btn-mini ${s.cobro === 'mandar' ? 'btn-marca' : 'btn-secundario'}" data-cobro="${c.id}">${s.cobro === 'mandar' ? 'Mandar nota de cobro' : 'Ver nota de cobro'}</button>` : ''}
         ${s.pago && puede.duena() ? `<button class="btn btn-mini btn-primario" data-pago="${c.id}">Registrar pago</button>` : ''}
         ${s.tardio && puede.duena() ? `<button class="btn btn-mini btn-marca" data-tardio="${c.id}">Pago tardío</button>` : ''}
@@ -1755,7 +1755,12 @@ conectar.casilleros = raiz => {
     el.onkeydown = e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === el) { e.preventDefault(); abrirDetalle(el.dataset.detalle); } };
   });
   $$('[data-listo]', raiz).forEach(b => b.onclick = async () => {
-    if (await accion(() => rpc('live_casillero_listo', { p_cuenta: b.dataset.listo, p_usuario: usuario.nombre }), 'Casillero libre')) pintar();
+    const c = D.tablero.find(x => x.id === b.dataset.listo);
+    // Pedido pagado: confirmar que las prendas ya se pasaron del casillero a su caja de resguardo
+    if (c && c.estado === 'pagada' && !(await confirmar(`¿Ya está en la caja ${c.caja || ''}?`,
+      `<p>Confirmas que pasaste las prendas de <b>${esc(c.clienta)}</b> del casillero <b>${esc(c.casilleros_txt || c.casillero || '—')}</b> a la <b>caja de resguardo ${esc(c.caja || '—')}</b>:</p>
+       <p><b>${esc(c.piezas_txt || '')}</b></p><p>Con esto el casillero queda libre.</p>`, 'Sí, ya está en la caja'))) return;
+    if (await accion(() => rpc('live_casillero_listo', { p_cuenta: b.dataset.listo, p_usuario: usuario.nombre || usuario.email }), 'Casillero libre')) pintar();
   });
   $$('[data-caja]', raiz).forEach(b => b.onclick = async () => {
     const caja = await accion(() => rpc('live_pasar_a_caja', { p_cuenta: b.dataset.caja }));
