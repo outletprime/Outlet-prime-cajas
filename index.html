@@ -472,7 +472,9 @@ class LocalStore {
   guiaCaja(id, que, datos = {}) {
     const ahora = new Date().toISOString();
     if (que === 'lista') return this.update('asignaciones', id, { lista_guia_en: ahora, lista_guia_por: usuario.nombre });
-    if (que === 'quitar-lista') return this.update('asignaciones', id, { lista_guia_en: null, lista_guia_por: null });
+    if (que === 'tienda') return this.update('asignaciones', id, { lista_guia_en: ahora, lista_guia_por: usuario.nombre, lista_para: 'tienda' });
+    if (que === 'entregada-tienda') return this.update('asignaciones', id, { estado: 'enviada', enviada_en: ahora, enviada_por: usuario.nombre, paqueteria: 'Recoge en tienda' });
+    if (que === 'quitar-lista' || que === 'quitar-tienda') return this.update('asignaciones', id, { lista_guia_en: null, lista_guia_por: null, lista_para: null });
     if (que === 'quitar-pegada') return this.update('asignaciones', id, { guia_pegada_en: null, guia_pegada_por: null, entrega: null });
     return this.update('asignaciones', id, { guia_pegada_en: ahora, guia_pegada_por: usuario.nombre, entrega: que, ...(datos.paqueteria ? { paqueteria: datos.paqueteria } : {}), ...(datos.guia ? { guia: datos.guia } : {}) });
   }
@@ -579,7 +581,11 @@ class SupaStore {
   }
   // Guía de la caja: por funciones de la base, que revisan el nivel y mandan los avisos
   async guiaCaja(id, que, datos = {}) {
-    const { error } = que === 'lista' || que === 'quitar-lista'
+    const { error } = que === 'tienda' || que === 'quitar-tienda'
+      ? await this.sb.rpc('caja_lista_para_tienda', { p_asignacion: id, p_lista: que === 'tienda', p_usuario: usuario.nombre })
+      : que === 'entregada-tienda'
+      ? await this.sb.rpc('caja_entregada_en_tienda', { p_asignacion: id, p_usuario: usuario.nombre })
+      : que === 'lista' || que === 'quitar-lista'
       ? await this.sb.rpc('caja_lista_para_guia', { p_asignacion: id, p_lista: que === 'lista', p_usuario: usuario.nombre })
       : await this.sb.rpc('caja_guia_pegada', { p_asignacion: id, p_entrega: que === 'quitar-pegada' ? null : que, p_paqueteria: datos.paqueteria || null, p_guia: datos.guia || null, p_usuario: usuario.nombre });
     if (error) throw error;
@@ -1395,7 +1401,7 @@ function vistaCajas(query) {
           <span class="caja-codigo">${esc(f.c.id)}</span>
           ${f.a ? `<span class="caja-nombre">${esc(nombreCompleto(f.cl))}</span>
             <span class="caja-meta">Día ${f.st.dias} · ${f.r.prendas}/${f.c.capacidad || 30} prendas</span>
-            ${f.a.guia_pegada_en ? `<span class="caja-guia pegada">${f.a.entrega === 'sucursal' ? 'Guía pegada · sucursal' : 'Guía pegada · recolección'}</span>` : f.a.lista_guia_en ? '<span class="caja-guia">Lista para guía</span>' : ''}` : '<span class="caja-nombre libre">Libre</span>'}
+            ${f.a.guia_pegada_en ? `<span class="caja-guia pegada">${f.a.entrega === 'sucursal' ? 'Guía pegada · sucursal' : 'Guía pegada · recolección'}</span>` : f.a.lista_guia_en ? `<span class="caja-guia">${f.a.lista_para === 'tienda' ? 'Recoge en tienda' : 'Lista para guía'}</span>` : ''}` : '<span class="caja-nombre libre">Libre</span>'}
         </a>`).join('') || '<p class="nota">No hay cajas en este filtro.</p>'}
     </div>`;
   $('#buscar').oninput = e => {
@@ -1456,6 +1462,7 @@ async function vistaCaja(id) {
  * El envío final sigue siendo "Marcar como enviado". */
 const PUEDE_LISTA_GUIA = () => ['duena', 'operacion', 'live'].includes(ROL);
 const PUEDE_GUIA_PEGADA = () => ['duena', 'supervisor'].includes(ROL);
+const PUEDE_ENTREGAR_TIENDA = () => ['duena', 'operacion'].includes(ROL);
 const quienCorto = v => esc(String(v || '').split('@')[0]);
 function htmlGuia(a, pedidos) {
   if (a.guia_pegada_en) {
@@ -1464,6 +1471,15 @@ function htmlGuia(a, pedidos) {
       <p>${[a.paqueteria, a.guia].filter(Boolean).map(esc).join(' · ') || 'Sin número de guía anotado'}</p>
       <small>La marcó ${quienCorto(a.guia_pegada_por)} · ${fechaHora(a.guia_pegada_en)}</small>
       ${PUEDE_GUIA_PEGADA() ? '<button class="btn btn-mini" data-guia="quitar-pegada">Deshacer</button>' : ''}
+    </div>`;
+  }
+  if (a.lista_guia_en && a.lista_para === 'tienda') {
+    return `<div class="tarjeta guia-paso guia-ok">
+      <b>${IC.cajas} Lista para recoger en tienda</b>
+      <small>La marcó ${quienCorto(a.lista_guia_por)} · ${fechaHora(a.lista_guia_en)}</small>
+      ${PUEDE_ENTREGAR_TIENDA() ? `<p class="nota">Cuando la clienta pase por su pedido:</p>
+        <button class="btn btn-primario" data-guia="entregada-tienda">${IC.cajas} Entregada a la clienta en tienda</button>` : '<p class="nota">Cuando la clienta pase por su pedido, una Dueña u Operación la marca como entregada.</p>'}
+      ${PUEDE_LISTA_GUIA() ? '<button class="btn btn-mini" data-guia="quitar-tienda">Todavía no está lista (deshacer)</button>' : ''}
     </div>`;
   }
   if (a.lista_guia_en) {
@@ -1481,7 +1497,10 @@ function htmlGuia(a, pedidos) {
     </div>`;
   }
   if (!PUEDE_LISTA_GUIA() || !pedidos.length) return '';
-  return `<div class="acciones"><button class="btn btn-secundario" data-guia="lista">${IC.qr} Caja lista para generar guía</button></div>`;
+  return `<div class="acciones">
+    <button class="btn btn-secundario" data-guia="lista">${IC.qr} Caja lista para generar guía</button>
+    <button class="btn btn-secundario" data-guia="tienda">${IC.cajas} Lista para recoger en tienda</button>
+  </div>`;
 }
 function conectarGuia(a, id) {
   const hacer = async (texto, fn, ok) => {
@@ -1494,6 +1513,15 @@ function conectarGuia(a, id) {
       if (que === 'lista') {
         if (!(await confirmar(`¿Ya están <b>todos los pedidos</b> dentro de la caja <b>${esc(id)}</b>?<br><br>Se le avisa al Supervisor para que genere la guía. Los pedidos nuevos de esta clienta ya no entrarán a esta caja.`, { titulo: 'Caja lista para guía', si: 'Sí, está lista' }))) return;
         hacer('Guardando…', () => store.guiaCaja(a.id, 'lista'), `Caja ${id} lista para guía. Se avisó al Supervisor.`);
+      } else if (que === 'tienda') {
+        if (!(await confirmar(`¿Ya están <b>todos los pedidos</b> dentro de la caja <b>${esc(id)}</b> y la clienta va a <b>recogerla en tienda</b>?<br><br>Se les avisa a las Dueñas. Esta caja no lleva guía.`, { titulo: 'Lista para recoger en tienda', si: 'Sí, está lista' }))) return;
+        hacer('Guardando…', () => store.guiaCaja(a.id, 'tienda'), `Caja ${id} lista para recoger en tienda. Se avisó a las Dueñas.`);
+      } else if (que === 'quitar-tienda') {
+        hacer('Guardando…', () => store.guiaCaja(a.id, 'quitar-tienda'), 'Listo: la caja ya no está marcada.');
+      } else if (que === 'entregada-tienda') {
+        if (!(await confirmar(`¿La clienta ya <b>recogió</b> su pedido de la caja <b>${esc(id)}</b>?<br><br>Queda como entregada en su historial y la caja ${esc(id)} queda libre.`, { titulo: 'Entregada en tienda', si: 'Sí, ya la recogió' }))) return;
+        const ok = await accion(async () => { await store.guiaCaja(a.id, 'entregada-tienda'); D.cargado = 0; await refrescar(true); return true; }, 'Guardando…');
+        if (ok) { toast(`Entregada en tienda. La caja ${id} quedó libre.`); ir(`clienta/${a.clienta_id}`); }
       } else if (que === 'quitar-lista') {
         hacer('Guardando…', () => store.guiaCaja(a.id, 'quitar-lista'), 'Listo: la caja ya no está marcada.');
       } else if (que === 'quitar-pegada') {
