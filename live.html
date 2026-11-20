@@ -253,13 +253,16 @@ body.host #vista { max-width: none; padding: calc(var(--sup) + 14px) 20px 24px; 
 
 .rev-resumen { font-size: 16px; }
 .rev-lista { display: grid; gap: 8px; margin: 10px 0; }
-.rev-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--borde); background: var(--superficie); }
+.rev-fila { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--borde); background: var(--superficie); }
 .rev-fila.rev-encontrada { background: var(--ok-suave); border-color: transparent; }
 .rev-fila.rev-no_encontrada { background: var(--vencida-suave); border-color: transparent; }
 .rev-fila.rev-no_vendible { background: var(--aviso-suave); border-color: transparent; }
-.rev-clave { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+.rev-info { flex: 1 1 150px; min-width: 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.rev-info > div { flex: 1 1 auto; min-width: 0; }
+.rev-info .btn-arrep { flex: none; margin-top: 0; white-space: nowrap; }
+.rev-clave { display: block; font-size: 22px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rev-cas { color: var(--marca); font-size: 18px; }
-.rev-btns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.rev-btns { flex: 1 1 300px; min-width: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .rev-btns .btn { white-space: normal; line-height: 1.15; padding-left: 8px; padding-right: 8px; }
 .btn.rev-si { background: var(--ok); color: #fff; }
 .btn.rev-no { background: var(--vencida); color: #fff; }
@@ -273,7 +276,6 @@ body.host #vista { max-width: none; padding: calc(var(--sup) + 14px) 20px 24px; 
 .rev-cuenta .rev-fuera td { color: var(--texto-2); text-decoration: line-through; }
 .rev-abrir { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .casillero[data-detalle] { cursor: pointer; }
-@media (max-width: 420px) { .rev-fila { grid-template-columns: 1fr; } }
 .resurtir-num { justify-items: center; text-align: center; padding: 22px 14px; }
 .resurtir-num b { font-size: 76px; line-height: 1; font-variant-numeric: tabular-nums; }
 .resurtir-num .btn { width: 100%; }
@@ -1860,7 +1862,7 @@ function htmlDetalle(d) {
     ${d.revisable ? '' : `<p class="nota">${d.estado === 'abierta' ? 'El live sigue abierto: la revisión empieza al cerrarlo.' : 'Este pedido ya se confirmó; ya no está en revisión.'}</p>`}
     ${d.revisable && !editable ? '<p class="nota">Solo ver: Operación live marca cada prenda.</p>' : ''}
     <div class="rev-lista">${ps.map(p => `<div class="rev-fila${p.revision ? ' rev-' + p.revision : ''}">
-        <div><b class="rev-clave">${esc(p.clave)}${varios && p.casillero ? ` <span class="rev-cas">→ ${esc(p.casillero)}</span>` : ''}</b><small>${estado(p)}${p.revision_por ? ' · ' + esc(String(p.revision_por).split('@')[0]) + ' ' + hora(p.revision_en) : ''}</small>
+        <div class="rev-info"><div><b class="rev-clave">${esc(p.clave)}${varios && p.casillero ? ` <span class="rev-cas">→ ${esc(p.casillero)}</span>` : ''}</b><small>${estado(p)}${p.revision_por ? ' · ' + esc(String(p.revision_por).split('@')[0]) + ' ' + hora(p.revision_en) : ''}</small></div>
           ${p.estado === 'apartada' && puede.acomodar() ? `<button type="button" class="btn-arrep" data-arrep="${p.id}">Se arrepintió</button>` : ''}</div>
         ${editable ? `<div class="rev-btns">
           <button type="button" class="btn btn-mini ${p.revision === 'encontrada' ? 'rev-si' : 'btn-secundario'}" data-rev="encontrada" data-ap="${p.id}">Encontrada</button>
