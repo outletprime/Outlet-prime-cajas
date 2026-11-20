@@ -1795,6 +1795,15 @@ async function vistaCasilleros() {
     ? await q(sb.from('live_tablero').select('id, folio, clienta, casillero, caja, piezas, total, piezas_txt, pagada_en, casillero_liberado_en').eq('estado', 'pagada')
         .gt('pagada_en', new Date(Date.now() - 30 * 864e5).toISOString()).order('pagada_en', { ascending: false }).limit(150)).catch(() => [])
     : [];
+  // Cajas de resguardo ocupadas y cómo va su guía: quien acomoda las marca como "lista para generar guía"
+  const cajasGuia = (puede.acomodar() || ROL === 'supervisor')
+    ? (await q(sb.from('asignaciones').select('id, caja, lista_guia_en, guia_pegada_en, entrega, clientas(nombre, apellidos), pedidos(prendas)')
+        .eq('estado', 'activa').limit(300)).catch(() => []))
+        .map(a => ({ ...a, clienta: [a.clientas && a.clientas.nombre, a.clientas && a.clientas.apellidos].filter(Boolean).join(' '), prendas: (a.pedidos || []).reduce((n, x) => n + Number(x.prendas || 0), 0), npedidos: (a.pedidos || []).length }))
+        .filter(a => a.npedidos)
+        .sort((a, b) => (!!a.lista_guia_en - !!b.lista_guia_en) || String(a.caja).localeCompare(String(b.caja), 'es', { numeric: true }))
+    : [];
+  const porMarcar = cajasGuia.filter(a => !a.lista_guia_en).length;
   const regresados = puede.duena()
     ? await q(sb.from('live_tablero').select('id, folio, clienta, casillero, vencida_en').eq('estado', 'vencida').not('casillero_liberado_en', 'is', null)
         .gt('vencida_en', new Date(Date.now() - 7 * 864e5).toISOString()).order('vencida_en', { ascending: false }).limit(30)).catch(() => [])
@@ -1805,6 +1814,14 @@ async function vistaCasilleros() {
     </div>
     <small>${ocupados} ${ocupados === 1 ? 'casillero ocupado' : 'casilleros ocupados'}</small>
     ${visibles.length ? visibles.map(tarjetaCasillero).join('') : `<div class="vacio">${IC.casilleros}<h2>Nada por aquí</h2><p>${filtroCas === 'todos' ? 'No hay casilleros ocupados.' : 'No hay casilleros en este filtro.'}</p></div>`}
+    ${cajasGuia.length ? `<details class="tarjeta" id="sec-guia"${guiaAbierto ? ' open' : ''}><summary>Cajas de resguardo · guía${porMarcar ? ` (${porMarcar} sin marcar)` : ''}</summary>
+      <p class="nota">Cuando ya están <b>todos</b> los pedidos dentro de una caja, márcala como lista para generar guía: le llega el aviso al Supervisor, que genera la guía y la pega.</p>
+      <div class="lista-simple">${cajasGuia.map(a => `<div class="pagado-fila"><div><b>Caja ${esc(a.caja)}</b> · ${esc(a.clienta)}
+          <small>${a.prendas} ${a.prendas === 1 ? 'prenda' : 'prendas'} en ${a.npedidos} ${a.npedidos === 1 ? 'pedido' : 'pedidos'}</small></div>
+        ${a.guia_pegada_en ? `<span class="chip chip-ok">Guía pegada · ${a.entrega === 'sucursal' ? 'sucursal' : 'recolección'}</span>`
+          : a.lista_guia_en ? '<span class="chip chip-aviso">Lista para guía</span>'
+          : puede.acomodar() ? `<button type="button" class="btn btn-mini btn-primario" data-lista-guia="${a.id}" data-caja-guia="${esc(a.caja)}" data-clienta-guia="${esc(a.clienta)}">Lista para generar guía</button>`
+          : '<span class="chip">Sin marcar</span>'}</div>`).join('')}</div></details>` : ''}
     ${pagados.length ? `<details class="tarjeta" id="sec-pagados"${pagadosAbierto ? ' open' : ''}><summary>Pedidos pagados (${pagados.length})</summary>
       <p class="nota">Pagados en los últimos 30 días, del más reciente al más antiguo, con las claves de sus prendas. El PDF trae lo mismo que la nota de cobro, ya como pedido pagado.</p>
       <div class="lista-simple">${pagados.map(c => `<div class="pagado-fila"><div><b>${esc(c.clienta)}</b> · ${folio(c.folio)}
@@ -1815,6 +1832,16 @@ async function vistaCasilleros() {
       <p class="nota">Pedidos que vencieron en los últimos 7 días. Si la clienta pagó tarde, aquí se rescatan.</p>
       <div class="lista-simple">${regresados.map(c => `<div class="acomodo-hecha"><span><b>${esc(c.clienta)}</b> · ${folio(c.folio)}<br><small>venció ${fechaHora(c.vencida_en)}${c.casillero ? ' · estaba en ' + esc(c.casillero) : ''}</small></span>
         <button type="button" class="btn btn-mini btn-marca" data-tardio="${c.id}">Pago tardío</button></div>`).join('')}</div></details>` : ''}`;
+}
+/* Caja de resguardo lista para generar su guía: le avisa al Supervisor. La marca quien metió los pedidos. */
+let guiaAbierto = false;
+async function marcarListaGuia(asignacion, caja, clienta, recienMetido = false) {
+  if (!(await confirmar(`¿La caja ${caja || ''} ya está lista para su guía?`,
+    `<p>${recienMetido ? 'El pedido ya está en la caja. ' : ''}Si <b>todos los pedidos</b> de <b>${esc(clienta || 'la clienta')}</b> ya están dentro de la <b>caja de resguardo ${esc(caja || '—')}</b>, márcala como lista para generar guía.</p>
+     <p>Se le avisa al Supervisor para que genere la guía y la pegue. Los pedidos nuevos de esta clienta ya no entrarán a esta caja.</p>${recienMetido ? '<p class="nota">Si todavía le falta algún pedido, toca Cancelar: después la marcas aquí en Casilleros, en "Cajas de resguardo · guía".</p>' : ''}`,
+    'Sí, lista para guía'))) return false;
+  return !!(await accion(() => rpc('caja_lista_para_guia', { p_asignacion: asignacion, p_lista: true, p_usuario: usuario.nombre || usuario.email }),
+    `Caja ${caja || ''} lista para guía. Se avisó al Supervisor.`));
 }
 function tarjetaCasillero(c) {
   const s = siguientePaso(c);
@@ -1849,7 +1876,15 @@ conectar.casilleros = raiz => {
     if (c && c.estado === 'pagada' && !(await confirmar(`¿Ya está en la caja ${c.caja || ''}?`,
       `<p>Confirmas que pasaste las prendas de <b>${esc(c.clienta)}</b> del casillero <b>${esc(c.casilleros_txt || c.casillero || '—')}</b> a la <b>caja de resguardo ${esc(c.caja || '—')}</b>:</p>
        <p><b>${esc(c.piezas_txt || '')}</b></p><p>Con esto el casillero queda libre.</p>`, 'Sí, ya está en la caja'))) return;
-    if (await accion(() => rpc('live_casillero_listo', { p_cuenta: b.dataset.listo, p_usuario: usuario.nombre || usuario.email }), 'Casillero libre')) pintar();
+    if (!(await accion(() => rpc('live_casillero_listo', { p_cuenta: b.dataset.listo, p_usuario: usuario.nombre || usuario.email }), 'Casillero libre'))) return;
+    // Ya en su caja: si con este pedido la caja quedó completa, se marca de una vez como lista para generar guía
+    if (c && c.estado === 'pagada' && c.asignacion_id && puede.acomodar()) await marcarListaGuia(c.asignacion_id, c.caja, c.clienta, true);
+    pintar();
+  });
+  const secGuia = $('#sec-guia', raiz);
+  if (secGuia) secGuia.ontoggle = () => { guiaAbierto = secGuia.open; };
+  $$('[data-lista-guia]', raiz).forEach(b => b.onclick = async () => {
+    if (await marcarListaGuia(b.dataset.listaGuia, b.dataset.cajaGuia, b.dataset.clientaGuia)) pintar();
   });
   $$('[data-caja]', raiz).forEach(b => b.onclick = async () => {
     const caja = await accion(() => rpc('live_pasar_a_caja', { p_cuenta: b.dataset.caja }));
