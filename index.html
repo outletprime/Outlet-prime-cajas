@@ -2555,13 +2555,20 @@ function pantallaLogin() {
  * Solo responde con la guía del equipo: no lee ni cambia nada. */
 const AYUDA = { mensajes: [], esperando: false };
 const AYUDA_SUGERENCIAS = {
-  duena: ['¿Cómo asigno una caja a una clienta que ya pagó?', '¿Cómo registro el envío de una caja?', '¿Cómo imprimo las etiquetas de las cajas?'],
-  operacion: ['¿Cómo asigno una caja a una clienta que ya pagó?', '¿Cómo uso Escanear?', '¿Cómo registro el envío de una caja?'],
-  supervisor: ['¿Cómo imprimo las etiquetas de las cajas?', '¿Cómo agrego a una clienta nueva?', '¿Qué es una caja de resguardo?'],
-  live: ['¿Cómo agrego el video de un pedido?', '¿Cómo uso Escanear?', '¿Qué es una caja de resguardo?'],
+  duena: ['¿Cómo asigno una caja a una clienta que ya pagó?', '¿Cómo registro el envío de una caja?', '¿Cómo imprimo las etiquetas de las cajas?', '¿Cuánto se vendió en el live de ayer?'],
+  operacion: ['¿Cómo asigno una caja a una clienta que ya pagó?', '¿Cómo uso Escanear?', '¿Cómo registro el envío de una caja?', '¿De quién es la caja A1?'],
+  supervisor: ['¿Cómo imprimo las etiquetas de las cajas?', '¿Cómo agrego a una clienta nueva?', '¿Qué es una caja de resguardo?', '¿Cuántas cajas hay libres?'],
+  live: ['¿Cómo agrego el video de un pedido?', '¿Cómo uso Escanear?', '¿Qué es una caja de resguardo?', '¿De quién es la caja A1?'],
   presentadora: ['¿Qué hago cuando me llega "Pide DM"?', 'No me llegan los avisos al celular', '¿Cómo instalo el panel en mi iPhone?'],
   resurtido: ['¿Cuándo cuenta una prenda para resurtir?', 'Repuse solo una parte, ¿cómo lo anoto?', 'No me llegan los avisos al celular'],
 };
+// Además de explicar cómo se usa, consulta los datos que el nivel de quien pregunta puede ver
+const AYUDA_CONSULTA = ['duena', 'supervisor', 'operacion', 'live'];
+const ayudaSaludo = () => (AYUDA_CONSULTA.includes(ROL)
+  ? 'Hola. Pregúntame cómo hacer algo y te digo los pasos.\n\nTambién puedo consultar por ti: cuántas prendas tiene una clienta en su caja, de quién es una caja o una prenda'
+    + (ROL === 'live' ? '.' : ROL === 'operacion' ? ' y qué falta por cobrar.' : ', qué falta por cobrar y cuánto se vendió.')
+    + ' Solo veo lo que tu nivel de acceso permite, y no cambio nada.'
+  : 'Hola. Pregúntame cómo hacer algo y te digo los pasos.');
 const AYUDA_FALLAS = {
   sin_llave: 'La ayuda todavía no está activada. Avísale a una dueña.',
   llave: 'La ayuda no está bien configurada. Avísale a una dueña.',
@@ -2650,7 +2657,7 @@ function abrirAyuda() {
   fondo.className = 'ayuda-fondo';
   fondo.innerHTML = `<section class="ayuda-panel" role="dialog" aria-modal="true" aria-label="Ayuda">
     <header class="ayuda-cab">
-      <div><h2>Ayuda</h2><small>Dudas sobre la app de Cajas o el panel del live</small></div>
+      <div><h2>Ayuda</h2><small>Dudas y consultas de cajas, clientas y el live</small></div>
       <button type="button" class="ayuda-limpiar" hidden>Borrar</button>
       <button type="button" class="ayuda-cerrar" aria-label="Cerrar ayuda">×</button>
     </header>
@@ -2664,9 +2671,7 @@ function abrirAyuda() {
 
   const pintarMsjs = () => {
     const sugerencias = AYUDA.mensajes.length ? '' : `<div class="ayuda-sugerencias">${(AYUDA_SUGERENCIAS[ROL] || AYUDA_SUGERENCIAS.operacion).map(t => `<button type="button" data-sugerencia="${esc(t)}">${esc(t)}</button>`).join('')}</div>`;
-    lista.innerHTML = `<div class="ayuda-msj bot">Hola. Pregúntame cómo hacer algo en la app de Cajas o en el panel del live y te digo los pasos.
-
-Solo explico cómo se usan: no veo las cajas, clientas ni pagos.</div>${sugerencias}`
+    lista.innerHTML = `<div class="ayuda-msj bot">${esc(ayudaSaludo())}</div>${sugerencias}`
       + AYUDA.mensajes.map(m => `<div class="ayuda-msj ${m.rol === 'user' ? 'yo' : 'bot'}${m.falla ? ' falla' : ''}">${m.rol === 'user' ? esc(m.texto) : ayudaTexto(m.texto)}</div>`).join('')
       + (AYUDA.esperando ? '<div class="ayuda-msj bot espera">Escribiendo…</div>' : '');
     $('.ayuda-limpiar', fondo).hidden = !AYUDA.mensajes.length || AYUDA.esperando;
