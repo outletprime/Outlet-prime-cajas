@@ -319,6 +319,14 @@ input[type="checkbox"] { width: 22px; min-height: 22px; height: 22px; accent-col
 .tabla th:first-child, .tabla td:first-child { text-align: left; }
 .tabla th { font-size: 13px; color: var(--texto-2); font-weight: 600; }
 .tabla tfoot td { font-weight: 700; border-bottom: 0; }
+.live-rep h4 { margin: 0; font-size: 16px; }
+.live-rep > small { display: block; color: var(--texto-2); margin: 2px 0 10px; }
+.live-rep .kpi { background: var(--fondo); }
+.live-rep .kpi-grande { background: var(--primario); }
+.live-rep .kpi b { font-size: 18px; }
+.live-rep .kpi-grande b { font-size: 26px; }
+.live-rep .kpi em { display: block; font-style: normal; font-size: 12px; color: var(--texto-2); }
+.live-rep .nota { margin: 10px 0 0; }
 
 /* Ajustes */
 .precio-fila { display: grid; grid-template-columns: 1fr 100px auto; gap: 8px; align-items: center; margin-bottom: 8px; }
@@ -2135,6 +2143,40 @@ function calcularReporte(rango) {
   };
 }
 
+/* Reporte por live: prendas y clientas que pidieron y que pagaron, venta y cheque promedio */
+async function reporteLives(rango) {
+  const { data, error } = await store.sb.rpc('reporte_lives', { p_desde: fechaISO(rango[0]), p_hasta: fechaISO(rango[1]) });
+  if (error) throw error;
+  // Los lives de prueba que se abrieron y cerraron sin que nadie pidiera no se muestran
+  return (data || []).filter(l => l.prendas_pedidas > 0 || l.estado === 'activo').map(l => ({
+    ...l, venta: Number(l.venta), pedido: Number(l.pedido), por_cobrar: Number(l.por_cobrar),
+    cheque: l.clientas_pagaron ? Number(l.venta) / l.clientas_pagaron : 0,
+  }));
+}
+const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : '—');
+const nombreLive = l => `${l.tipo === 'prime' ? 'Prime Live' : 'Live'} del ${fechaHora(l.iniciado_en)}`;
+function htmlReporteLives(filas) {
+  if (!filas.length) return '<p class="nota">No hubo lives en este periodo.</p>';
+  const tarjeta = (tit, sub, l, conClientas) => `
+    <div class="tarjeta live-rep">
+      <h4>${esc(tit)}</h4><small>${esc(sub)}</small>
+      <div class="kpis">
+        <div class="kpi kpi-grande"><small>Venta del live (pagado)</small><b>${dinero(l.venta)}</b></div>
+        <div class="kpi"><small>Prendas pedidas</small><b>${l.prendas_pedidas}</b><em>${dinero(l.pedido)}</em></div>
+        <div class="kpi"><small>Prendas pagadas</small><b>${l.prendas_pagadas}</b><em>${pct(l.prendas_pagadas, l.prendas_pedidas)} de las pedidas</em></div>
+        ${conClientas ? `<div class="kpi"><small>Clientas que pidieron</small><b>${l.clientas_pidieron}</b></div>
+        <div class="kpi"><small>Clientas que pagaron</small><b>${l.clientas_pagaron}</b><em>${pct(l.clientas_pagaron, l.clientas_pidieron)} de las que pidieron</em></div>` : ''}
+        <div class="kpi"><small>Cheque promedio</small><b>${l.clientas_pagaron ? dinero(l.cheque) : '—'}</b><em>por clienta que pagó</em></div>
+      </div>
+      ${l.prendas_por_cobrar ? `<p class="nota">Falta por cobrar: ${l.prendas_por_cobrar} ${l.prendas_por_cobrar === 1 ? 'prenda' : 'prendas'} · ${dinero(l.por_cobrar)}</p>` : ''}
+    </div>`;
+  const suma = k => filas.reduce((s, l) => s + l[k], 0);
+  const tot = { venta: suma('venta'), pedido: suma('pedido'), por_cobrar: suma('por_cobrar'), prendas_pedidas: suma('prendas_pedidas'), prendas_pagadas: suma('prendas_pagadas'), prendas_por_cobrar: suma('prendas_por_cobrar'), clientas_pagaron: suma('clientas_pagaron') };
+  tot.cheque = tot.clientas_pagaron ? tot.venta / tot.clientas_pagaron : 0;
+  return (filas.length > 1 ? tarjeta(`Total de ${filas.length} lives`, 'Suma de todos los lives del periodo', tot, false) : '')
+    + filas.map(l => tarjeta(nombreLive(l), [l.titulo, l.host && `Host: ${l.host}`, l.estado === 'activo' ? 'En curso' : ''].filter(Boolean).join(' · ') || 'Live cerrado', l, true)).join('');
+}
+
 function vistaReportes(query) {
   titulo('Reportes');
   const p = query.get('p') || 'mes';
@@ -2163,6 +2205,7 @@ function vistaReportes(query) {
       <tbody>${Object.values(rep.porCat).map(c => `<tr><td>${esc(c.nombre)}</td><td>${c.cantidad}</td><td>${dinero(c.importe)}</td></tr>`).join('')}</tbody>
       <tfoot><tr><td>Total</td><td>${rep.prendas}</td><td>${dinero(rep.total)}</td></tr></tfoot>
     </table>
+    ${store.modo === 'nube' ? `<h3 class="seccion">Ventas por live</h3><div id="rep-lives"><p class="nota">Cargando los lives…</p></div>` : ''}
     <div class="tarjeta"><b>Hoy en cajas (sin enviar)</b><p>${activas.length} cajas ocupadas · ${dinero(pendiente)} en mercancía · <span class="${vencidas().length ? 'texto-vencida' : ''}">${vencidas().length} vencidas</span></p></div>
     <div class="acciones">
       <button class="btn btn-primario btn-grande" id="exportar">${IC.excel} Exportar corte a Excel</button>
@@ -2175,7 +2218,10 @@ function vistaReportes(query) {
     if (!d || !h || d > h) { toast('Revisa las fechas.', 'error'); return; }
     ir(`reportes?p=rango&desde=${d}&hasta=${h}`);
   };
-  $('#exportar').onclick = () => exportarCorte(rango, rep);
+  const lives = store.modo === 'nube' ? reporteLives(rango) : Promise.resolve(null);
+  lives.then(filas => { const c = $('#rep-lives'); if (c && filas) c.innerHTML = htmlReporteLives(filas); })
+    .catch(e => { console.error(e); const c = $('#rep-lives'); if (c) c.innerHTML = `<p class="nota">No se pudo cargar el reporte por live: ${esc(traducirError(e))}</p>`; });
+  $('#exportar').onclick = async () => exportarCorte(rango, rep, await lives.catch(() => null));
   $('#exportar-clientas').onclick = exportarClientas;
 }
 
@@ -2197,7 +2243,7 @@ function filaClienta(c) {
     Referencia: c.referencia, 'Caja actual': a ? a.caja : '', Registró: c.creado_por,
   };
 }
-function exportarCorte(rango, rep) {
+function exportarCorte(rango, rep, lives) {
   const cats = idx.categorias(true);
   const wb = XLSX.utils.book_new();
   const resumen = [
@@ -2231,6 +2277,16 @@ function exportarCorte(rango, rep) {
     return fila;
   });
   XLSX.utils.book_append_sheet(wb, hoja(pedidos.length ? pedidos : [{ Aviso: 'Sin pedidos en este periodo' }]), 'Pedidos');
+
+  if (lives) {
+    const porLive = lives.map(l => ({
+      Live: nombreLive(l), Fecha: new Date(l.iniciado_en), Host: l.host || '', Título: l.titulo || '',
+      'Prendas pedidas': l.prendas_pedidas, 'Prendas pagadas': l.prendas_pagadas, 'Prendas por cobrar': l.prendas_por_cobrar,
+      'Clientas que pidieron': l.clientas_pidieron, 'Clientas que pagaron': l.clientas_pagaron,
+      'Importe pedido': l.pedido, 'Venta (pagado)': l.venta, 'Por cobrar': l.por_cobrar, 'Cheque promedio': Math.round(l.cheque * 100) / 100,
+    }));
+    XLSX.utils.book_append_sheet(wb, hoja(porLive.length ? porLive : [{ Aviso: 'Sin lives en este periodo' }], [30, 18, 14, 20, 14, 14, 16, 18, 18, 14, 14, 12, 14]), 'Por live');
+  }
 
   const envios = rep.envios.map(a => {
     const cl = idx.clienta(a.clienta_id) || {};
