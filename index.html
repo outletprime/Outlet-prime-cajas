@@ -319,6 +319,15 @@ input[type="checkbox"] { width: 22px; min-height: 22px; height: 22px; accent-col
 .tabla th:first-child, .tabla td:first-child { text-align: left; }
 .tabla th { font-size: 13px; color: var(--texto-2); font-weight: 600; }
 .tabla tfoot td { font-weight: 700; border-bottom: 0; }
+.caja-guia { display: inline-block; margin-top: 4px; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--aviso-suave, #fdf0d5); color: var(--texto); }
+.caja-guia.pegada { background: var(--primario); color: var(--primario-texto); }
+.guia-paso { display: grid; gap: 6px; border-left: 5px solid #d99a00; }
+.guia-paso.guia-ok { border-left-color: #1a8a4a; }
+.guia-paso > b { display: flex; align-items: center; gap: 8px; }
+.guia-paso > b svg { width: 20px; height: 20px; flex: none; }
+.guia-paso p { margin: 0; }
+.guia-paso .formulario { margin-top: 4px; }
+.guia-paso .btn-mini { justify-self: start; }
 .live-rep h4 { margin: 0; font-size: 16px; }
 .live-rep > small { display: block; color: var(--texto-2); margin: 2px 0 10px; }
 .live-rep .kpi { background: var(--fondo); }
@@ -460,6 +469,13 @@ class LocalStore {
     });
   }
 
+  guiaCaja(id, que, datos = {}) {
+    const ahora = new Date().toISOString();
+    if (que === 'lista') return this.update('asignaciones', id, { lista_guia_en: ahora, lista_guia_por: usuario.nombre });
+    if (que === 'quitar-lista') return this.update('asignaciones', id, { lista_guia_en: null, lista_guia_por: null });
+    if (que === 'quitar-pegada') return this.update('asignaciones', id, { guia_pegada_en: null, guia_pegada_por: null, entrega: null });
+    return this.update('asignaciones', id, { guia_pegada_en: ahora, guia_pegada_por: usuario.nombre, entrega: que, ...(datos.paqueteria ? { paqueteria: datos.paqueteria } : {}), ...(datos.guia ? { guia: datos.guia } : {}) });
+  }
   async usuario() { return { nombre: localStorage.getItem('demo-nombre') || 'Prueba', email: '' }; }
   async rol() { return 'duena'; }
   async login() { return this.usuario(); }
@@ -560,6 +576,13 @@ class SupaStore {
     const { data, error } = await this.sb.rpc('pedido_poner_video', { p_pedido: id, p_ruta: d.video, p_mb: d.video_mb });
     if (error) throw error;
     return data;
+  }
+  // Guía de la caja: por funciones de la base, que revisan el nivel y mandan los avisos
+  async guiaCaja(id, que, datos = {}) {
+    const { error } = que === 'lista' || que === 'quitar-lista'
+      ? await this.sb.rpc('caja_lista_para_guia', { p_asignacion: id, p_lista: que === 'lista', p_usuario: usuario.nombre })
+      : await this.sb.rpc('caja_guia_pegada', { p_asignacion: id, p_entrega: que === 'quitar-pegada' ? null : que, p_paqueteria: datos.paqueteria || null, p_guia: datos.guia || null, p_usuario: usuario.nombre });
+    if (error) throw error;
   }
   // Nivel de acceso: duena, supervisor, operacion, live (solo ver y agregar videos) o null (sin acceso)
   async rol() {
@@ -1189,6 +1212,8 @@ const idx = {
   asig: id => D.asignaciones.find(a => a.id === id),
   activaCaja: id => D.asignaciones.find(a => a.caja === id && a.estado === 'activa'),
   activaClienta: id => D.asignaciones.find(a => a.clienta_id === id && a.estado === 'activa'),
+  // Una clienta puede tener varias cajas (cuando un pedido ya no cabe en la primera)
+  activasClienta: id => D.asignaciones.filter(a => a.clienta_id === id && a.estado === 'activa').sort((a, b) => ordenNatural(a.caja, b.caja)),
   pedidosDe: asigId => D.pedidos.filter(p => p.asignacion_id === asigId).sort((a, b) => (a.fecha < b.fecha ? -1 : 1)),
   categorias: (todas = false) => D.categorias.filter(c => todas || c.activa !== false).sort((a, b) => (a.orden || 0) - (b.orden || 0)),
 };
@@ -1218,12 +1243,10 @@ async function accion(fn, texto = 'Guardando…') {
   try { return await fn(); } catch (e) { console.error(e); toast(traducirError(e), 'error'); return undefined; } finally { espera.ocultar(); }
 }
 
-/* Reglas: una clienta por caja y una caja por clienta. */
+/* Regla: una clienta por caja. Una clienta sí puede tener varias cajas. */
 async function asignarCaja(cajaId, clientaId) {
   await refrescar(true);
   if (idx.activaCaja(cajaId)) throw new Error(`La caja ${cajaId} ya tiene una clienta asignada.`);
-  const otra = idx.activaClienta(clientaId);
-  if (otra) throw new Error(`Esa clienta ya está en la caja ${otra.caja}. Usa "Reasignar" desde esa caja.`);
   const a = await store.insert('asignaciones', {
     caja: cajaId, clienta_id: clientaId, estado: 'activa', asignada_en: new Date().toISOString(), asignada_por: usuario.nombre, movimientos: [],
   });
@@ -1371,7 +1394,8 @@ function vistaCajas(query) {
         <a class="caja-card nivel-${f.st ? f.st.nivel : 'libre'}" href="#/caja/${encodeURIComponent(f.c.id)}" data-busca="${esc(sinAcentos(`${f.c.id} ${nombreCompleto(f.cl)}`))}">
           <span class="caja-codigo">${esc(f.c.id)}</span>
           ${f.a ? `<span class="caja-nombre">${esc(nombreCompleto(f.cl))}</span>
-            <span class="caja-meta">Día ${f.st.dias} · ${dinero(f.r.total)}</span>` : '<span class="caja-nombre libre">Libre</span>'}
+            <span class="caja-meta">Día ${f.st.dias} · ${f.r.prendas}/${f.c.capacidad || 30} prendas</span>
+            ${f.a.guia_pegada_en ? `<span class="caja-guia pegada">${f.a.entrega === 'sucursal' ? 'Guía pegada · sucursal' : 'Guía pegada · recolección'}</span>` : f.a.lista_guia_en ? '<span class="caja-guia">Lista para guía</span>' : ''}` : '<span class="caja-nombre libre">Libre</span>'}
         </a>`).join('') || '<p class="nota">No hay cajas en este filtro.</p>'}
     </div>`;
   $('#buscar').oninput = e => {
@@ -1399,6 +1423,7 @@ async function vistaCaja(id) {
   const faltan = CFG.diasAlerta - st.dias;
   const estadoTxt = st.nivel === 'vencida' ? `Lleva ${st.dias} días. ¡Debe enviarse!` : st.nivel === 'aviso' ? `Lleva ${st.dias} días. Faltan ${faltan} para el límite.` : `Lleva ${st.dias} ${st.dias === 1 ? 'día' : 'días'}. Faltan ${faltan} para el límite de ${CFG.diasAlerta}.`;
   const historialCaja = D.asignaciones.filter(x => x.caja === id && x.estado === 'enviada').sort((x, y) => (x.enviada_en < y.enviada_en ? 1 : -1));
+  const otrasCajas = idx.activasClienta(a.clienta_id).filter(x => x.id !== a.id);
 
   vista().innerHTML = `
     <div class="banner banner-${st.nivel}">${st.nivel === 'ok' ? IC.cajas : IC.alerta}<span>${estadoTxt}<br><small>Asignada el ${fechaCorta(a.asignada_en)}${(a.movimientos || []).length ? ` · reasignada desde ${esc(a.movimientos.map(m => m.de).join(', '))}` : ''}</small></span></div>
@@ -1408,6 +1433,9 @@ async function vistaCaja(id) {
       <div><small>Prendas</small><b>${r.prendas}</b></div>
       <div><small>Total</small><b>${dinero(r.total)}</b></div>
     </div>
+    ${otrasCajas.length ? `<p class="nota">${esc(nombreCompleto(cl))} también tiene ${otrasCajas.length === 1 ? 'la caja' : 'las cajas'} ${otrasCajas.map(x => `<a href="#/caja/${encodeURIComponent(x.caja)}"><b>${esc(x.caja)}</b></a>`).join(', ')}.</p>` : ''}
+    ${r.prendas > (caja.capacidad || 30) ? `<div class="banner banner-vencida">${IC.alerta}<span>Esta caja es de ${caja.capacidad || 30} prendas y tiene ${r.prendas}.<br><small>Los pedidos nuevos que ya no quepan se van solos a otra caja.</small></span></div>` : ''}
+    ${htmlGuia(a, pedidos)}
     ${ROL === 'live' ? '' : `<div class="acciones">
       <a class="btn btn-primario" href="#/pedido/${encodeURIComponent(id)}">${IC.mas} Nuevo pedido</a>
       <a class="btn btn-secundario" href="#/enviar/${encodeURIComponent(id)}">${IC.camion} Marcar como enviado</a>
@@ -1419,6 +1447,66 @@ async function vistaCaja(id) {
     ${historialCaja.length ? `<details class="plegable"><summary>Envíos anteriores de esta caja (${historialCaja.length})</summary>
       ${historialCaja.map(x => `<a class="fila" href="#/clienta/${x.clienta_id}"><span>${esc(nombreCompleto(idx.clienta(x.clienta_id)))}</span><small>Enviada ${fechaCorta(x.enviada_en)}</small></a>`).join('')}</details>` : ''}`;
   conectarPedidos(vista());
+  conectarGuia(a, id);
+}
+
+/* ---------- Guía de la caja, en dos pasos ----------
+ * 1) "Lista para generar guía": la marca quien metió los pedidos (Dueña, Operación, Operación live) → aviso al Supervisor.
+ * 2) "Guía pegada": la marca el Supervisor (o una Dueña), para recolección o para llevar a sucursal → aviso a las Dueñas.
+ * El envío final sigue siendo "Marcar como enviado". */
+const PUEDE_LISTA_GUIA = () => ['duena', 'operacion', 'live'].includes(ROL);
+const PUEDE_GUIA_PEGADA = () => ['duena', 'supervisor'].includes(ROL);
+const quienCorto = v => esc(String(v || '').split('@')[0]);
+function htmlGuia(a, pedidos) {
+  if (a.guia_pegada_en) {
+    return `<div class="tarjeta guia-paso guia-ok">
+      <b>${IC.camion} Guía pegada · ${a.entrega === 'sucursal' ? 'para llevar a sucursal' : 'lista para recolección'}</b>
+      <p>${[a.paqueteria, a.guia].filter(Boolean).map(esc).join(' · ') || 'Sin número de guía anotado'}</p>
+      <small>La marcó ${quienCorto(a.guia_pegada_por)} · ${fechaHora(a.guia_pegada_en)}</small>
+      ${PUEDE_GUIA_PEGADA() ? '<button class="btn btn-mini" data-guia="quitar-pegada">Deshacer</button>' : ''}
+    </div>`;
+  }
+  if (a.lista_guia_en) {
+    return `<div class="tarjeta guia-paso">
+      <b>${IC.qr} Lista para generar guía</b>
+      <small>La marcó ${quienCorto(a.lista_guia_por)} · ${fechaHora(a.lista_guia_en)}</small>
+      ${PUEDE_GUIA_PEGADA() ? `<form id="f-guia" class="formulario" novalidate>
+        <p class="nota">Cuando ya generaste la guía y la pegaste en la caja:</p>
+        <label>Paquetería (opcional)<select name="paqueteria"><option value="">Selecciona…</option>${PAQUETERIAS.map(p => `<option ${a.paqueteria === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
+        <label>Número de guía (opcional)<input name="guia" autocomplete="off" value="${esc(a.guia || '')}"></label>
+        <button class="btn btn-primario" type="button" data-guia="recoleccion">${IC.camion} Guía pegada · lista para recolección</button>
+        <button class="btn btn-secundario" type="button" data-guia="sucursal">${IC.cajas} Guía pegada · llevar a sucursal</button>
+      </form>` : '<p class="nota">Falta que el Supervisor genere la guía y la pegue en la caja.</p>'}
+      ${PUEDE_LISTA_GUIA() ? '<button class="btn btn-mini" data-guia="quitar-lista">Todavía no está lista (deshacer)</button>' : ''}
+    </div>`;
+  }
+  if (!PUEDE_LISTA_GUIA() || !pedidos.length) return '';
+  return `<div class="acciones"><button class="btn btn-secundario" data-guia="lista">${IC.qr} Caja lista para generar guía</button></div>`;
+}
+function conectarGuia(a, id) {
+  const hacer = async (texto, fn, ok) => {
+    const r = await accion(async () => { await fn(); D.cargado = 0; await refrescar(true); return true; }, texto);
+    if (r) { toast(ok); navegar(); }
+  };
+  $$('[data-guia]').forEach(b => {
+    b.onclick = async () => {
+      const que = b.dataset.guia;
+      if (que === 'lista') {
+        if (!(await confirmar(`¿Ya están <b>todos los pedidos</b> dentro de la caja <b>${esc(id)}</b>?<br><br>Se le avisa al Supervisor para que genere la guía. Los pedidos nuevos de esta clienta ya no entrarán a esta caja.`, { titulo: 'Caja lista para guía', si: 'Sí, está lista' }))) return;
+        hacer('Guardando…', () => store.guiaCaja(a.id, 'lista'), `Caja ${id} lista para guía. Se avisó al Supervisor.`);
+      } else if (que === 'quitar-lista') {
+        hacer('Guardando…', () => store.guiaCaja(a.id, 'quitar-lista'), 'Listo: la caja ya no está marcada.');
+      } else if (que === 'quitar-pegada') {
+        if (!(await confirmar('Se quita la marca de <b>guía pegada</b> de esta caja.', { titulo: '¿Deshacer?', si: 'Sí, deshacer' }))) return;
+        hacer('Guardando…', () => store.guiaCaja(a.id, 'quitar-pegada'), 'Se quitó la marca de guía pegada.');
+      } else {
+        const f = Object.fromEntries(new FormData($('#f-guia')));
+        const destino = que === 'sucursal' ? 'para <b>llevar a sucursal</b>' : 'lista para <b>recolección</b>';
+        if (!(await confirmar(`¿La guía ya está <b>pegada</b> en la caja <b>${esc(id)}</b>?<br><br>Queda ${destino} y se les avisa a las Dueñas.`, { titulo: 'Guía pegada', si: 'Sí, ya está pegada' }))) return;
+        hacer('Guardando…', () => store.guiaCaja(a.id, que, f), `Caja ${id}: guía pegada. Se avisó a las Dueñas.`);
+      }
+    };
+  });
 }
 
 function faltaVideoTxt(pedidos) {
@@ -1566,9 +1654,9 @@ function vistaCajaLibre(caja) {
     <div class="lista" id="lista">
       ${lista.map(c => {
         const a = idx.activaClienta(c.id);
-        return `<button class="fila ${a ? 'deshabilitada' : ''}" data-clienta="${c.id}" data-busca="${esc(sinAcentos(`${nombreCompleto(c)} ${c.telefono}`))}">
+        return `<button class="fila" data-clienta="${c.id}" data-busca="${esc(sinAcentos(`${nombreCompleto(c)} ${c.telefono}`))}">
           <span><b>${esc(nombreCompleto(c))}</b><small>${esc(c.telefono || '')} · ${esc(c.colonia || '')}</small></span>
-          ${a ? `<span class="chip">En caja ${esc(a.caja)}</span>` : '<span class="chip chip-ok">Sin caja</span>'}
+          ${a ? `<span class="chip">En caja ${esc(idx.activasClienta(c.id).map(x => x.caja).join(', '))}</span>` : '<span class="chip chip-ok">Sin caja</span>'}
         </button>`;
       }).join('') || '<p class="nota">Aún no hay clientas registradas.</p>'}
     </div>`;
@@ -1579,9 +1667,8 @@ function vistaCajaLibre(caja) {
   $$('[data-clienta]').forEach(b => {
     b.onclick = async () => {
       const cl = idx.clienta(b.dataset.clienta);
-      const otra = idx.activaClienta(cl.id);
-      if (otra) { toast(`${nombreCompleto(cl)} ya está en la caja ${otra.caja}. Para moverla usa "Reasignar" en esa caja.`, 'error'); return; }
-      if (!(await confirmar(`¿Asignar la caja <b>${esc(id)}</b> a <b>${esc(nombreCompleto(cl))}</b>?<br><br>Confirma que la clienta <b>ya pagó</b>.`, { titulo: 'Asignar caja', si: 'Sí, ya pagó' }))) return;
+      const otras = idx.activasClienta(cl.id).map(x => x.caja);
+      if (!(await confirmar(`¿Asignar la caja <b>${esc(id)}</b> a <b>${esc(nombreCompleto(cl))}</b>?<br><br>${otras.length ? `Ya tiene la caja <b>${esc(otras.join(', '))}</b>: esta sería una caja <b>más</b> para ella (por ejemplo, porque ya no cabe). ` : ''}Confirma que la clienta <b>ya pagó</b>.`, { titulo: otras.length ? 'Asignar otra caja' : 'Asignar caja', si: 'Sí, ya pagó' }))) return;
       const a = await accion(() => asignarCaja(id, cl.id), 'Asignando…');
       if (a) { toast(`Caja ${id} asignada`); ir(`pedido/${encodeURIComponent(id)}`); }
     };
@@ -1649,8 +1736,8 @@ function formEnvio(id) {
         <input type="file" accept="image/*" capture="environment" id="foto" hidden>
         <span id="foto-vista">${IC.foto}<b>Tomar foto de la guía de paquetería</b><small>Obligatoria. Queda guardada en el historial.</small></span>
       </label>
-      <label>Paquetería<select name="paqueteria" required><option value="">Selecciona…</option>${PAQUETERIAS.map(p => `<option>${p}</option>`).join('')}</select></label>
-      <label>Número de guía<input name="guia" autocomplete="off" inputmode="text"></label>
+      <label>Paquetería<select name="paqueteria" required><option value="">Selecciona…</option>${PAQUETERIAS.map(p => `<option ${a.paqueteria === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
+      <label>Número de guía<input name="guia" autocomplete="off" inputmode="text" value="${esc(a.guia || '')}"></label>
       <div class="dos">
         <label>Peso (kg)<input name="peso_kg" type="number" step="0.01" min="0" inputmode="decimal"></label>
         <label>Medidas (cm)<input name="medidas" placeholder="40×30×20"></label>
@@ -1763,7 +1850,7 @@ function vistaClientas() {
         const st = a && estadoAsig(a);
         return `<a class="fila" href="#/clienta/${c.id}" data-busca="${esc(sinAcentos(`${nombreCompleto(c)} ${c.telefono} ${c.colonia} ${c.ciudad}`))}">
           <span><b>${esc(nombreCompleto(c))}</b><small>${esc(c.telefono || '')} · ${esc([c.colonia, c.ciudad].filter(Boolean).join(', '))}</small></span>
-          ${a ? `<span class="chip chip-${st.nivel}">Caja ${esc(a.caja)}</span>` : ''}
+          ${a ? `<span class="chip chip-${st.nivel}">Caja ${esc(idx.activasClienta(c.id).map(x => x.caja).join(', '))}</span>` : ''}
         </a>`;
       }).join('') || '<p class="nota">Aún no hay clientas.</p>'}
     </div>`;
@@ -2240,7 +2327,7 @@ function filaClienta(c) {
   return {
     Nombre: c.nombre, Apellidos: c.apellidos, 'Fecha de registro': c.fecha_registro ? aFecha(c.fecha_registro) : '', Teléfono: c.telefono, Correo: c.correo,
     Calle: c.calle, Número: c.numero, Interior: c.interior, Colonia: c.colonia, 'C.P.': c.cp, Ciudad: c.ciudad, Estado: c.estado,
-    Referencia: c.referencia, 'Caja actual': a ? a.caja : '', Registró: c.creado_por,
+    Referencia: c.referencia, 'Caja actual': a ? idx.activasClienta(c.id).map(x => x.caja).join(', ') : '', Registró: c.creado_por,
   };
 }
 function exportarCorte(rango, rep, lives) {
