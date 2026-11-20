@@ -783,18 +783,18 @@ function barrasDe(clave, JsBarcode) {
 // para el lector) y la indicación para la clienta
 function pdfEtiquetas(claves, jsPDF, logo, JsBarcode) {
   const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
-  const ANCHO = 288, ALTO = 240, IZQ = 11.25, SUP = 36, ENTRE = 13.5, LOGO_W = 124, LOGO_H = 62;
-  const BARRA = 1.6, BARRAS_H = 40, BARRAS_Y = ALTO - 72, CLAVE_FIN = ALTO - 80;   // barra de 0.56 mm: la lee cualquier lector
+  const ANCHO = 288, ALTO = 240, IZQ = 11.25, SUP = 36, ENTRE = 13.5, LOGO_W = 56.7, LOGO_H = 28.35;   // logo de 2 cm
+  const BARRA = 2.4, BARRAS_H = 70, BARRAS_Y = ALTO - 104, CLAVE_INI = 46, CLAVE_FIN = ALTO - 114;   // barra de 0.85 mm: se lee de lejos
   claves.forEach((clave, i) => {
     const k = i % 6;
     if (i && k === 0) doc.addPage('letter');
     const x = IZQ + (k % 2) * (ANCHO + ENTRE), y = SUP + Math.floor(k / 2) * ALTO, cx = x + ANCHO / 2;
-    doc.addImage(logo, 'PNG', cx - LOGO_W / 2, y + 12, LOGO_W, LOGO_H, 'logo', 'FAST');
-    let tam = 104;
+    doc.addImage(logo, 'PNG', cx - LOGO_W / 2, y + 10, LOGO_W, LOGO_H, 'logo', 'FAST');
+    let tam = 110;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(tam);
-    while (doc.getTextWidth(clave) > ANCHO - 44) doc.setFontSize(--tam);
-    const libre = CLAVE_FIN - 12 - LOGO_H - 0.718 * tam;   // espacio que sobra entre el logo y el código de barras
+    while (doc.getTextWidth(clave) > ANCHO - 28 || 0.718 * tam > CLAVE_FIN - CLAVE_INI) doc.setFontSize(--tam);
+    const libre = CLAVE_FIN - CLAVE_INI - 0.718 * tam;   // espacio que sobra entre el logo y el código de barras
     doc.setTextColor(0);
     doc.text(clave, cx, y + CLAVE_FIN - libre / 2, { align: 'center' });
     const bits = barrasDe(clave, JsBarcode);
