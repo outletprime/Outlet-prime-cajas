@@ -2636,7 +2636,10 @@ conectar.ajustes = raiz => {
       let consulta = sb.from('clientas_redes_tablero').select('*').order('ligada_en', { ascending: false }).limit(30);
       if (t) consulta = consulta.or(`usuario.ilike.*${t}*,clienta.ilike.*${t}*`);
       const filas = await q(consulta);
-      $('#redes-res', raiz).innerHTML = filas.length ? `<div class="lista-simple">${filas.map(r => `<div class="miembro"><div><b>@${esc(r.usuario)} · ${esc(RED[r.red] || r.red)}</b><small>${esc(r.clienta)} · ${telBonito(r.telefono)} · ${fechaHora(r.ligada_en)}${r.ligada_por ? ' · ' + esc(r.ligada_por) : ''}</small></div>
+      // Si mientras llegaba la búsqueda se cambió de pestaña o la pantalla se volvió a pintar, ya no hay dónde ponerla
+      const caja = raiz.isConnected ? $('#redes-res', raiz) : null;
+      if (!caja) return;
+      caja.innerHTML = filas.length ? `<div class="lista-simple">${filas.map(r => `<div class="miembro"><div><b>@${esc(r.usuario)} · ${esc(RED[r.red] || r.red)}</b><small>${esc(r.clienta)} · ${telBonito(r.telefono)} · ${fechaHora(r.ligada_en)}${r.ligada_por ? ' · ' + esc(r.ligada_por) : ''}</small></div>
         ${puede.operar() ? `<button type="button" class="btn btn-mini btn-secundario" data-desligar="${esc(r.red)}|${esc(r.usuario)}">Quitar</button>` : ''}</div>`).join('')}</div>` : '<p class="nota">Sin resultados.</p>';
       $$('[data-desligar]', raiz).forEach(b => b.onclick = async () => {
         const [red, u] = b.dataset.desligar.split('|');
