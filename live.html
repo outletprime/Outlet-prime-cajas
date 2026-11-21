@@ -2215,7 +2215,8 @@ async function vistaPrendas() {
         <div class="cas-cab"><b style="font-size:24px">${num4(p.numero)}</b><span class="chip ${ET[p.estado][0]}">${ET[p.estado][1]}</span></div>
         ${que ? `<p>${que}</p>` : ''}
         ${p.estado === 'disponible' && esperan && puede.duena() ? `<div class="fila-botones"><button type="button" class="btn btn-mini btn-marca" data-dar-espera="${p.numero}" data-quien="${esc(enEspera[0].clienta)}">Dársela a quien espera</button></div>` : ''}
-        <small>${dinero(p.precio)} · registrada ${fechaHora(p.registrada_en)}</small>
+        <small><b>${dinero(p.precio)}</b> · registrada ${fechaHora(p.registrada_en)}</small>
+        ${puede.duena() && ['disponible', 'apartada'].includes(p.estado) ? `<div class="fila-botones"><button type="button" class="btn btn-mini btn-secundario" data-precio-clave="${num4(p.numero)}" data-precio-actual="${Number(p.precio)}">Cambiar precio</button></div>` : ''}
         ${hist.length ? `<div class="lista-simple">${hist.map(a => `<div><b>${esc(a.clienta)}</b> · ${EA[a.estado] || a.estado}${a.casillero ? ' · ' + esc(a.casillero) : ''}<br><small>${fechaHora(a.mensaje_en)}</small></div>`).join('')}</div>` : ''}
       </div>`;
     }
@@ -2231,12 +2232,36 @@ async function vistaPrendas() {
     ${fuera.length ? `<div class="banner banner-aviso">${IC.alerta}<span><b>${fuera.length} ${fuera.length === 1 ? 'prenda apartada tiene' : 'prendas apartadas tienen'} una clave que no está en las etiquetas impresas.</b> Puede ser un error al escribirla. Revisa la etiqueta física:<br>${fuera.map(f => `<b>${esc(f.clave)}</b> · ${esc(nombreCorto(f.clienta))}${f.casillero ? ' · casillero ' + esc(f.casillero) : ''}`).join('<br>')}</span></div>` : ''}
     ${etq ? htmlEtiquetas(etq) : ''}
     ${CAJAS_ETQ.length ? htmlEtiquetasCajas(CAJAS_ETQ) : ''}
+    ${puede.duena() ? `<h3 class="seccion">Precios especiales</h3>
+    <div class="tarjeta">
+      <p class="nota">Para prendas que no van al precio normal. Escribe sus claves y el precio: quien las aparte las paga a ese precio. Solo se cambian las que están disponibles, o apartadas a las que todavía no se les manda su nota de cobro.</p>
+      <form id="f-precios" class="formulario">
+        <label>Claves <small>(separadas por coma o espacio)</small><textarea name="claves" rows="2" placeholder="AB23, AB24, AC10" autocapitalize="characters" autocomplete="off" required></textarea></label>
+        <label>Precio de cada una<input name="precio" type="number" min="1" step="1" inputmode="numeric" placeholder="189" required></label>
+        <button class="btn btn-primario">Poner ese precio</button>
+      </form>
+    </div>` : ''}
     <h3 class="seccion">Buscar una prenda</h3>
     <form class="enviar" id="f-buscar">
       <input name="n" placeholder="Clave, por ejemplo A23" value="${buscada != null ? num4(buscada) : ''}" autocomplete="off" autocapitalize="characters" aria-label="Clave de la prenda">
       <button class="btn btn-primario">Buscar</button>
     </form>
     ${detalle}`;
+}
+/* Precios especiales: le pone el mismo precio a una o varias claves y dice cuáles sí cambiaron y cuáles no */
+async function cambiarPrecios(claves, precio) {
+  if (!String(claves || '').trim()) { toast('Escribe por lo menos una clave.', 'error'); return false; }
+  if (!(precio > 0)) { toast('Escribe un precio mayor a cero.', 'error'); return false; }
+  const r = await accion(() => rpc('prendas_precio', { p_claves: claves, p_precio: precio, p_usuario: usuario.nombre || usuario.email }));
+  if (!r || r === true) return false;
+  const si = r.cambiadas || [], no = r.sin_cambio || [];
+  await modal({
+    titulo: si.length ? `${si.length} ${si.length === 1 ? 'prenda quedó' : 'prendas quedaron'} en ${dinero(r.precio)}` : 'No se cambió ningún precio',
+    html: `${si.length ? `<div class="lista-simple">${si.map(x => `<div><b>${esc(x.clave)}</b> · antes ${dinero(x.antes)}${x.apartada_por ? `<br><small>Ya la tenía apartada ${esc(x.apartada_por)}: su total se ajustó.</small>` : ''}</div>`).join('')}</div>` : ''}
+      ${no.length ? `<p><b>Sin cambio:</b></p><div class="lista-simple">${no.map(x => `<div><b>${esc(x.clave)}</b> · ${esc(x.motivo)}</div>`).join('')}</div>` : ''}`,
+    botones: [{ texto: 'Entendido', valor: true }],
+  });
+  return si.length > 0;
 }
 conectar.prendas = raiz => {
   $$('[data-ir]', raiz).forEach(a => a.onclick = e => { e.preventDefault(); irA(a.dataset.ir); });
@@ -2256,6 +2281,23 @@ conectar.prendas = raiz => {
     toast(nuevas === total ? `${nuevas} prendas registradas` : `${nuevas} nuevas; ${total - nuevas} ya existían`);
     pintar();
   };
+  // Precios especiales (solo Dueña): varias claves a la vez, o una desde su búsqueda
+  const fpre = $('#f-precios', raiz);
+  if (fpre) fpre.onsubmit = async e => {
+    e.preventDefault();
+    if (await cambiarPrecios(fpre.claves.value, +fpre.precio.value)) pintar();
+  };
+  $$('[data-precio-clave]', raiz).forEach(b => b.onclick = async () => {
+    const precio = await modal({
+      titulo: `Precio de la ${b.dataset.precioClave}`,
+      html: `<p>Hoy cuesta <b>${dinero(+b.dataset.precioActual)}</b>. Quien la aparte la paga al precio nuevo.</p>
+        <label>Precio nuevo<input id="precio-nuevo" type="number" min="1" step="1" inputmode="numeric" value="${+b.dataset.precioActual}"></label>`,
+      botones: [{ texto: 'Cancelar', valor: false }, { texto: 'Guardar precio', valor: f => +$('#precio-nuevo', f).value || 0 }],
+    });
+    if (precio === false || precio === null) return;
+    if (!(precio > 0)) { toast('Escribe un precio mayor a cero.', 'error'); return; }
+    if (await cambiarPrecios(b.dataset.precioClave, precio)) pintar();
+  });
   // La Dueña decide darle una prenda libre a la primera clienta de su lista de espera
   $$('[data-dar-espera]', raiz).forEach(b => b.onclick = async () => {
     const clave = num4(+b.dataset.darEspera);
