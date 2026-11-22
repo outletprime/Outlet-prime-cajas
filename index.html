@@ -472,12 +472,12 @@ class LocalStore {
   async recogeTienda(ids) { for (const id of ids) await this.guiaCaja(id, 'tienda'); }
   guiaCaja(id, que, datos = {}) {
     const ahora = new Date().toISOString();
-    if (que === 'lista') return this.update('asignaciones', id, { lista_guia_en: ahora, lista_guia_por: usuario.nombre });
-    // Recoge en tienda: la caja queda libre desde que se marca; "recogida_en" se llena cuando la clienta pasa
-    if (que === 'tienda') return this.update('asignaciones', id, { estado: 'enviada', enviada_en: ahora, enviada_por: usuario.nombre, paqueteria: 'Recoge en tienda', lista_guia_en: ahora, lista_guia_por: usuario.nombre, lista_para: 'tienda', recogida_en: null, recogida_por: null });
-    if (que === 'entregada-tienda') return this.update('asignaciones', id, { estado: 'enviada', enviada_en: ahora, paqueteria: 'Recoge en tienda', lista_para: 'tienda', recogida_en: ahora, recogida_por: usuario.nombre, notas_envio: 'Entregada a la clienta en tienda' });
-    if (que === 'quitar-tienda') return this.update('asignaciones', id, { estado: 'activa', enviada_en: null, enviada_por: null, paqueteria: null, lista_guia_en: null, lista_guia_por: null, lista_para: null });
-    if (que === 'quitar-lista') return this.update('asignaciones', id, { lista_guia_en: null, lista_guia_por: null, lista_para: null });
+    // Al marcar la salida (guía o recoger en tienda) la caja queda libre: la asignación pasa a 'por_entregar'
+    const regresa = { estado: 'activa', enviada_en: null, enviada_por: null, paqueteria: null, lista_guia_en: null, lista_guia_por: null, lista_para: null };
+    if (que === 'lista') return this.update('asignaciones', id, { estado: 'por_entregar', lista_guia_en: ahora, lista_guia_por: usuario.nombre, lista_para: 'guia' });
+    if (que === 'tienda') return this.update('asignaciones', id, { estado: 'por_entregar', lista_guia_en: ahora, lista_guia_por: usuario.nombre, lista_para: 'tienda', paqueteria: null, guia: null });
+    if (que === 'entregada-tienda') return this.update('asignaciones', id, { estado: 'enviada', enviada_en: ahora, enviada_por: usuario.nombre, paqueteria: 'Recoge en tienda', lista_para: 'tienda', recogida_en: ahora, recogida_por: usuario.nombre, notas_envio: 'Entregada a la clienta en tienda' });
+    if (que === 'quitar-tienda' || que === 'quitar-lista') return this.update('asignaciones', id, regresa);
     if (que === 'quitar-pegada') return this.update('asignaciones', id, { guia_pegada_en: null, guia_pegada_por: null, entrega: null });
     return this.update('asignaciones', id, { guia_pegada_en: ahora, guia_pegada_por: usuario.nombre, entrega: que, ...(datos.paqueteria ? { paqueteria: datos.paqueteria } : {}), ...(datos.guia ? { guia: datos.guia } : {}) });
   }
@@ -1231,10 +1231,15 @@ const idx = {
   pedidosDe: asigId => D.pedidos.filter(p => p.asignacion_id === asigId).sort((a, b) => (a.fecha < b.fecha ? -1 : 1)),
   categorias: (todas = false) => D.categorias.filter(c => todas || c.activa !== false).sort((a, b) => (a.orden || 0) - (b.orden || 0)),
 };
-// Recoge en tienda: la caja ya quedó libre; "por recoger" mientras la clienta no pasa por su pedido
+// Salida de la caja: al marcarla "lista para generar guía" o "recoge en tienda" la caja queda libre y la asignación
+// pasa a 'por_entregar' (ya salió de la caja; falta entregarla a la paquetería o a la clienta). 'enviada' es el final.
+const yaSalio = a => !!a && a.estado === 'por_entregar';
+const porRecoger = a => yaSalio(a) && a.lista_para === 'tienda';
+const porEnviar = a => yaSalio(a) && a.lista_para !== 'tienda';
 const esDeTienda = a => !!a && a.estado === 'enviada' && (a.lista_para === 'tienda' || a.paqueteria === 'Recoge en tienda');
-const porRecoger = a => !!a && a.estado === 'enviada' && a.lista_para === 'tienda' && !a.recogida_en;
-const textoSalida = a => porRecoger(a) ? 'Por recoger en tienda' : esDeTienda(a) ? `Entregada en tienda ${fechaCorta(a.recogida_en || a.enviada_en)}` : `Enviada ${fechaCorta(a.enviada_en)}`;
+const textoSalida = a => porRecoger(a) ? 'Por recoger en tienda'
+  : porEnviar(a) ? (a.guia_pegada_en ? 'Por enviar · guía pegada' : 'Por enviar · falta guía')
+  : esDeTienda(a) ? `Entregada en tienda ${fechaCorta(a.recogida_en || a.enviada_en)}` : `Enviada ${fechaCorta(a.enviada_en)}`;
 function estadoAsig(a) {
   const dias = diasDesde(a.asignada_en);
   return { dias, nivel: dias >= CFG.diasAlerta ? 'vencida' : dias >= CFG.diasAviso ? 'aviso' : 'ok' };
@@ -1320,7 +1325,7 @@ const rutaActual = () => (CFG.vistaPrevia ? rutaInterna : location.hash.replace(
 const RUTAS = [
   [/^(cajas)?$/, vistaCajas, 'cajas', true],
   [/^caja\/([^/]+)$/, vistaCaja, 'cajas', true],
-  [/^recoge\/([^/]+)$/, vistaRecoge, 'cajas', true],
+  [/^(?:salida|recoge)\/([^/]+)$/, vistaSalida, 'cajas', true],
   [/^clientas$/, vistaClientas, 'clientas', true],
   [/^clienta\/nueva$/, q => formClienta(null, q), 'clientas', false],
   [/^clienta\/([^/]+)\/editar$/, formClienta, 'clientas', false],
@@ -1344,7 +1349,7 @@ async function navegar() {
   const [re, fn, tab, recargable] = ruta;
   if (tab === 'reportes' && ROL === 'operacion') { ir('cajas'); return; }
   // Operación live solo ve las cajas: nada de fichas de clientas, pedidos nuevos, envíos, reportes ni ajustes
-  if (ROL === 'live' && !/^(cajas)?$|^(caja|recoge)\/[^/]+$/.test(path)) { ir('cajas'); return; }
+  if (ROL === 'live' && !/^(cajas)?$|^(caja|recoge|salida)\/[^/]+$/.test(path)) { ir('cajas'); return; }
   const args = path.match(re).slice(1).filter(x => x !== undefined && x !== 'cajas').map(decodeURIComponent);
   $$('.tabs a').forEach(a => a.classList.toggle('activa', a.dataset.tab === tab));
   rutaRecargable = recargable;
@@ -1392,16 +1397,19 @@ function vistaCajas(query) {
   });
   // Cómo va la salida de cada caja: la recoge la clienta, falta generar su guía, o ya tiene la guía pegada
   const esTienda = f => !!(f.a && f.a.lista_guia_en && f.a.lista_para === 'tienda');   // marcadas antes de que la opción liberara la caja
-  const pendientes = D.asignaciones.filter(porRecoger).sort((x, y) => (x.lista_guia_en < y.lista_guia_en ? -1 : 1));
+  // Lo que ya salió de su caja y falta entregar (la caja ya está libre)
+  const salidas = D.asignaciones.filter(yaSalio).sort((x, y) => (x.lista_guia_en < y.lista_guia_en ? -1 : 1));
+  const porFiltro = { tienda: salidas.filter(porRecoger), guia: salidas.filter(x => porEnviar(x) && !x.guia_pegada_en), pegada: salidas.filter(x => porEnviar(x) && x.guia_pegada_en) };
+  const listaSalida = porFiltro[filtro];
   const esPorGuia = f => !!(f.a && f.a.lista_guia_en && f.a.lista_para !== 'tienda' && !f.a.guia_pegada_en);
   const cuenta = {
     todas: filas.length,
     ocupadas: filas.filter(f => f.a).length,
     libres: filas.filter(f => !f.a).length,
     vencidas: filas.filter(f => f.st && f.st.nivel === 'vencida').length,
-    tienda: filas.filter(esTienda).length + pendientes.length,
-    guia: filas.filter(esPorGuia).length,
-    pegada: filas.filter(f => f.a && f.a.guia_pegada_en).length,
+    tienda: filas.filter(esTienda).length + porFiltro.tienda.length,
+    guia: filas.filter(esPorGuia).length + porFiltro.guia.length,
+    pegada: filas.filter(f => f.a && f.a.guia_pegada_en).length + porFiltro.pegada.length,
   };
   if (!filas.length) {
     vista().innerHTML = `<div class="vacio">${IC.cajas}<h2>Aún no hay cajas</h2><p>Crea tus cajas (A1, A2, B1…) y genera sus códigos QR.</p><a class="btn btn-primario" href="#/ajustes/cajas">Crear cajas</a></div>`;
@@ -1410,19 +1418,23 @@ function vistaCajas(query) {
   const visibles = filas.filter(f => filtro === 'todas' || (filtro === 'ocupadas' && f.a) || (filtro === 'libres' && !f.a) || (filtro === 'vencidas' && f.st && f.st.nivel === 'vencida')
     || (filtro === 'tienda' && esTienda(f)) || (filtro === 'guia' && esPorGuia(f)) || (filtro === 'pegada' && f.a && f.a.guia_pegada_en));
   const aviso = cuenta.vencidas ? `<a class="banner banner-vencida" href="#/cajas?f=vencidas">${IC.alerta}<span><b>${cuenta.vencidas} ${cuenta.vencidas === 1 ? 'caja pasa' : 'cajas pasan'} de ${CFG.diasAlerta} días.</b> Esa mercancía debe enviarse.</span></a>` : '';
-  const avisoTienda = pendientes.length && filtro !== 'tienda' ? `<a class="banner banner-aviso" href="#/cajas?f=tienda">${IC.cajas}<span><b>${pendientes.length === 1 ? '1 pedido está' : `${pendientes.length} pedidos están`} por recoger en tienda.</b> Su caja ya quedó libre.</span></a>` : '';
+  const partes = [['guia', 'falta guía'], ['pegada', 'guía pegada'], ['tienda', 'recoge en tienda']].filter(([k]) => porFiltro[k].length)
+    .map(([k, t]) => `<a href="#/cajas?f=${k}"><b>${porFiltro[k].length}</b> ${t}</a>`);
+  const avisoTienda = salidas.length && !listaSalida ? `<div class="banner banner-aviso">${IC.cajas}<span><b>${salidas.length === 1 ? '1 pedido ya salió' : `${salidas.length} pedidos ya salieron`} de su caja y ${salidas.length === 1 ? 'falta' : 'faltan'} por entregar:</b> ${partes.join(' · ')}.</span></div>` : '';
+  const NOTA_SALIDA = { tienda: 'Clientas que pasan por su pedido a la tienda.', guia: 'Pedidos por enviar a los que les falta generar y pegar la guía.', pegada: 'Pedidos con la guía pegada: falta marcarlos como enviados.' };
+  const CHIP_SALIDA = x => porRecoger(x) ? 'Por recoger' : x.guia_pegada_en ? `Guía pegada · ${x.entrega === 'sucursal' ? 'sucursal' : 'recolección'}` : 'Falta guía';
   vista().innerHTML = `
     ${aviso}
     ${avisoTienda}
     <div class="filtros">
       ${[['todas', 'Todas'], ['ocupadas', 'Ocupadas'], ['libres', 'Libres'], ['vencidas', 'Vencidas'], ['tienda', 'Recoge en tienda'], ['guia', 'Falta guía'], ['pegada', 'Guía pegada']].map(([k, t]) => `<a href="#/cajas?f=${k}" class="filtro ${filtro === k ? 'activo' : ''}">${t} <b>${cuenta[k]}</b></a>`).join('')}
     </div>
-    ${filtro === 'tienda' ? `<p class="nota">Clientas que pasan por su pedido a la tienda. Su caja ya quedó libre: sus prendas están apartadas con su nombre.</p>
-      <div class="lista">${pendientes.map(x => {
+    ${listaSalida ? `<p class="nota">${NOTA_SALIDA[filtro]} Su caja ya quedó libre: sus prendas están apartadas con su nombre.</p>
+      <div class="lista">${listaSalida.map(x => {
         const rx = resumenPedidos(idx.pedidosDe(x.id));
-        return `<a class="fila" href="#/recoge/${x.id}"><span><b>${esc(nombreCompleto(idx.clienta(x.clienta_id)))}</b><small>${rx.prendas} ${rx.prendas === 1 ? 'prenda' : 'prendas'} · estaba en la caja ${esc(x.caja)} · desde ${fechaCorta(x.lista_guia_en)}</small></span><span class="chip chip-aviso">Por recoger</span></a>`;
-      }).join('') || (visibles.length ? '' : '<p class="nota">Nadie está por recoger en tienda.</p>')}</div>` : ''}
-    <input type="search" class="buscador" id="buscar" placeholder="Buscar caja o clienta…" autocomplete="off"${filtro === 'tienda' && !visibles.length ? ' hidden' : ''}>
+        return `<a class="fila" href="#/salida/${x.id}"><span><b>${esc(nombreCompleto(idx.clienta(x.clienta_id)))}</b><small>${rx.prendas} ${rx.prendas === 1 ? 'prenda' : 'prendas'} · estaba en la caja ${esc(x.caja)} · desde ${fechaCorta(x.lista_guia_en)}</small></span><span class="chip ${x.guia_pegada_en ? 'chip-ok' : 'chip-aviso'}">${CHIP_SALIDA(x)}</span></a>`;
+      }).join('') || (visibles.length ? '' : '<p class="nota">No hay pedidos en este filtro.</p>')}</div>` : ''}
+    <input type="search" class="buscador" id="buscar" placeholder="Buscar caja o clienta…" autocomplete="off"${listaSalida && !visibles.length ? ' hidden' : ''}>
     <div class="rejilla" id="rejilla">
       ${visibles.map(f => `
         <a class="caja-card nivel-${f.st ? f.st.nivel : 'libre'}" href="#/caja/${encodeURIComponent(f.c.id)}" data-busca="${esc(sinAcentos(`${f.c.id} ${nombreCompleto(f.cl)}`))}">
@@ -1430,7 +1442,7 @@ function vistaCajas(query) {
           ${f.a ? `<span class="caja-nombre">${esc(nombreCompleto(f.cl))}</span>
             <span class="caja-meta">Día ${f.st.dias} · ${f.r.prendas}/${f.c.capacidad || 30} prendas</span>
             ${f.a.guia_pegada_en ? `<span class="caja-guia pegada">${f.a.entrega === 'sucursal' ? 'Guía pegada · sucursal' : 'Guía pegada · recolección'}</span>` : f.a.lista_guia_en ? `<span class="caja-guia">${f.a.lista_para === 'tienda' ? 'Recoge en tienda' : 'Lista para guía'}</span>` : ''}` : '<span class="caja-nombre libre">Libre</span>'}
-        </a>`).join('') || (filtro === 'tienda' ? '' : '<p class="nota">No hay cajas en este filtro.</p>')}
+        </a>`).join('') || (listaSalida ? '' : '<p class="nota">No hay cajas en este filtro.</p>')}
     </div>`;
   $('#buscar').oninput = e => {
     const q = sinAcentos(e.target.value);
@@ -1484,36 +1496,42 @@ async function vistaCaja(id) {
   conectarGuia(a, id);
 }
 
-/* ---------- Recoge en tienda: la caja ya quedó libre; falta que la clienta pase por su pedido ---------- */
-async function vistaRecoge(asigId) {
+/* ---------- Pedido que ya salió de su caja (la caja quedó libre): por enviar con guía o por recoger en tienda ---------- */
+async function vistaSalida(asigId) {
   const a = idx.asig(asigId);
-  if (!a || !esDeTienda(a)) { ir(a && a.estado === 'activa' ? `caja/${encodeURIComponent(a.caja)}` : 'cajas?f=tienda'); return; }
-  titulo('Recoge en tienda', 'cajas?f=tienda');
+  if (!a || !(yaSalio(a) || esDeTienda(a))) { ir(a && a.estado === 'activa' ? `caja/${encodeURIComponent(a.caja)}` : a ? `clienta/${a.clienta_id}` : 'cajas'); return; }
+  const tienda = !porEnviar(a);
+  titulo(tienda ? 'Recoge en tienda' : 'Por enviar', `cajas?f=${tienda ? 'tienda' : a.guia_pegada_en ? 'pegada' : 'guia'}`);
   const cl = idx.clienta(a.clienta_id);
   const pedidos = idx.pedidosDe(a.id);
   const r = resumenPedidos(pedidos);
-  const pend = porRecoger(a);
+  const pend = yaSalio(a);
   const sinVideo = pedidos.some(p => !p.video);
-  const otras = D.asignaciones.filter(x => x.id !== a.id && x.clienta_id === a.clienta_id && porRecoger(x));
+  const otras = D.asignaciones.filter(x => x.id !== a.id && x.clienta_id === a.clienta_id && yaSalio(x));
   vista().innerHTML = `
-    ${pend
+    ${!pend
+      ? `<div class="banner banner-ok">${IC.cajas}<span><b>Entregada a la clienta en tienda.</b><br><small>${fechaHora(a.recogida_en || a.enviada_en)}${a.recogida_por || a.enviada_por ? ` · ${quienCorto(a.recogida_por || a.enviada_por)}` : ''}</small></span></div>`
+      : tienda
       ? `<div class="banner banner-aviso">${IC.cajas}<span><b>Por recoger en tienda.</b> Sus prendas ya no están en la caja ${esc(a.caja)}: están apartadas con su nombre.<br><small>La marcó ${quienCorto(a.lista_guia_por)} · ${fechaHora(a.lista_guia_en)}</small></span></div>`
-      : `<div class="banner banner-ok">${IC.cajas}<span><b>Entregada a la clienta en tienda.</b><br><small>${fechaHora(a.recogida_en || a.enviada_en)}${a.recogida_por || a.enviada_por ? ` · ${quienCorto(a.recogida_por || a.enviada_por)}` : ''}</small></span></div>`}
+      : `<div class="banner banner-aviso">${IC.camion}<span><b>Por enviar.</b> Sus prendas ya no están en la caja ${esc(a.caja)}: están empacadas con su nombre.<br><small>Lleva ${estadoAsig(a).dias} ${estadoAsig(a).dias === 1 ? 'día' : 'días'} desde que se le asignó caja</small></span></div>`}
     ${tarjetaClienta(cl)}
     <div class="totales">
       <div><small>Pedidos</small><b>${pedidos.length}</b></div>
       <div><small>Prendas</small><b>${r.prendas}</b></div>
       <div><small>Total</small><b>${dinero(r.total)}</b></div>
     </div>
-    ${otras.length ? `<p class="nota">También tiene por recoger lo que estaba en ${otras.length === 1 ? 'la caja' : 'las cajas'} ${otras.map(x => `<a href="#/recoge/${x.id}"><b>${esc(x.caja)}</b></a>`).join(', ')}.</p>` : ''}
-    ${pend && sinVideo ? `<div class="banner banner-aviso">${IC.video}<span>${faltaVideoTxt(pedidos)}<br><small>Sin video no se puede entregar. Toca "Sin video · Agregar" en el pedido.</small></span></div>` : ''}
-    ${pend ? `<div class="acciones">
+    ${otras.length ? `<p class="nota">También tiene por entregar lo que estaba en ${otras.length === 1 ? 'la caja' : 'las cajas'} ${otras.map(x => `<a href="#/salida/${x.id}"><b>${esc(x.caja)}</b></a>`).join(', ')}.</p>` : ''}
+    ${pend && !tienda ? htmlGuia(a, pedidos) : ''}
+    ${pend && sinVideo ? `<div class="banner banner-aviso">${IC.video}<span>${faltaVideoTxt(pedidos)}<br><small>Sin video no se puede ${tienda ? 'entregar' : 'enviar'}. Toca "Sin video · Agregar" en el pedido.</small></span></div>` : ''}
+    ${pend && tienda ? `<div class="acciones">
       ${PUEDE_ENTREGAR_TIENDA() ? `<button class="btn btn-primario" data-tienda="entregada">${IC.cajas} Entregada a la clienta en tienda</button>` : '<p class="nota">Cuando la clienta pase por su pedido, una Dueña u Operación lo marca como entregado.</p>'}
       ${PUEDE_LISTA_GUIA() ? `<button class="btn btn-mini" data-tienda="deshacer">Deshacer: regresar sus prendas a la caja ${esc(a.caja)}</button>` : ''}
     </div>` : ''}
+    ${pend && !tienda && PUEDE_ENTREGAR_TIENDA() ? `<div class="acciones"><a class="btn btn-primario" href="#/enviar/${a.id}">${IC.camion} Marcar como enviado</a></div>` : ''}
     <h3 class="seccion">Pedidos</h3>
     ${pedidos.slice().reverse().map(p => tarjetaPedido(p, false)).join('')}`;
   conectarPedidos(vista());
+  if (pend && !tienda) conectarGuia(a, a.caja);
   $$('[data-tienda]').forEach(b => {
     b.onclick = async () => {
       if (b.dataset.tienda === 'entregada') {
@@ -1561,15 +1579,15 @@ function htmlGuia(a, pedidos) {
       <b>${IC.qr} Lista para generar guía</b>
       <small>La marcó ${quienCorto(a.lista_guia_por)} · ${fechaHora(a.lista_guia_en)}</small>
       ${PUEDE_GUIA_PEGADA() ? `<form id="f-guia" class="formulario" novalidate>
-        <p class="nota">Cuando ya generaste la guía y la pegaste en la caja:</p>
+        <p class="nota">Cuando ya generaste la guía y la pegaste en el paquete:</p>
         <label>Paquetería (opcional)<select name="paqueteria"><option value="">Selecciona…</option>${PAQUETERIAS.map(p => `<option ${a.paqueteria === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
         <label>Número de guía (opcional)<input name="guia" autocomplete="off" value="${esc(a.guia || '')}"></label>
         <button class="btn btn-primario" type="button" data-guia="recoleccion">${IC.camion} Guía pegada · lista para recolección</button>
         <button class="btn btn-secundario" type="button" data-guia="sucursal">${IC.cajas} Guía pegada · llevar a sucursal</button>
-      </form>` : '<p class="nota">Falta que el Supervisor genere la guía y la pegue en la caja.</p>'}
+      </form>` : '<p class="nota">Falta que el Supervisor genere la guía y la pegue en el paquete.</p>'}
       ${PUEDE_LISTA_GUIA() ? `<p class="nota">¿No se va a enviar? Si la clienta pasa por su pedido:</p>
         <button class="btn btn-secundario" type="button" data-guia="tienda">${IC.cajas} La clienta la recoge en tienda</button>
-        <button class="btn btn-mini" data-guia="quitar-lista">Todavía no está lista (deshacer)</button>` : ''}
+        <button class="btn btn-mini" data-guia="quitar-lista">${yaSalio(a) ? `Deshacer: regresar sus prendas a la caja ${esc(a.caja)}` : 'Todavía no está lista (deshacer)'}</button>` : ''}
     </div>`;
   }
   if (!PUEDE_LISTA_GUIA() || !pedidos.length) return '';
@@ -1587,8 +1605,9 @@ function conectarGuia(a, id) {
     b.onclick = async () => {
       const que = b.dataset.guia;
       if (que === 'lista') {
-        if (!(await confirmar(`¿Ya están <b>todos los pedidos</b> dentro de la caja <b>${esc(id)}</b>?<br><br>Se le avisa al Supervisor para que genere la guía. Los pedidos nuevos de esta clienta ya no entrarán a esta caja.`, { titulo: 'Caja lista para guía', si: 'Sí, está lista' }))) return;
-        hacer('Guardando…', () => store.guiaCaja(a.id, 'lista'), `Caja ${id} lista para guía. Se avisó al Supervisor.`);
+        if (!(await confirmar(`¿Ya están <b>todos los pedidos</b> de ${esc(nombreCompleto(idx.clienta(a.clienta_id)))} en la caja <b>${esc(id)}</b>?<br><br><b>Saca sus prendas y empácalas</b> con su nombre para el envío. La caja <b>${esc(id)} queda libre</b> desde ahora y se le avisa al Supervisor para que genere la guía.`, { titulo: 'Lista para generar guía', si: 'Sí, liberar la caja' }))) return;
+        const ok = await accion(async () => { await store.guiaCaja(a.id, 'lista'); D.cargado = 0; await refrescar(true); return true; }, 'Guardando…');
+        if (ok) { toast(`Caja ${id} libre. Queda por enviar: se avisó al Supervisor.`); ir(`salida/${a.id}`); }
       } else if (que === 'tienda') {
         // La caja queda libre desde este momento. Si la clienta tiene más cajas, se pueden liberar juntas.
         const nombre = esc(nombreCompleto(idx.clienta(a.clienta_id)));
@@ -1597,20 +1616,28 @@ function conectarGuia(a, id) {
         const lista = c => (c.length === 1 ? c[0] : `${c.slice(0, -1).join(', ')} y ${c[c.length - 1]}`);
         const cuales = await modal({
           titulo: 'La clienta la recoge en tienda',
-          html: `<p>${nombre} pasa por su pedido a la tienda. <b>Saca sus prendas de la caja ${esc(id)}</b> y apártalas con su nombre.</p>
-            <p>La caja <b>${esc(id)} queda libre</b> desde ahora y se les avisa a las Dueñas. No lleva guía.</p>
+          html: `${yaSalio(a)
+              ? `<p>${nombre} pasa por su pedido a la tienda. Ya <b>no lleva guía</b>: sus prendas se quedan apartadas con su nombre y se les avisa a las Dueñas.</p>`
+              : `<p>${nombre} pasa por su pedido a la tienda. <b>Saca sus prendas de la caja ${esc(id)}</b> y apártalas con su nombre.</p>
+            <p>La caja <b>${esc(id)} queda libre</b> desde ahora y se les avisa a las Dueñas. No lleva guía.</p>`}
             ${otras.length ? `<p>${nombre} también tiene ${otras.length === 1 ? 'la caja' : 'las cajas'} <b>${esc(lista(otras.map(x => x.caja)))}</b>. ¿Se lleva todo?</p>` : ''}`,
           botones: otras.length
             ? [{ texto: 'Cancelar', valor: false }, { texto: `Solo la ${id}`, valor: 'una', clase: 'btn-secundario' }, { texto: otras.length === 1 ? 'Liberar las dos' : 'Liberar todas', valor: 'todas', clase: 'btn-primario' }]
-            : [{ texto: 'Cancelar', valor: false }, { texto: 'Sí, liberar la caja', valor: 'una', clase: 'btn-primario' }],
+            : [{ texto: 'Cancelar', valor: false }, { texto: yaSalio(a) ? 'Sí, recoge en tienda' : 'Sí, liberar la caja', valor: 'una', clase: 'btn-primario' }],
         });
         if (!cuales) return;
         const ids = cuales === 'todas' ? [a.id, ...otras.map(x => x.id)] : [a.id];
         const ok = await accion(async () => { await store.recogeTienda(ids); D.cargado = 0; await refrescar(true); return true; }, 'Guardando…');
-        if (ok) { toast(ids.length > 1 ? `Cajas ${lista(todas)} libres. Queda por recoger en tienda.` : `Caja ${id} libre. Queda por recoger en tienda.`); ir(`recoge/${a.id}`); }
+        if (ok) { toast(ids.length > 1 ? `Cajas ${lista(todas)} libres. Queda por recoger en tienda.` : yaSalio(a) ? 'Listo: queda por recoger en tienda.' : `Caja ${id} libre. Queda por recoger en tienda.`); ir(`salida/${a.id}`); }
       } else if (que === 'quitar-tienda') {
         hacer('Guardando…', () => store.guiaCaja(a.id, 'quitar-tienda'), 'Listo: la caja ya no está marcada.');
       } else if (que === 'quitar-lista') {
+        if (yaSalio(a)) {
+          if (!(await confirmar(`Sus prendas <b>regresan a la caja ${esc(id)}</b> y deja de estar por enviar.<br><br>Solo se puede si la caja ${esc(id)} sigue libre.`, { titulo: '¿Deshacer?', si: 'Sí, deshacer' }))) return;
+          const ok = await accion(async () => { await store.guiaCaja(a.id, 'quitar-lista'); D.cargado = 0; await refrescar(true); return true; }, 'Guardando…');
+          if (ok) { toast(`Listo: sus prendas regresan a la caja ${id}.`); ir(`caja/${encodeURIComponent(id)}`); }
+          return;
+        }
         hacer('Guardando…', () => store.guiaCaja(a.id, 'quitar-lista'), 'Listo: la caja ya no está marcada.');
       } else if (que === 'quitar-pegada') {
         if (!(await confirmar('Se quita la marca de <b>guía pegada</b> de esta caja.', { titulo: '¿Deshacer?', si: 'Sí, deshacer' }))) return;
@@ -1618,8 +1645,8 @@ function conectarGuia(a, id) {
       } else {
         const f = Object.fromEntries(new FormData($('#f-guia')));
         const destino = que === 'sucursal' ? 'para <b>llevar a sucursal</b>' : 'lista para <b>recolección</b>';
-        if (!(await confirmar(`¿La guía ya está <b>pegada</b> en la caja <b>${esc(id)}</b>?<br><br>Queda ${destino} y se les avisa a las Dueñas.`, { titulo: 'Guía pegada', si: 'Sí, ya está pegada' }))) return;
-        hacer('Guardando…', () => store.guiaCaja(a.id, que, f), `Caja ${id}: guía pegada. Se avisó a las Dueñas.`);
+        if (!(await confirmar(`¿La guía ya está <b>pegada</b> en el paquete de <b>${esc(nombreCompleto(idx.clienta(a.clienta_id)))}</b>?<br><br>Queda ${destino} y se les avisa a las Dueñas.`, { titulo: 'Guía pegada', si: 'Sí, ya está pegada' }))) return;
+        hacer('Guardando…', () => store.guiaCaja(a.id, que, f), 'Guía pegada. Se avisó a las Dueñas.');
       }
     };
   });
@@ -1827,10 +1854,13 @@ function vistaReasignar(id) {
 
 /* ---------- Pantalla: marcar como enviado ---------- */
 function formEnvio(id) {
-  id = id.toUpperCase();
-  titulo(`Enviar caja ${id}`, `caja/${encodeURIComponent(id)}`);
-  const a = idx.activaCaja(id);
-  if (!a) { ir(`caja/${encodeURIComponent(id)}`); return; }
+  // Llega por caja (caja todavía ocupada) o por asignación (pedido que ya salió de su caja y falta enviar)
+  const suelto = porEnviar(idx.asig(id)) ? idx.asig(id) : null;
+  if (!suelto) id = id.toUpperCase();
+  const a = suelto || idx.activaCaja(id);
+  if (!a) { ir(suelto === null && idx.asig(id) ? 'cajas' : `caja/${encodeURIComponent(id)}`); return; }
+  if (suelto) id = a.caja;
+  titulo(suelto ? 'Marcar como enviado' : `Enviar caja ${id}`, suelto ? `salida/${a.id}` : `caja/${encodeURIComponent(id)}`);
   const cl = idx.clienta(a.clienta_id);
   const pedidos = idx.pedidosDe(a.id);
   const r = resumenPedidos(pedidos);
@@ -1860,8 +1890,8 @@ function formEnvio(id) {
       </div>
       <label>Costo de envío<input name="costo_envio" type="number" step="0.01" min="0" inputmode="decimal" placeholder="$0.00"></label>
       <label>Notas<textarea name="notas_envio" rows="2"></textarea></label>
-      <button class="btn btn-primario btn-grande" type="submit">${IC.camion} Confirmar envío y liberar caja</button>
-      <p class="nota centro">La clienta y sus pedidos quedan en su historial. La caja ${esc(id)} quedará libre para usarse de nuevo.</p>
+      <button class="btn btn-primario btn-grande" type="submit">${IC.camion} ${suelto ? 'Confirmar envío' : 'Confirmar envío y liberar caja'}</button>
+      <p class="nota centro">La clienta y sus pedidos quedan en su historial.${suelto ? '' : ` La caja ${esc(id)} quedará libre para usarse de nuevo.`}</p>
     </form>`;
   $('#foto').onchange = e => {
     foto = e.target.files[0] || null;
@@ -1872,11 +1902,11 @@ function formEnvio(id) {
     const f = Object.fromEntries(new FormData(e.target));
     if (!foto) { toast('Toma la foto de la guía de paquetería.', 'error'); $('#zona-foto').classList.add('invalido'); return; }
     if (!f.paqueteria) { toast('Selecciona la paquetería.', 'error'); return; }
-    if (!(await confirmar(`Se marcará como <b>enviada</b> la mercancía de ${esc(nombreCompleto(cl))} y la caja <b>${esc(id)}</b> quedará libre.`, { titulo: '¿Confirmar envío?', si: 'Confirmar envío' }))) return;
+    if (!(await confirmar(`Se marcará como <b>enviada</b> la mercancía de ${esc(nombreCompleto(cl))}${suelto ? '' : ` y la caja <b>${esc(id)}</b> quedará libre`}.`, { titulo: '¿Confirmar envío?', si: 'Confirmar envío' }))) return;
     const ok = await accion(async () => {
       await refrescar(true);
       const actual = idx.asig(a.id);
-      if (!actual || actual.estado !== 'activa') throw new Error('Esta caja ya fue enviada o cambió. Revisa de nuevo.');
+      if (!actual || actual.estado !== a.estado) throw new Error('Esta caja ya fue enviada o cambió. Revisa de nuevo.');
       if (idx.pedidosDe(a.id).some(x => !x.video)) throw new Error('FALTA_VIDEO');
       espera.mostrar('Subiendo foto…', 0);
       const reducida = await reducirFoto(foto);
@@ -1892,7 +1922,7 @@ function formEnvio(id) {
       return true;
     }, 'Guardando envío…');
     if (!ok) return;
-    toast(`Envío registrado. La caja ${id} quedó libre.`);
+    toast(suelto ? 'Envío registrado.' : `Envío registrado. La caja ${id} quedó libre.`);
     ir(`clienta/${cl.id}`);
     const pendientes = pedidos.filter(p => p.video && !p.video_comprimido);
     if (pendientes.length) setTimeout(() => ofrecerCompresion(pendientes), 600);
@@ -2004,16 +2034,16 @@ function vistaClienta(id) {
       const st = estadoAsig(a);
       return `<div class="bloque-historial">
         <div class="historial-cabeza">
-          <b>Caja ${esc(a.caja)}</b>
-          ${a.estado === 'activa' ? `<span class="chip chip-${st.nivel}">En caja · día ${st.dias}</span>` : `<span class="chip ${porRecoger(a) ? 'chip-aviso' : 'chip-ok'}">${textoSalida(a)}</span>`}
+          <b>${yaSalio(a) ? 'Estaba en la caja' : 'Caja'} ${esc(a.caja)}</b>
+          ${a.estado === 'activa' ? `<span class="chip chip-${st.nivel}">En caja · día ${st.dias}</span>` : `<span class="chip ${yaSalio(a) ? 'chip-aviso' : 'chip-ok'}">${textoSalida(a)}</span>`}
         </div>
         <small>Asignada ${fechaCorta(a.asignada_en)} · ${ps.length} pedidos · ${dinero(rs.total)}</small>
+        ${yaSalio(a) ? `<div class="acciones"><a class="btn btn-secundario" href="#/salida/${a.id}">${porRecoger(a) ? 'Ver pedido por recoger' : 'Ver pedido por enviar'}</a></div>` : ''}
         ${a.estado === 'enviada' ? `<div class="envio">
           ${IC.camion}<span><b>${esc(a.paqueteria || '')}</b> ${a.guia ? `· Guía ${esc(a.guia)}` : ''}<br>
           <small>${[a.peso_kg ? `${a.peso_kg} kg` : '', a.medidas ? `${esc(a.medidas)} cm` : '', a.costo_envio != null ? `Envío ${dinero(a.costo_envio)}` : '', a.enviada_por ? `por ${esc(a.enviada_por)}` : ''].filter(Boolean).join(' · ')}</small>
           ${a.notas_envio ? `<br><small>${esc(a.notas_envio)}</small>` : ''}</span>
           ${a.foto_guia ? `<button class="btn btn-mini" data-ver-guia="${a.id}">${IC.foto} Guía</button>` : ''}
-          ${porRecoger(a) ? `<a class="btn btn-mini" href="#/recoge/${a.id}">Entregar</a>` : ''}
         </div>` : ''}
         ${ps.slice().reverse().map(p => tarjetaPedido(p, false)).join('')}
       </div>`;
@@ -2337,7 +2367,7 @@ function calcularReporte(rango) {
     porCat[it.cat].cantidad += it.cantidad;
     porCat[it.cat].importe += it.precio * it.cantidad;
   }
-  const envios = D.asignaciones.filter(a => a.estado === 'enviada' && !porRecoger(a) && enRango(a.enviada_en, rango)).sort((a, b) => (a.enviada_en < b.enviada_en ? -1 : 1));
+  const envios = D.asignaciones.filter(a => a.estado === 'enviada' && enRango(a.enviada_en, rango)).sort((a, b) => (a.enviada_en < b.enviada_en ? -1 : 1));
   const r = resumenPedidos(pedidos);
   return {
     pedidos, porCat, envios, total: r.total, prendas: r.prendas,
@@ -2475,8 +2505,8 @@ function exportarCorte(rango, rep, lives) {
       if (c.editable) fila[`${c.nombre} importe`] = its.reduce((s, i) => s + i.precio * i.cantidad, 0);
     }
     Object.assign(fila, {
-      Prendas: p.prendas, Total: Number(p.total), Estado: porRecoger(a) ? 'Por recoger en tienda' : esDeTienda(a) ? 'Entregado en tienda' : a.estado === 'enviada' ? 'Enviado' : 'En caja',
-      'Fecha de envío': a.enviada_en && !porRecoger(a) ? new Date(a.enviada_en) : '', Video: p.video ? 'Sí' : 'No', Notas: p.notas || '', Registró: p.creado_por || '',
+      Prendas: p.prendas, Total: Number(p.total), Estado: porRecoger(a) ? 'Por recoger en tienda' : porEnviar(a) ? 'Por enviar' : esDeTienda(a) ? 'Entregado en tienda' : a.estado === 'enviada' ? 'Enviado' : 'En caja',
+      'Fecha de envío': a.enviada_en ? new Date(a.enviada_en) : '', Video: p.video ? 'Sí' : 'No', Notas: p.notas || '', Registró: p.creado_por || '',
     });
     return fila;
   });

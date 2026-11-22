@@ -1815,7 +1815,7 @@ async function vistaCasilleros() {
     <small>${ocupados} ${ocupados === 1 ? 'casillero ocupado' : 'casilleros ocupados'}</small>
     ${visibles.length ? visibles.map(tarjetaCasillero).join('') : `<div class="vacio">${IC.casilleros}<h2>Nada por aquí</h2><p>${filtroCas === 'todos' ? 'No hay casilleros ocupados.' : 'No hay casilleros en este filtro.'}</p></div>`}
     ${cajasGuia.length ? `<details class="tarjeta" id="sec-guia"${guiaAbierto ? ' open' : ''}><summary>Cajas de resguardo · guía o recoger en tienda${porMarcar ? ` (${porMarcar} sin marcar)` : ''}</summary>
-      <p class="nota">Cuando ya están <b>todos</b> los pedidos dentro de una caja, márcala: <b>Lista para guía</b> (le llega el aviso al Supervisor, que genera la guía y la pega) o <b>Recoge en tienda</b> (la clienta pasa por su pedido: la caja queda libre en ese momento, sus prendas se apartan con su nombre y les llega el aviso a las Dueñas).</p>
+      <p class="nota">Cuando ya están <b>todos</b> los pedidos dentro de una caja, márcala: <b>Lista para guía</b> (se envía: le llega el aviso al Supervisor, que genera la guía y la pega) o <b>Recoge en tienda</b> (la clienta pasa por su pedido: les llega el aviso a las Dueñas). En los dos casos <b>la caja queda libre en ese momento</b>: saca sus prendas y déjalas empacadas o apartadas con el nombre de la clienta.</p>
       <div class="lista-simple">${cajasGuia.map(a => `<div class="pagado-fila"><div><b>Caja ${esc(a.caja)}</b> · ${esc(a.clienta)}
           <small>${a.prendas} ${a.prendas === 1 ? 'prenda' : 'prendas'} en ${a.npedidos} ${a.npedidos === 1 ? 'pedido' : 'pedidos'}</small></div>
         ${a.guia_pegada_en ? `<span class="chip chip-ok">Guía pegada · ${a.entrega === 'sucursal' ? 'sucursal' : 'recolección'}</span>`
@@ -1848,7 +1848,8 @@ async function marcarListaGuia(asignacion, caja, clienta, modo) {
       titulo: `¿La caja ${caja || ''} ya está completa?`,
       html: `<p>El pedido ya está en la caja. Si <b>todos los pedidos</b> de ${quien} ya están dentro de la ${cual}, márcala:</p>
         <p><b>Lista para guía</b>: se envía por paquetería. Se le avisa al Supervisor para que genere la guía y la pegue.</p>
-        <p><b>Recoge en tienda</b>: la clienta pasa por su pedido. La caja queda <b>libre desde ese momento</b>: saca sus prendas y apártalas con su nombre. Se les avisa a las Dueñas.</p>
+        <p><b>Recoge en tienda</b>: la clienta pasa por su pedido. Se les avisa a las Dueñas.</p>
+        <p>En los dos casos la caja queda <b>libre desde ese momento</b>: saca sus prendas y déjalas empacadas o apartadas con su nombre.</p>
         <p class="nota">Si todavía le falta algún pedido, toca "Todavía no": después la marcas aquí en Casilleros, en "Cajas de resguardo".</p>`,
       botones: [{ texto: 'Todavía no', valor: false }, { texto: 'Recoge en tienda', valor: 'tienda', clase: 'btn-secundario' }, { texto: 'Lista para guía', valor: 'guia', clase: 'btn-primario' }],
     });
@@ -1857,11 +1858,11 @@ async function marcarListaGuia(asignacion, caja, clienta, modo) {
     modo === 'tienda'
       ? `<p>${quien} pasa por su pedido a la tienda. <b>Saca sus prendas</b> de la ${cual} y apártalas con su nombre.</p>
          <p>La caja <b>queda libre desde ahora</b> y se les avisa a las Dueñas. No lleva guía.</p>`
-      : `<p>Confirmas que <b>todos los pedidos</b> de ${quien} ya están dentro de la ${cual}.</p>
-         <p>Se le avisa al Supervisor para que genere la guía y la pegue. Los pedidos nuevos de esta clienta ya no entrarán a esta caja.</p>`,
-    modo === 'tienda' ? 'Sí, liberar la caja' : 'Sí, lista para guía'))) return false;
+      : `<p>Confirmas que <b>todos los pedidos</b> de ${quien} ya están en la ${cual}. <b>Saca sus prendas y empácalas</b> con su nombre para el envío.</p>
+         <p>La caja <b>queda libre desde ahora</b> y se le avisa al Supervisor para que genere la guía y la pegue.</p>`,
+    'Sí, liberar la caja'))) return false;
   return !!(await accion(() => rpc(modo === 'tienda' ? 'caja_lista_para_tienda' : 'caja_lista_para_guia', { p_asignacion: asignacion, p_lista: true, p_usuario: usuario.nombre || usuario.email }),
-    modo === 'tienda' ? `Caja ${caja || ''} libre: queda por recoger en tienda. Se avisó a las Dueñas.` : `Caja ${caja || ''} lista para guía. Se avisó al Supervisor.`));
+    modo === 'tienda' ? `Caja ${caja || ''} libre: queda por recoger en tienda. Se avisó a las Dueñas.` : `Caja ${caja || ''} libre: queda por enviar. Se avisó al Supervisor.`));
 }
 function tarjetaCasillero(c) {
   const s = siguientePaso(c);
