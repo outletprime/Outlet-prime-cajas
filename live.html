@@ -2009,7 +2009,8 @@ async function abrirDetalle(id) {
     ultima = ahora;
     if (e.key === 'Enter') {
       const clave = leido.trim().toUpperCase(); leido = '';
-      if (/^[A-Z]{2}\d{2}$/.test(clave) && alLeer) { e.preventDefault(); e.stopPropagation(); alLeer(clave); }
+      // Cualquier clave válida: A1, A23, AB5 o AB23 (el número no lleva cero a la izquierda)
+      if (claveANum(clave) && alLeer) { e.preventDefault(); e.stopPropagation(); alLeer(clave); }
     } else if (e.key && e.key.length === 1) leido += e.key;
   };
   document.addEventListener('keydown', tecla, true);
