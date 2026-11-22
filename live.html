@@ -2037,6 +2037,7 @@ async function abrirDetalle(id) {
       if (claveANum(clave) && alLeer) { e.preventDefault(); e.stopPropagation(); alLeer(clave); }
     } else if (e.key && e.key.length === 1) leido += e.key;
   };
+  lectorOcupado = true;
   document.addEventListener('keydown', tecla, true);
   try { await modal({
     titulo: `${d.casilleros && d.casilleros !== d.casillero ? 'Casilleros ' + d.casilleros : 'Casillero ' + (d.casillero || '—')} · ${d.clienta}`,
@@ -2078,7 +2079,7 @@ async function abrirDetalle(id) {
         }
       });
     },
-  }); } finally { document.removeEventListener('keydown', tecla, true); }
+  }); } finally { document.removeEventListener('keydown', tecla, true); lectorOcupado = false; }
   pintar();
 }
 // Nota de cobro de una clienta: se manda a mano por WhatsApp mientras el bot no tenga número.
@@ -2202,10 +2203,79 @@ async function registrarPago(c) {
 
 /* ---------- Prendas ---------- */
 let buscada = null;
+/* Lector de código de barras en cualquier pantalla del panel: al leer la etiqueta de una prenda sale un recuadro
+ * con su información (de quién es, casillero, si está pagada). Con un pedido abierto en revisión no aplica:
+ * ahí cada lectura marca la prenda como Encontrada (abrirDetalle pone lectorOcupado). */
+let lectorOcupado = false;
+let recuadroPrenda = null, prendaLeida = null;
+async function verPrenda(num) {
+  let info;
+  try { info = await infoPrenda(num, false); } catch (e) { toast(traducirError(e), 'error'); return; }
+  if (info.existe) bip();
+  prendaLeida = num;
+  const titulo = `Prenda ${num4(num)}`;
+  if (recuadroPrenda && document.body.contains(recuadroPrenda)) {
+    $('h2', recuadroPrenda).textContent = titulo;
+    $('#prenda-leida', recuadroPrenda).innerHTML = info.html;
+    return;
+  }
+  modal({
+    titulo, html: `<div id="prenda-leida">${info.html}</div><p class="nota">Escanea otra prenda para ver su información.</p>`,
+    botones: [{ texto: 'Abrir en Prendas', valor: 'prendas', clase: 'btn-secundario' }, { texto: 'Cerrar', valor: true }],
+    alAbrir: f => { recuadroPrenda = f; },
+  }).then(v => { recuadroPrenda = null; if (v === 'prendas') { buscada = prendaLeida; irA('prendas'); } });
+}
+(() => {
+  let leido = '', ultima = 0;
+  document.addEventListener('keydown', e => {
+    if (lectorOcupado || !usuario || SOLO[ROL]) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')) return;
+    const ahora = Date.now();
+    if (ahora - ultima > 300) leido = '';   // un lector escribe todo de corrido
+    ultima = ahora;
+    if (e.key === 'Enter') {
+      const num = claveANum(leido.trim().toUpperCase()); leido = '';
+      if (num) { e.preventDefault(); e.stopPropagation(); verPrenda(num); }
+    } else if (e.key && e.key.length === 1) leido += e.key;
+  }, true);
+  document.addEventListener('pointerdown', () => bip.preparar(), { once: true });   // el primer toque deja listo el sonido
+})();
 async function contar(estado) {
   const { count, error } = await sb.from('prendas').select('numero', { count: 'exact', head: true }).eq('estado', estado);
   if (error) throw error;
   return count || 0;
+}
+// Qué es una prenda y qué hacer con ella: de quién es, a qué casillero va, si está pagada o en espera.
+// La usan Prendas → Buscar y el lector de código de barras. botones = false quita las acciones de la Dueña.
+async function infoPrenda(num, botones = true) {
+  const [p] = await q(sb.from('prendas').select('*').eq('numero', num));
+  if (!p) return { existe: false, html: `<div class="tarjeta">
+      <div class="cas-cab"><b style="font-size:24px">${num4(num)}</b><span class="chip chip-aviso">Sin etiqueta</span></div>
+      <p><b>Esa clave no es de ninguna etiqueta impresa y nadie la eligió.</b></p>
+      <p class="nota">Revisa en la etiqueta que esté bien escrita. Si la prenda no es de nadie, regrésala al rack.</p></div>` };
+  const hist = await q(sb.from('live_feed').select('*').eq('prenda', num).order('creado_en', { ascending: false }).limit(30));
+  const ET = { disponible: ['chip-ok', 'Disponible'], apartada: ['chip-aviso', 'Apartada'], pagada: ['chip-info', 'Vendida'], enviada: ['chip', 'Enviada'], baja: ['chip-vencida', 'Baja'] };
+  const EA = { apartada: 'Apartada', espera: 'En espera', pagada: 'Pagada', liberada: 'Liberada', cancelada: 'Cancelada' };
+  // Qué es exactamente esta prenda y qué hacer con ella
+  const duena = hist.find(a => ['apartada', 'pagada'].includes(a.estado));
+  const enEspera = hist.filter(a => a.estado === 'espera').sort((a, b) => new Date(a.mensaje_en || a.creado_en) - new Date(b.mensaje_en || b.creado_en));
+  const esperan = enEspera.length;
+  let que = '';
+  if (duena) que = `<b>Es de ${esc(duena.clienta)}.</b> ${duena.casillero ? `Va en el casillero <b>${esc(duena.casillero)}</b>.` : 'Todavía no tiene casillero.'}${duena.estado === 'pagada' ? ' Ya está pagada.' : ''}${esperan ? ` Hay ${esperan} en espera.` : ''}`;
+  else if (p.estado === 'apartada') que = '<b>La pidió una clienta nueva que todavía no se registra</b> (sale en "Pide DM"). Va en la charola de pendientes.';
+  else if (p.estado === 'disponible' && esperan) que = `<b>Está libre</b> y ${esperan === 1 ? 'hay 1 clienta en espera' : `hay ${esperan} clientas en espera`}. La primera es <b>${esc(enEspera[0].clienta)}</b>. No se le pasó sola a nadie: una Dueña decide si se la da.`;
+  else if (p.estado === 'disponible') que = hist.length
+    ? '<b>Ya no es de nadie:</b> se liberó. Regrésala al rack.'
+    : '<b>Nadie eligió esta prenda.</b> Regrésala al rack.';
+  return { existe: true, html: `<div class="tarjeta">
+    <div class="cas-cab"><b style="font-size:24px">${num4(p.numero)}</b><span class="chip ${ET[p.estado][0]}">${ET[p.estado][1]}</span></div>
+    ${que ? `<p>${que}</p>` : ''}
+    ${botones && p.estado === 'disponible' && esperan && puede.duena() ? `<div class="fila-botones"><button type="button" class="btn btn-mini btn-marca" data-dar-espera="${p.numero}" data-quien="${esc(enEspera[0].clienta)}">Dársela a quien espera</button></div>` : ''}
+    <small><b>${dinero(p.precio)}</b> · registrada ${fechaHora(p.registrada_en)}</small>
+    ${botones && puede.duena() && ['disponible', 'apartada'].includes(p.estado) ? `<div class="fila-botones"><button type="button" class="btn btn-mini btn-secundario" data-precio-clave="${num4(p.numero)}" data-precio-actual="${Number(p.precio)}">Cambiar precio</button></div>` : ''}
+    ${hist.length ? `<div class="lista-simple">${hist.map(a => `<div><b>${esc(a.clienta)}</b> · ${EA[a.estado] || a.estado}${a.casillero ? ' · ' + esc(a.casillero) : ''}<br><small>${fechaHora(a.mensaje_en)}</small></div>`).join('')}</div>` : ''}
+  </div>` };
 }
 async function vistaPrendas() {
   const [disp, apar, pag, cfg] = await Promise.all([contar('disponible'), contar('apartada'), contar('pagada'), q(sb.from('live_config').select('precio').limit(1))]);
@@ -2214,38 +2284,7 @@ async function vistaPrendas() {
   const etq = puede.etiquetas() ? await rpc('etiquetas_estado').catch(() => null) : null;
   CAJAS_ETQ = puede.etiquetas() ? (await q(sb.from('cajas').select('id, capacidad')).catch(() => [])).sort(ordenCajas) : [];
   const fuera = await rpc('prendas_fuera_de_etiquetas').catch(() => []) || [];
-  let detalle = '';
-  if (buscada != null) {
-    const [p] = await q(sb.from('prendas').select('*').eq('numero', buscada));
-    if (!p) detalle = `<div class="tarjeta">
-        <div class="cas-cab"><b style="font-size:24px">${num4(buscada)}</b><span class="chip chip-aviso">Sin etiqueta</span></div>
-        <p><b>Esa clave no es de ninguna etiqueta impresa y nadie la eligió.</b></p>
-        <p class="nota">Revisa en la etiqueta que esté bien escrita. Si la prenda no es de nadie, regrésala al rack.</p></div>`;
-    else {
-      const hist = await q(sb.from('live_feed').select('*').eq('prenda', buscada).order('creado_en', { ascending: false }).limit(30));
-      const ET = { disponible: ['chip-ok', 'Disponible'], apartada: ['chip-aviso', 'Apartada'], pagada: ['chip-info', 'Vendida'], enviada: ['chip', 'Enviada'], baja: ['chip-vencida', 'Baja'] };
-      const EA = { apartada: 'Apartada', espera: 'En espera', pagada: 'Pagada', liberada: 'Liberada', cancelada: 'Cancelada' };
-      // Qué es exactamente esta prenda y qué hacer con ella
-      const duena = hist.find(a => ['apartada', 'pagada'].includes(a.estado));
-      const enEspera = hist.filter(a => a.estado === 'espera').sort((a, b) => new Date(a.mensaje_en || a.creado_en) - new Date(b.mensaje_en || b.creado_en));
-      const esperan = enEspera.length;
-      let que = '';
-      if (duena) que = `<b>Es de ${esc(duena.clienta)}.</b> ${duena.casillero ? `Va en el casillero <b>${esc(duena.casillero)}</b>.` : 'Todavía no tiene casillero.'}${duena.estado === 'pagada' ? ' Ya está pagada.' : ''}${esperan ? ` Hay ${esperan} en espera.` : ''}`;
-      else if (p.estado === 'apartada') que = '<b>La pidió una clienta nueva que todavía no se registra</b> (sale en "Pide DM"). Va en la charola de pendientes.';
-      else if (p.estado === 'disponible' && esperan) que = `<b>Está libre</b> y ${esperan === 1 ? 'hay 1 clienta en espera' : `hay ${esperan} clientas en espera`}. La primera es <b>${esc(enEspera[0].clienta)}</b>. No se le pasó sola a nadie: una Dueña decide si se la da.`;
-      else if (p.estado === 'disponible') que = hist.length
-        ? '<b>Ya no es de nadie:</b> se liberó. Regrésala al rack.'
-        : '<b>Nadie eligió esta prenda.</b> Regrésala al rack.';
-      detalle = `<div class="tarjeta">
-        <div class="cas-cab"><b style="font-size:24px">${num4(p.numero)}</b><span class="chip ${ET[p.estado][0]}">${ET[p.estado][1]}</span></div>
-        ${que ? `<p>${que}</p>` : ''}
-        ${p.estado === 'disponible' && esperan && puede.duena() ? `<div class="fila-botones"><button type="button" class="btn btn-mini btn-marca" data-dar-espera="${p.numero}" data-quien="${esc(enEspera[0].clienta)}">Dársela a quien espera</button></div>` : ''}
-        <small><b>${dinero(p.precio)}</b> · registrada ${fechaHora(p.registrada_en)}</small>
-        ${puede.duena() && ['disponible', 'apartada'].includes(p.estado) ? `<div class="fila-botones"><button type="button" class="btn btn-mini btn-secundario" data-precio-clave="${num4(p.numero)}" data-precio-actual="${Number(p.precio)}">Cambiar precio</button></div>` : ''}
-        ${hist.length ? `<div class="lista-simple">${hist.map(a => `<div><b>${esc(a.clienta)}</b> · ${EA[a.estado] || a.estado}${a.casillero ? ' · ' + esc(a.casillero) : ''}<br><small>${fechaHora(a.mensaje_en)}</small></div>`).join('')}</div>` : ''}
-      </div>`;
-    }
-  }
+  const detalle = buscada != null ? (await infoPrenda(buscada)).html : '';
   return `
     <div class="estados">
       <div class="kpi"><small>Disponibles</small><b>${disp}</b></div>
