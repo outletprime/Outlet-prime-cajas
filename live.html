@@ -1988,21 +1988,38 @@ async function seArrepintio(apartado) {
   toast(r.nueva ? `${r.clave}: ahora es de ${r.nueva}${r.casillero ? ' · llévala al ' + r.casillero : ''}` : `${r.clave}: regrésala al rack`);
   return true;
 }
-// Sonido corto para el lector: agudo = prenda correcta, grave = no es de este pedido
-function bip(bien) {
-  try {
-    const C = window.AudioContext || window.webkitAudioContext;
-    bip.ctx = bip.ctx || new C();
-    const o = bip.ctx.createOscillator(), g = bip.ctx.createGain(), t = bip.ctx.currentTime;
-    o.type = bien ? 'sine' : 'square';
-    o.frequency.value = bien ? 1250 : 190;
-    g.gain.setValueAtTime(0.25, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + (bien ? 0.14 : 0.5));
-    o.connect(g); g.connect(bip.ctx.destination);
-    o.start(t); o.stop(t + (bien ? 0.15 : 0.5));
-  } catch (e) { /* sin sonido: el aviso en pantalla basta */ }
+// Sonido del lector: un bip solo cuando la prenda leída SÍ es de este pedido. Si no coincide, silencio
+// (el aviso sale en pantalla). Va por un <audio> y no por AudioContext para que en el iPhone suene aunque
+// el celular esté en modo silencio; "preparar" se llama al tocar el casillero, que es cuando el navegador deja sonar.
+function bip() {
+  const a = bip.audio || (bip.audio = bip.crear());
+  if (!a) return;
+  try { a.muted = false; a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* sin sonido: el aviso en pantalla basta */ }
 }
+bip.crear = () => {
+  try {
+    const hz = 1250, tasa = 22050, n = Math.floor(tasa * 0.16), buf = new Uint8Array(44 + n * 2), v = new DataView(buf.buffer);
+    const txt = (o, t) => [...t].forEach((c, k) => { buf[o + k] = c.charCodeAt(0); });
+    txt(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); txt(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, tasa, true); v.setUint32(28, tasa * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); txt(36, 'data'); v.setUint32(40, n * 2, true);
+    for (let k = 0; k < n; k++) v.setInt16(44 + k * 2, Math.sin(2 * Math.PI * hz * k / tasa) * 0.7 * 32767 * Math.min(1, k / 60, (n - k) / (tasa * 0.03)), true);
+    const a = new Audio(URL.createObjectURL(new Blob([buf], { type: 'audio/wav' })));
+    a.preload = 'auto';
+    return a;
+  } catch (e) { return null; }
+};
+bip.preparar = () => {
+  const a = bip.audio || (bip.audio = bip.crear());
+  if (!a || bip.listo) return;
+  try {
+    a.muted = true;
+    const fin = () => { a.pause(); a.currentTime = 0; a.muted = false; bip.listo = true; };
+    const p = a.play();
+    if (p && p.then) p.then(fin, () => { a.muted = false; }); else fin();
+  } catch (e) { a.muted = false; }
+};
 async function abrirDetalle(id) {
+  bip.preparar();
   let d = await accion(() => rpc('live_pedido_detalle', { p_cuenta: id }));
   if (!d || d === true) return;
   // Lector de código de barras: escribe la clave como un teclado y termina con Enter.
@@ -2031,13 +2048,13 @@ async function abrirDetalle(id) {
       alLeer = async clave => {
         if (!(d.revisable && puede.confirmarPedido())) return;
         const p = (d.piezas || []).find(x => x.clave === clave);
-        if (!p) { bip(false); toast(`${clave} NO es de este pedido. Apártala y búscala en Prendas → Buscar.`, 'error'); return; }
-        if (p.revision === 'encontrada') { bip(true); toast(`${clave} ya estaba marcada como encontrada`); return; }
+        if (!p) { toast(`${clave} NO es de este pedido. Apártala y búscala en Prendas → Buscar.`, 'error'); return; }
+        if (p.revision === 'encontrada') { bip(); toast(`${clave} ya estaba marcada como encontrada`); return; }
         const r = await accion(() => rpc('live_revisar_prenda', { p_apartado: p.id, p_revision: 'encontrada', p_usuario: usuario.email }));
-        if (!r || r === true) { bip(false); return; }
+        if (!r || r === true) return;
         repintar(r);
         const faltan = (d.piezas || []).filter(x => !x.revision).length;
-        bip(true);
+        bip();
         toast(faltan ? `✓ ${clave} encontrada · faltan ${faltan}` : `✓ ${clave} encontrada · ya están todas`, 'ok');
       };
       cuerpo.addEventListener('click', async e => {
