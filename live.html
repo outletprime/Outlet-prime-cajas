@@ -495,6 +495,10 @@ async function cargar() {
       q(sb.from('live_agente').select('*').limit(20)),
     ]);
     D.cargadoEn = Date.now();
+    // Comentarios de Facebook que llegaron sin el nombre de quien comentó (el equipo escribe el nombre)
+    D.sinNombre = D.live && puede.operar()
+      ? await q(sb.from('live_sin_autor').select('*').eq('live_id', D.live.id).eq('estado', 'pendiente').order('comentado_en', { ascending: true }).limit(100)).catch(() => [])
+      : [];
     const { count } = await sb.from('live_acomodo').select('id', { head: true, count: 'exact' }).neq('tarea', 'hecho');
     D.porAcomodar = count || 0;
   }
@@ -549,6 +553,35 @@ function htmlDMs() {
   return `<h3 class="seccion">🙋 Pide DM · ${D.dms.length}</h3>
     <p class="nota">Comentaron pero todavía no están registradas. La host les pide mensaje directo; cuando escriban, contéstales con <b>Copiar mensaje</b> (les pide su nombre y apellido) y regístralas con <b>Registrar a mano</b>. Al registrarse, lo que pidieron pasa solo a su casillero.</p>
     ${D.dms.map(tarjetaDM).join('')}`;
+}
+// Facebook no compartió quién comentó: el equipo ve el comentario en Facebook, escribe el nombre y lo aparta
+// con la hora original del comentario (gana quien comentó primero).
+function htmlSinNombre() {
+  const lista = D.sinNombre || [];
+  if (!TIENE_COMENTARIOS || !puede.operar() || !lista.length) return '';
+  return `<h3 class="seccion">💬 Facebook: falta el nombre · ${lista.length}</h3>
+    <p class="nota">Facebook no compartió quién escribió estos comentarios. Búscalos en el live de Facebook, escribe el <b>nombre como aparece ahí</b> y toca <b>Apartar</b>: se aparta con la hora del comentario, así que respeta el orden. Si no era un pedido, toca <b>No es pedido</b>.</p>
+    ${lista.map(c => `<form class="dm sin-nombre" data-sin-nombre="${c.id}">
+      <div class="dm-cab"><span class="chip chip-red">${esc(RED[c.red] || c.red)}</span><b>${(c.prendas || []).map(num4).join(', ')}</b><span class="dm-tiempo" style="color:var(--texto-2)">${horaSeg(c.comentado_en)}</span></div>
+      <div>"${esc(c.texto)}"</div>
+      <label>Nombre en Facebook<input name="nombre" placeholder="Ej. Ana Gómez" autocomplete="off" autocapitalize="words" required></label>
+      <div class="fila-botones">
+        <button class="btn btn-mini btn-marca">Apartar</button>
+        <button type="button" class="btn btn-mini btn-secundario" data-sin-nombre-no="${c.id}">No es pedido</button>
+      </div>
+    </form>`).join('')}`;
+}
+function conectarSinNombre(raiz) {
+  $$('[data-sin-nombre]', raiz).forEach(f => f.onsubmit = async e => {
+    e.preventDefault();
+    const nombre = f.nombre.value.trim();
+    if (!nombre) { toast('Escribe el nombre como aparece en Facebook.', 'error'); return; }
+    const r = await accion(() => rpc('live_sin_autor_apartar', { p_id: +f.dataset.sinNombre, p_usuario: nombre, p_por: usuario.email }));
+    if (r) { avisoResultado(r); f.nombre.blur(); pintar(); }
+  });
+  $$('[data-sin-nombre-no]', raiz).forEach(b => b.onclick = async () => {
+    if (await accion(() => rpc('live_sin_autor_descartar', { p_id: +b.dataset.sinNombreNo, p_por: usuario.email }), 'Listo')) pintar();
+  });
 }
 function htmlCaptura() {
   if (!TIENE_COMENTARIOS || !puede.operar()) return '';
@@ -1386,6 +1419,7 @@ function vistaRedes() {
       ${TIENE_COMENTARIOS ? '<button type="button" class="btn btn-mini btn-secundario" data-ir="host">Pantalla host</button>' : ''}
     </div>
     ${htmlAgente()}
+    ${htmlSinNombre()}
     ${htmlDMs()}
     ${puede.operar() ? `<button class="btn btn-peligro btn-grande" id="cerrar-live">Cerrar live</button>
     <p class="nota">Al cerrar ya no se puede apartar. Todavía no se cobra: primero se revisa cada pedido en Acomodo y, cuando esté completo, se manda su nota desde Casilleros.</p>` : ''}
@@ -1416,6 +1450,7 @@ function filaFeed(a, pos, nuevo) {
 }
 conectar.vivo = raiz => {
   $$('[data-ir]', raiz).forEach(a => a.onclick = e => { e.preventDefault(); irA(a.dataset.ir); });
+  conectarSinNombre(raiz);
   const f = $('#f-iniciar', raiz);
   if (f) f.onsubmit = async e => {
     e.preventDefault();

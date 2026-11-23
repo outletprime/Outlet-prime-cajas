@@ -270,7 +270,22 @@ async function principal() {
       if (fila.agregar(c)) anotar(`[${c.red}] @${c.usuario}: ${c.texto}`);
     },
     enVivo(red) { decir(C.verde, `🔴 ${red} en vivo`); asegurarLive(); },
-    sinAutor(red, texto) { if (texto && /\d/.test(texto)) decir(C.amarillo, `👀 ${red}: "${texto}" sin nombre visible (Facebook no compartió quién fue) → revisar a mano`); },
+    // Facebook no compartió quién comentó: si trae claves, va al panel (En vivo → "Facebook: falta el nombre")
+    // para que el equipo escriba el nombre y lo aparte con la hora original del comentario.
+    async sinAutor(red, texto, extra = {}) {
+      if (!texto || !/\d/.test(texto)) return;
+      const r = interpretarReglas(texto);
+      if (!r.prendas?.length || !extra.id) {
+        decir(C.amarillo, `👀 ${red}: "${texto}" sin nombre visible (${red === 'facebook' ? 'Facebook' : red} no compartió quién fue) → revisar a mano`);
+        return;
+      }
+      const fecha = extra.fecha instanceof Date && !isNaN(extra.fecha) ? extra.fecha : new Date();
+      const mandar = () => sb.rpc('live_sin_autor_agregar', { p_red: red, p_comentario_id: String(extra.id), p_texto: texto, p_prendas: r.prendas, p_comentado_en: fecha.toISOString() });
+      let { data, error } = await mandar();
+      if (esDeSesion(error) && await volverAEntrar('el sistema rechazó un comentario sin nombre')) ({ data, error } = await mandar());
+      if (error) decir(C.rojo, `❌ ${red}: "${texto}" sin nombre visible y no se pudo mandar al panel (${error.message}) → capturar a mano`);
+      else if (data) decir(C.amarillo, `👀 ${red}: "${texto}" (${lista(r.prendas)}) sin nombre visible → en el panel, "Facebook: falta el nombre"`);
+    },
     finSimulador() { setTimeout(() => apagar(), 1500); },
   };
 

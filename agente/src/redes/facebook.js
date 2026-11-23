@@ -25,7 +25,7 @@ export function crearFacebook(cfg, eventos) {
           for (const k of (c.data || []).slice().reverse()) {
             if (vistos.has(k.id)) continue;
             vistos.add(k.id);
-            if (!k.from) { eventos.sinAutor?.('facebook', k.message); continue; }   // Facebook no compartió quién fue
+            if (!k.from) { eventos.sinAutor?.('facebook', k.message, { id: k.id, fecha: aFecha(k.created_time) }); continue; }   // Facebook no compartió quién fue
             eventos.comentario({ red: 'facebook', usuario: k.from.name || k.from.id, nombre: k.from.name, texto: k.message, id: k.id, fecha: aFecha(k.created_time) });
           }
           const sigue = await pedirJSON(`${base}/${live.id}?fields=status&access_token=${tk}`);

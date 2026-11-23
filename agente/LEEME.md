@@ -144,7 +144,9 @@ Facebook se conecta una sola vez, con su API oficial:
 - En Facebook no hay @usuario, así que el agente usa el nombre sin espacios ni acentos ("Ana Gómez" → `anagomez`).
 - Cuando la clienta escribe al bot con ese mismo nombre (su perfil de WhatsApp o "soy Ana Gómez"), **se liga
   sola**. Si no coincide, el Supervisor la liga a mano en el aviso "Pide DM".
-- Si Facebook no comparte quién comentó, la ventana lo marca para revisarlo a mano.
+- Si Facebook no comparte quién comentó (pasa mientras la app de Meta no tenga **acceso avanzado**), el comentario con clave
+  va al panel, a **En vivo → "Facebook: falta el nombre"**: alguien del equipo escribe el nombre que ve en Facebook
+  y toca Apartar. Se aparta con la hora original del comentario.
 
 ## Conectar cada red
 
