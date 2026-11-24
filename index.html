@@ -397,6 +397,21 @@ input[type="checkbox"] { width: 22px; min-height: 22px; height: 22px; accent-col
   body { background: #fff; }
   #zona-impresion { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 6mm; }
   .etiqueta { display: flex; flex-direction: column; align-items: center; padding: 4mm; border: 1px dashed #aaa; break-inside: avoid; color: #000; }
+  #zona-impresion.notas { display: block !important; color: #000; font-size: 11pt; }
+  .nota-imp { break-inside: avoid; padding: 5mm 2mm 6mm; border-bottom: 1px dashed #888; }
+  .nota-imp:last-child { border-bottom: 0; }
+  .nota-imp-cabeza { display: flex; justify-content: space-between; align-items: center; gap: 6mm; margin-bottom: 3mm; }
+  .nota-imp-cabeza img { width: 30mm; height: auto; }
+  .nota-imp-cabeza div { text-align: right; }
+  .nota-imp h2 { margin: 0; font-size: 15pt; }
+  .nota-imp h3 { margin: 0 0 1mm; font-size: 14pt; }
+  .nota-imp p { margin: 0 0 1.5mm; }
+  .nota-imp table { width: 100%; border-collapse: collapse; margin: 2mm 0; }
+  .nota-imp th, .nota-imp td { text-align: left; padding: 1.2mm 1mm; border-bottom: 1px solid #ccc; }
+  .nota-imp th:nth-child(n+2), .nota-imp td:nth-child(n+2) { text-align: right; }
+  .nota-imp tfoot td { border-bottom: 0; font-weight: 700; font-size: 13pt; }
+  .nota-imp-claves { font-size: 12pt; letter-spacing: .3px; }
+  .nota-imp-resumen { padding: 5mm 2mm; font-size: 13pt; font-weight: 700; text-align: right; }
   .etiqueta img { width: 38mm; height: auto; margin-bottom: 2mm; }
   .etiqueta svg { width: 46mm; height: 46mm; }
   .etiqueta b { font: 800 28pt -apple-system, Helvetica, Arial, sans-serif; margin-top: 2mm; }
@@ -1490,6 +1505,7 @@ async function vistaCaja(id) {
     ${pedidos.some(p => !p.video) ? `<div class="banner banner-aviso">${IC.video}<span>${faltaVideoTxt(pedidos)}<br><small>Sin video no se puede enviar la caja. Toca "Sin video · Agregar" en el pedido.</small></span></div>` : ''}
     <h3 class="seccion">Historial de pedidos</h3>
     ${pedidos.length ? pedidos.slice().reverse().map(p => tarjetaPedido(p, true)).join('') : '<p class="nota">Esta caja todavía no tiene pedidos.</p>'}
+    ${botonImprimirTodos(a, pedidos)}
     ${historialCaja.length ? `<details class="plegable"><summary>Envíos anteriores de esta caja (${historialCaja.length})</summary>
       ${historialCaja.map(x => `<a class="fila" href="#/clienta/${x.clienta_id}"><span>${esc(nombreCompleto(idx.clienta(x.clienta_id)))}</span><small>${textoSalida(x)}</small></a>`).join('')}</details>` : ''}`;
   conectarPedidos(vista());
@@ -1529,7 +1545,8 @@ async function vistaSalida(asigId) {
     </div>` : ''}
     ${pend && !tienda && PUEDE_ENTREGAR_TIENDA() ? `<div class="acciones"><a class="btn btn-primario" href="#/enviar/${a.id}">${IC.camion} Marcar como enviado</a></div>` : ''}
     <h3 class="seccion">Pedidos</h3>
-    ${pedidos.slice().reverse().map(p => tarjetaPedido(p, false)).join('')}`;
+    ${pedidos.slice().reverse().map(p => tarjetaPedido(p, false)).join('')}
+    ${botonImprimirTodos(a, pedidos)}`;
   conectarPedidos(vista());
   if (pend && !tienda) conectarGuia(a, a.caja);
   $$('[data-tienda]').forEach(b => {
@@ -1674,6 +1691,43 @@ function tarjetaClienta(cl, enlace = true) {
     </div>`;
 }
 
+/* ---------- Nota impresa de un pedido (Dueña y Supervisor) ----------
+ * Va dentro del paquete: clienta, caja, fecha, prendas con precio, claves (si el pedido llegó del live) y total.
+ * Sin teléfono ni dirección. Usa la misma zona de impresión que las etiquetas de cajas. */
+const PUEDE_IMPRIMIR_NOTA = () => ['duena', 'supervisor'].includes(ROL);
+const botonImprimirTodos = (a, pedidos) => PUEDE_IMPRIMIR_NOTA() && pedidos.length > 1
+  ? `<div class="acciones"><button class="btn btn-secundario" data-imprimir-todos="${a.id}">Imprimir todos los pedidos (${pedidos.length})</button></div>` : '';
+function htmlNotaPedido(p) {
+  const cl = idx.clienta(p.clienta_id);
+  const items = p.items || [];
+  // Los pedidos del live traen en sus notas "… · folio OP-012 · piezas AB10, AB12": las claves van aparte y grandes
+  const partes = String(p.notas || '').split(' · ');
+  const claves = (partes.find(x => /^piezas /.test(x)) || '').replace(/^piezas /, '');
+  const resto = partes.filter(x => x && !/^piezas /.test(x)).join(' · ');
+  return `<div class="nota-imp">
+    <div class="nota-imp-cabeza"><img src="icons/logo-claro.png" alt=""><div><h2>Nota de pedido</h2><small>${fechaHora(p.fecha)}</small></div></div>
+    <h3>${esc(nombreCompleto(cl))}</h3>
+    <p>Caja ${esc(p.caja || '—')}${resto ? ` · ${esc(resto)}` : ''}</p>
+    ${items.length ? `<table><thead><tr><th>Prendas</th><th>Cant.</th><th>Precio</th><th>Importe</th></tr></thead>
+      <tbody>${items.map(i => `<tr><td>${esc(i.nombre)}</td><td>${i.cantidad}</td><td>${dinero(i.precio)}</td><td>${dinero(i.precio * i.cantidad)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>Total</td><td>${p.prendas}</td><td></td><td>${dinero(p.total)}</td></tr></tfoot></table>`
+      : `<p><b>${p.prendas} ${p.prendas === 1 ? 'prenda' : 'prendas'} · Total ${dinero(p.total)}</b></p>`}
+    ${claves ? `<p class="nota-imp-claves"><b>Claves:</b> ${esc(claves)}</p>` : ''}
+  </div>`;
+}
+function imprimirNotas(pedidos) {
+  pedidos = (pedidos || []).filter(Boolean).slice().sort((x, y) => (x.fecha < y.fecha ? -1 : 1));
+  if (!pedidos.length) return toast('No hay pedidos para imprimir.', 'error');
+  let area = $('#zona-impresion');
+  if (!area) { area = document.createElement('div'); area.id = 'zona-impresion'; document.body.appendChild(area); }
+  area.className = 'notas';
+  const r = resumenPedidos(pedidos);
+  area.innerHTML = pedidos.map(htmlNotaPedido).join('')
+    + (pedidos.length > 1 ? `<div class="nota-imp-resumen">${esc(nombreCompleto(idx.clienta(pedidos[0].clienta_id)))} · ${pedidos.length} pedidos · ${r.prendas} prendas · Total ${dinero(r.total)}</div>` : '');
+  // Se espera al logo para que no salga en blanco en la primera impresión
+  const imgs = $$('img', area);
+  Promise.all(imgs.map(i => i.complete ? null : new Promise(ok => { i.onload = i.onerror = ok; }))).then(() => setTimeout(() => window.print(), 100));
+}
 function tarjetaPedido(p, borrable) {
   const items = p.items || [];
   return `
@@ -1688,12 +1742,15 @@ function tarjetaPedido(p, borrable) {
           ${p.video ? `<button class="btn btn-mini" data-ver-video="${p.id}">${IC.video} Ver video${p.video_comprimido ? ' (comprimido)' : ''}</button>`
             : ROL === 'supervisor' ? '<small class="nota">Sin video</small>'
             : `<button class="btn btn-mini btn-falta-video" data-poner-video="${p.id}">${IC.video} Sin video · Agregar</button>`}
+          ${PUEDE_IMPRIMIR_NOTA() ? `<button class="btn btn-mini" data-imprimir-nota="${p.id}">Imprimir nota</button>` : ''}
           ${borrable && ROL !== 'live' ? `<button class="btn btn-mini btn-icono-solo" data-borrar-pedido="${p.id}" aria-label="Eliminar pedido">${IC.basura}</button>` : ''}
         </span>
       </div>
     </div>`;
 }
 function conectarPedidos(raiz) {
+  $$('[data-imprimir-nota]', raiz).forEach(b => { b.onclick = () => imprimirNotas([D.pedidos.find(p => p.id === b.dataset.imprimirNota)]); });
+  $$('[data-imprimir-todos]', raiz).forEach(b => { b.onclick = () => imprimirNotas(idx.pedidosDe(b.dataset.imprimirTodos)); });
   $$('[data-ver-video]', raiz).forEach(b => { b.onclick = () => verVideo(D.pedidos.find(p => p.id === b.dataset.verVideo)); });
   $$('[data-poner-video]', raiz).forEach(b => { b.onclick = () => ponerVideo(D.pedidos.find(p => p.id === b.dataset.ponerVideo)); });
   $$('[data-borrar-pedido]', raiz).forEach(b => {
@@ -2729,6 +2786,7 @@ function vistaAdminCajas() {
 function imprimirEtiquetas(codigos) {
   let area = $('#zona-impresion');
   if (!area) { area = document.createElement('div'); area.id = 'zona-impresion'; document.body.appendChild(area); }
+  area.className = '';
   area.innerHTML = codigos.map(c => `<div class="etiqueta"><img src="icons/logo-claro.png" alt="">${qrSVG(textoQR(c), 300)}<b>${esc(c)}</b></div>`).join('');
   setTimeout(() => window.print(), 100);
 }
