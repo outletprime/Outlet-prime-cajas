@@ -1418,7 +1418,7 @@ function vistaRedes() {
     <div class="fila-botones" style="justify-content:space-between;align-items:center">
       <span class="chip chip-vivo"><span class="punto-vivo"></span>EN VIVO desde ${hora(D.live.iniciado_en)}</span>
       <small>${esc(D.live.titulo || '')}${D.live.titulo ? ' · ' : ''}Host: <b>${esc(D.live.host || '—')}</b>${puede.operar() ? ' <button type="button" class="btn-arrep" id="cambiar-host" style="margin:0">Cambiar</button>' : ''}
-        · Precio: <b>${dinero(D.live.precio || (D.cfg && D.cfg.precio) || 89)}</b>${puede.operar() ? ' <button type="button" class="btn-arrep" id="cambiar-precio-live" style="margin:0">Cambiar</button>' : ''}</small>
+        · Precio: <b>${dinero(D.live.precio || (D.cfg && D.cfg.precio) || 89)}</b>${puede.operar() ? ' <button type="button" class="btn-arrep" id="cambiar-precio-live" style="margin:0">Corregir</button>' : ''}</small>
       ${TIENE_COMENTARIOS ? '<button type="button" class="btn btn-mini btn-secundario" data-ir="host">Pantalla host</button>' : ''}
     </div>
     ${htmlAgente()}
@@ -1463,7 +1463,7 @@ function htmlPrecioProximo() {
     <div class="fila-botones" style="margin:10px 0 6px">
       ${PRECIOS_LIVE.map(v => `<button type="button" class="btn ${v === elegido ? 'btn-marca' : 'btn-secundario'}" data-precio-proximo="${v}" aria-pressed="${v === elegido}">${dinero(v)}</button>`).join('')}
     </div>
-    <p class="nota" style="margin:0">${sinConfirmar ? `Nadie lo ha elegido: si el live empieza así, va a <b>${dinero(elegido)}</b>.` : `Confirmado: el próximo live va a <b>${dinero(elegido)}</b>.`} El agente aparta a ese precio. Vale solo para el siguiente live; después regresa a ${dinero(PRECIOS_LIVE[0])}. Las prendas con precio especial conservan el suyo.</p>
+    <p class="nota" style="margin:0">${sinConfirmar ? `Nadie lo ha elegido: si el live empieza así, va a <b>${dinero(elegido)}</b>.` : `Confirmado: el próximo live va a <b>${dinero(elegido)}</b>.`} Todo el live va a ese precio y el agente aparta así. Vale solo para el siguiente live; después regresa a ${dinero(PRECIOS_LIVE[0])}. Las prendas con precio especial conservan el suyo.</p>
   </div>`;
 }
 conectar.vivo = raiz => {
@@ -1477,11 +1477,11 @@ conectar.vivo = raiz => {
     const actual = Number(D.live.precio || (D.cfg && D.cfg.precio) || 89);
     const nuevo = await modal({
       titulo: 'Precio de este live',
-      html: `<p>Hoy cada prenda se aparta a <b>${dinero(actual)}</b>.</p>
-        <p class="nota">El cambio vale para lo que se aparte <b>desde este momento</b>. Lo que ya está apartado se queda con el precio que tenía. Las prendas con precio especial conservan el suyo.</p>`,
-      botones: [{ texto: 'Cancelar', valor: null }, ...PRECIOS_LIVE.filter(v => v !== actual).map(v => ({ texto: `Cambiar a ${dinero(v)}`, valor: v }))],
+      html: `<p>Este live va a <b>${dinero(actual)}</b> por prenda.</p>
+        <p class="nota">Todo el live va a un solo precio. Úsalo solo si el live empezó con el precio equivocado: se corrige <b>todo el live</b>, también lo que ya está apartado y lo que está en espera, y se ajusta el total de cada clienta. Las prendas con precio especial conservan el suyo.</p>`,
+      botones: [{ texto: 'Cancelar', valor: null }, ...PRECIOS_LIVE.filter(v => v !== actual).map(v => ({ texto: `Todo el live a ${dinero(v)}`, valor: v }))],
     });
-    if (nuevo && await accion(() => rpc('live_precio', { p_live: D.live.id, p_precio: nuevo }), `Desde ahora cada prenda se aparta a ${dinero(nuevo)}`)) pintar();
+    if (nuevo && await accion(() => rpc('live_precio', { p_live: D.live.id, p_precio: nuevo }), `Listo: todo el live quedó a ${dinero(nuevo)} por prenda`)) pintar();
   };
   conectarSinNombre(raiz);
   const f = $('#f-iniciar', raiz);
