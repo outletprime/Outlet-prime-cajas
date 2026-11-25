@@ -688,6 +688,7 @@ function traducirError(err) {
     if (/una_caja_por_clienta/.test(m)) return 'Esa clienta ya tiene una caja asignada.';
     return 'Ese registro ya existe.';
   }
+  if (/POR_COBRAR/.test(m)) return 'Esta caja tiene una venta privada por cobrar. Una Dueña debe confirmar el pago antes de marcarla para guía, enviarla o entregarla.';
   if (/FALTA_VIDEO/.test(m)) return 'Falta el video de un pedido. Agrégalo antes de enviar o entregar.';
   if (/YA_TIENE_VIDEO/.test(m)) return 'Ese pedido ya tiene video. Si hay que cambiarlo, pídeselo a una Dueña u Operación.';
   if (/SIN_PERMISO/.test(m)) return 'Tu nivel de acceso no permite hacer esto.';
@@ -1520,7 +1521,7 @@ async function vistaCaja(id) {
     ${htmlGuia(a, pedidos)}
     ${ROL === 'live' ? '' : `<div class="acciones">
       <a class="btn btn-primario" href="#/pedido/${encodeURIComponent(id)}">${IC.mas} Nuevo pedido</a>
-      <a class="btn btn-secundario" href="#/enviar/${encodeURIComponent(id)}">${IC.camion} Marcar como enviado</a>
+      ${porCobrarDe(pedidos).length ? '' : `<a class="btn btn-secundario" href="#/enviar/${encodeURIComponent(id)}">${IC.camion} Marcar como enviado</a>`}
       <a class="btn btn-secundario" href="#/reasignar/${encodeURIComponent(id)}">${IC.mover} Reasignar a otra caja</a>
     </div>`}
     ${pedidos.some(p => !p.video) ? `<div class="banner banner-aviso">${IC.video}<span>${faltaVideoTxt(pedidos)}<br><small>Sin video no se puede enviar la caja. Toca "Sin video · Agregar" en el pedido.</small></span></div>` : ''}
@@ -1631,6 +1632,7 @@ function htmlGuia(a, pedidos) {
     </div>`;
   }
   if (!PUEDE_LISTA_GUIA() || !pedidos.length) return '';
+  if (porCobrarDe(pedidos).length) return '';   // con venta privada por cobrar no hay guía ni entrega (el aviso lo explica)
   return `<div class="acciones">
     <button class="btn btn-secundario" data-guia="lista">${IC.qr} Caja lista para generar guía</button>
     <button class="btn btn-secundario" data-guia="tienda">${IC.cajas} La clienta la recoge en tienda</button>
@@ -1770,7 +1772,7 @@ function bannerPorCobrar(pedidos) {
   const pend = porCobrarDe(pedidos);
   if (!pend.length) return '';
   const total = pend.reduce((t, v) => t + Number(v.total || 0), 0);
-  return `<div class="banner banner-aviso">${IC.alerta}<span><b>${pend.length === 1 ? 'Hay una venta privada por cobrar' : `Hay ${pend.length} ventas privadas por cobrar`}: ${dinero(total)}.</b><br><small>Sus prendas ya cuentan en la caja. Una Dueña confirma el pago en el pedido.</small></span></div>`;
+  return `<div class="banner banner-aviso">${IC.alerta}<span><b>${pend.length === 1 ? 'Hay una venta privada por cobrar' : `Hay ${pend.length} ventas privadas por cobrar`}: ${dinero(total)}.</b><br><small>Sus prendas ya cuentan en la caja, pero no se puede marcar para guía, enviar ni entregar hasta que una Dueña confirme el pago en el pedido.</small></span></div>`;
 }
 function tarjetaPedido(p, borrable) {
   const items = p.items || [];
@@ -2159,7 +2161,7 @@ function vistaVentaPrivada(id) {
       <button class="btn btn-primario">Revisar claves</button>
     </form>
     <div id="vp-revision" style="margin-top:12px"></div>
-    <p class="nota">La venta se registra <b>por cobrar</b>. Desde ese momento las prendas entran a la caja de la clienta (cuentan para el límite de prendas y para los días de la caja) y ya no se pueden apartar en un live. Cuando recibas el pago, confírmalo en el pedido, dentro de su caja. Si te equivocas, elimina ese pedido y las prendas regresan a disponibles.</p>`;
+    <p class="nota">La venta se registra <b>por cobrar</b>. Siempre se le asigna una <b>caja libre</b>, aparte de lo que la clienta ya tenga pagado. Desde ese momento sus prendas cuentan para el límite de prendas y para los días de la caja, y ya no se pueden apartar en un live. Mientras no se confirme el pago, esa caja no se puede marcar para guía, enviar ni entregar. Cuando recibas el pago, confírmalo en el pedido, dentro de su caja. Si te equivocas, elimina ese pedido y las prendas regresan a disponibles.</p>`;
   const f = $('#f-venta');
   let elegido = String(PRECIOS_VENTA_PRIVADA[0]);
   const precio = () => (elegido === 'otro' ? Math.floor(+f.otro.value) : +elegido);
@@ -2199,7 +2201,7 @@ function vistaVentaPrivada(id) {
     $('#vp-revision').scrollIntoView({ block: 'nearest' });
     const c = $('#vp-confirmar');
     if (c) c.onclick = async () => {
-      if (!(await confirmar(`Venta privada a <b>${esc(nombreCompleto(cl))}</b>:<br><br><b>${si.length} ${si.length === 1 ? 'prenda' : 'prendas'}</b> a ${dinero(r.precio)} · <b>Total ${dinero(r.total)}</b><br>${si.map(esc).join(', ')}<br><br>Queda <b>por cobrar</b> y sus prendas entran a su caja.`, { titulo: 'Registrar venta privada', si: 'Sí, registrar' }))) return;
+      if (!(await confirmar(`Venta privada a <b>${esc(nombreCompleto(cl))}</b>:<br><br><b>${si.length} ${si.length === 1 ? 'prenda' : 'prendas'}</b> a ${dinero(r.precio)} · <b>Total ${dinero(r.total)}</b><br>${si.map(esc).join(', ')}<br><br>Queda <b>por cobrar</b> y se le asigna una caja libre.`, { titulo: 'Registrar venta privada', si: 'Sí, registrar' }))) return;
       const v = await accion(async () => {
         const x = await store.ventaPrivada(id, claves, pr, true);
         D.cargado = 0;
