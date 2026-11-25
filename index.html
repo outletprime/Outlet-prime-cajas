@@ -168,6 +168,7 @@ small { color: var(--texto-2); font-size: 13px; }
 .btn-mini { min-height: 36px; padding: 0 12px; font-size: 14px; background: var(--superficie-2); }
 .btn-mini svg { width: 18px; height: 18px; }
 .btn-falta-video { background: var(--aviso-suave); color: var(--aviso); font-weight: 700; }
+.btn-cobrar { background: var(--primario); color: var(--primario-texto); font-weight: 700; }
 .video-opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
 .video-opciones .btn { min-height: 52px; }
 .btn-icono-solo { display: inline-grid; place-items: center; min-width: 36px; min-height: 36px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--texto-2); cursor: pointer; }
@@ -185,6 +186,7 @@ small { color: var(--texto-2); font-size: 13px; }
 .chip { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; background: var(--superficie-2); color: var(--texto-2); white-space: nowrap; }
 .chip-ok { background: var(--ok-suave); color: var(--ok); }
 .chip-aviso { background: var(--aviso-suave); color: var(--aviso); }
+.pago-venta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 0; }
 .chip-vencida { background: var(--vencida-suave); color: var(--vencida); }
 .texto-vencida { color: var(--vencida); font-weight: 600; }
 
@@ -604,6 +606,16 @@ class SupaStore {
     if (error) throw error;
   }
   // Guía de la caja: por funciones de la base, que revisan el nivel y mandan los avisos
+  async ventasPrivadas() {
+    const { data, error } = await this.sb.from('ventas_privadas').select('*').is('cancelada_en', null);
+    if (error) throw error;
+    return data || [];
+  }
+  async ventaPrivadaPagar(venta, pagada, referencia) {
+    const { data, error } = await this.sb.rpc('venta_privada_pagar', { p_venta: venta, p_pagada: !!pagada, p_usuario: usuario.nombre, p_referencia: referencia || null });
+    if (error) throw error;
+    return data;
+  }
   async ventaPrivada(clienta, claves, precio, confirmar) {
     const { data, error } = await this.sb.rpc('venta_privada', { p_clienta: clienta, p_claves: claves, p_precio: precio, p_confirmar: !!confirmar, p_usuario: usuario.nombre });
     if (error) throw error;
@@ -1239,6 +1251,8 @@ async function refrescar(forzar = false) {
   if (!forzar && Date.now() - D.cargado < 4000) return;
   const res = await Promise.all(TABLAS.map(t => store.all(t)));
   TABLAS.forEach((t, i) => { D[t] = res[i]; });
+  // Ventas privadas: dicen si el pedido está por cobrar o ya pagado. Si no cargan, las cajas se ven igual.
+  D.ventas = store.ventasPrivadas ? await store.ventasPrivadas().catch(e => { console.error(e); return D.ventas || []; }) : [];
   D.cargado = Date.now();
 }
 const idx = {
@@ -1510,6 +1524,7 @@ async function vistaCaja(id) {
       <a class="btn btn-secundario" href="#/reasignar/${encodeURIComponent(id)}">${IC.mover} Reasignar a otra caja</a>
     </div>`}
     ${pedidos.some(p => !p.video) ? `<div class="banner banner-aviso">${IC.video}<span>${faltaVideoTxt(pedidos)}<br><small>Sin video no se puede enviar la caja. Toca "Sin video · Agregar" en el pedido.</small></span></div>` : ''}
+    ${bannerPorCobrar(pedidos)}
     <h3 class="seccion">Historial de pedidos</h3>
     ${pedidos.length ? pedidos.slice().reverse().map(p => tarjetaPedido(p, true)).join('') : '<p class="nota">Esta caja todavía no tiene pedidos.</p>'}
     ${botonImprimirTodos(a, pedidos)}
@@ -1551,6 +1566,7 @@ async function vistaSalida(asigId) {
       ${PUEDE_LISTA_GUIA() ? `<button class="btn btn-mini" data-tienda="deshacer">Deshacer: regresar sus prendas a la caja ${esc(a.caja)}</button>` : ''}
     </div>` : ''}
     ${pend && !tienda && PUEDE_ENTREGAR_TIENDA() ? `<div class="acciones"><a class="btn btn-primario" href="#/enviar/${a.id}">${IC.camion} Marcar como enviado</a></div>` : ''}
+    ${bannerPorCobrar(pedidos)}
     <h3 class="seccion">Pedidos</h3>
     ${pedidos.slice().reverse().map(p => tarjetaPedido(p, false)).join('')}
     ${botonImprimirTodos(a, pedidos)}`;
@@ -1720,6 +1736,7 @@ function htmlNotaPedido(p) {
       <tfoot><tr><td>Total</td><td>${p.prendas}</td><td></td><td>${dinero(p.total)}</td></tr></tfoot></table>`
       : `<p><b>${p.prendas} ${p.prendas === 1 ? 'prenda' : 'prendas'} · Total ${dinero(p.total)}</b></p>`}
     ${claves ? `<p class="nota-imp-claves"><b>Claves:</b> ${esc(claves)}</p>` : ''}
+    ${ventaDe(p) ? `<p><b>${ventaDe(p).estado === 'pagada' ? 'PAGADA' : 'POR COBRAR'}</b></p>` : ''}
   </div>`;
 }
 function imprimirNotas(pedidos) {
@@ -1735,6 +1752,26 @@ function imprimirNotas(pedidos) {
   const imgs = $$('img', area);
   Promise.all(imgs.map(i => i.complete ? null : new Promise(ok => { i.onload = i.onerror = ok; }))).then(() => setTimeout(() => window.print(), 100));
 }
+// Venta privada de un pedido (si lo es) y su estado de pago
+const ventaDe = p => (D.ventas || []).find(v => v.pedido_id === p.id);
+const porCobrarDe = pedidos => pedidos.map(ventaDe).filter(v => v && v.estado === 'por_cobrar');
+function htmlPagoVenta(p) {
+  const v = ventaDe(p);
+  if (!v) return '';
+  if (v.estado === 'pagada') {
+    return `<p class="pago-venta"><span class="chip chip-ok">Venta privada · Pagada</span>
+      <small>${fechaHora(v.pagada_en)}${v.pagada_por ? ' · ' + quienCorto(v.pagada_por) : ''}${v.referencia ? ' · ' + esc(v.referencia) : ''}</small>
+      ${ROL === 'duena' ? `<button type="button" class="btn btn-mini" data-vp-pago="${v.id}" data-vp-quitar="1">Quitar pago</button>` : ''}</p>`;
+  }
+  return `<p class="pago-venta"><span class="chip chip-aviso">Venta privada · Por cobrar ${dinero(v.total)}</span>
+    ${ROL === 'duena' ? `<button type="button" class="btn btn-mini btn-cobrar" data-vp-pago="${v.id}">Confirmar pago</button>` : ''}</p>`;
+}
+function bannerPorCobrar(pedidos) {
+  const pend = porCobrarDe(pedidos);
+  if (!pend.length) return '';
+  const total = pend.reduce((t, v) => t + Number(v.total || 0), 0);
+  return `<div class="banner banner-aviso">${IC.alerta}<span><b>${pend.length === 1 ? 'Hay una venta privada por cobrar' : `Hay ${pend.length} ventas privadas por cobrar`}: ${dinero(total)}.</b><br><small>Sus prendas ya cuentan en la caja. Una Dueña confirma el pago en el pedido.</small></span></div>`;
+}
 function tarjetaPedido(p, borrable) {
   const items = p.items || [];
   return `
@@ -1743,6 +1780,7 @@ function tarjetaPedido(p, borrable) {
       <p>${esc(textoItems(items))} <small>(${p.prendas} ${p.prendas === 1 ? 'prenda' : 'prendas'})</small></p>
       ${items.filter(i => i.editable).length ? `<p class="nota">${items.filter(i => i.editable).map(i => `${esc(i.nombre)} ${dinero(i.precio)}`).join(' · ')}</p>` : ''}
       ${p.notas ? `<p class="nota">${esc(p.notas)}</p>` : ''}
+      ${htmlPagoVenta(p)}
       <div class="pedido-pie">
         <small>Registró: ${esc(p.creado_por || '')}</small>
         <span>
@@ -1756,6 +1794,28 @@ function tarjetaPedido(p, borrable) {
     </div>`;
 }
 function conectarPedidos(raiz) {
+  $$('[data-vp-pago]', raiz).forEach(b => {
+    b.onclick = async () => {
+      const v = (D.ventas || []).find(x => x.id === b.dataset.vpPago);
+      if (!v) return;
+      const cl = nombreCompleto(idx.clienta(v.clienta_id));
+      let ref = null;
+      if (b.dataset.vpQuitar) {
+        if (!(await confirmar(`La venta privada de <b>${esc(cl)}</b> por ${dinero(v.total)} vuelve a quedar <b>por cobrar</b>.`, { titulo: '¿Quitar el pago?', si: 'Sí, quitar pago' }))) return;
+      } else {
+        ref = await modal({
+          titulo: 'Confirmar pago',
+          html: `<p>Venta privada de <b>${esc(cl)}</b>: ${v.piezas.length} ${v.piezas.length === 1 ? 'prenda' : 'prendas'} · <b>${dinero(v.total)}</b></p>
+            <label>Referencia del pago (opcional)<input id="vp-ref" maxlength="80" placeholder="Ej. transferencia, efectivo" autocomplete="off"></label>
+            <p class="nota">Confirma solo cuando ya tengas el pago.</p>`,
+          botones: [{ texto: 'Cancelar', valor: null }, { texto: 'Sí, ya pagó', valor: () => ({ ref: $('#vp-ref').value.trim() }) }],
+        });
+        if (!ref) return;
+      }
+      const ok = await accion(async () => { await store.ventaPrivadaPagar(v.id, !b.dataset.vpQuitar, ref && ref.ref); D.cargado = 0; await refrescar(true); return true; }, 'Guardando…');
+      if (ok) { toast(b.dataset.vpQuitar ? 'La venta quedó por cobrar otra vez.' : 'Pago confirmado.'); navegar(); }
+    };
+  });
   $$('[data-imprimir-nota]', raiz).forEach(b => { b.onclick = () => imprimirNotas([D.pedidos.find(p => p.id === b.dataset.imprimirNota)]); });
   $$('[data-imprimir-todos]', raiz).forEach(b => { b.onclick = () => imprimirNotas(idx.pedidosDe(b.dataset.imprimirTodos)); });
   $$('[data-ver-video]', raiz).forEach(b => { b.onclick = () => verVideo(D.pedidos.find(p => p.id === b.dataset.verVideo)); });
@@ -2099,7 +2159,7 @@ function vistaVentaPrivada(id) {
       <button class="btn btn-primario">Revisar claves</button>
     </form>
     <div id="vp-revision" style="margin-top:12px"></div>
-    <p class="nota">La venta se registra como <b>ya pagada</b>: las prendas quedan vendidas (ya no se pueden apartar en un live) y entran como un pedido a la caja de resguardo de la clienta. Si te equivocas, elimina ese pedido en su caja y las prendas regresan a disponibles.</p>`;
+    <p class="nota">La venta se registra <b>por cobrar</b>. Desde ese momento las prendas entran a la caja de la clienta (cuentan para el límite de prendas y para los días de la caja) y ya no se pueden apartar en un live. Cuando recibas el pago, confírmalo en el pedido, dentro de su caja. Si te equivocas, elimina ese pedido y las prendas regresan a disponibles.</p>`;
   const f = $('#f-venta');
   let elegido = String(PRECIOS_VENTA_PRIVADA[0]);
   const precio = () => (elegido === 'otro' ? Math.floor(+f.otro.value) : +elegido);
@@ -2139,7 +2199,7 @@ function vistaVentaPrivada(id) {
     $('#vp-revision').scrollIntoView({ block: 'nearest' });
     const c = $('#vp-confirmar');
     if (c) c.onclick = async () => {
-      if (!(await confirmar(`Venta privada a <b>${esc(nombreCompleto(cl))}</b>:<br><br><b>${si.length} ${si.length === 1 ? 'prenda' : 'prendas'}</b> a ${dinero(r.precio)} · <b>Total ${dinero(r.total)}</b><br>${si.map(esc).join(', ')}<br><br>Confirma que <b>ya pagó</b>.`, { titulo: 'Registrar venta privada', si: 'Sí, ya pagó' }))) return;
+      if (!(await confirmar(`Venta privada a <b>${esc(nombreCompleto(cl))}</b>:<br><br><b>${si.length} ${si.length === 1 ? 'prenda' : 'prendas'}</b> a ${dinero(r.precio)} · <b>Total ${dinero(r.total)}</b><br>${si.map(esc).join(', ')}<br><br>Queda <b>por cobrar</b> y sus prendas entran a su caja.`, { titulo: 'Registrar venta privada', si: 'Sí, registrar' }))) return;
       const v = await accion(async () => {
         const x = await store.ventaPrivada(id, claves, pr, true);
         D.cargado = 0;
@@ -2147,7 +2207,7 @@ function vistaVentaPrivada(id) {
         return x;
       }, 'Registrando venta…');
       if (!v) return;
-      toast(`Venta registrada: ${v.prendas} ${v.prendas === 1 ? 'prenda' : 'prendas'} · ${dinero(v.total)} · caja ${v.caja}`);
+      toast(`Venta por cobrar: ${v.prendas} ${v.prendas === 1 ? 'prenda' : 'prendas'} · ${dinero(v.total)} · caja ${v.caja}`);
       ir(`caja/${encodeURIComponent(v.caja)}`);
     };
   };
