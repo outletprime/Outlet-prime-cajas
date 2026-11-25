@@ -604,6 +604,11 @@ class SupaStore {
     if (error) throw error;
   }
   // Guía de la caja: por funciones de la base, que revisan el nivel y mandan los avisos
+  async ventaPrivada(clienta, claves, precio, confirmar) {
+    const { data, error } = await this.sb.rpc('venta_privada', { p_clienta: clienta, p_claves: claves, p_precio: precio, p_confirmar: !!confirmar, p_usuario: usuario.nombre });
+    if (error) throw error;
+    return data;
+  }
   async guiaCaja(id, que, datos = {}) {
     const { error } = que === 'tienda' || que === 'quitar-tienda'
       ? await this.sb.rpc('caja_lista_para_tienda', { p_asignacion: id, p_lista: que === 'tienda', p_usuario: usuario.nombre })
@@ -1345,6 +1350,7 @@ const RUTAS = [
   [/^clientas$/, vistaClientas, 'clientas', true],
   [/^clienta\/nueva$/, q => formClienta(null, q), 'clientas', false],
   [/^clienta\/([^/]+)\/editar$/, formClienta, 'clientas', false],
+  [/^clienta\/([^/]+)\/venta$/, vistaVentaPrivada, 'clientas', false],
   [/^clienta\/([^/]+)$/, vistaClienta, 'clientas', true],
   [/^pedido$/, elegirCajaPedido, 'pedido', true],
   [/^pedido\/([^/]+)$/, formPedido, 'pedido', false],
@@ -2064,6 +2070,89 @@ function vistaClientas() {
   };
 }
 
+/* ---------- Venta privada (solo Dueñas) ----------
+ * Venta fuera de un live a una clienta ya registrada: se escriben o escanean las claves de las prendas y se
+ * elige el precio. Queda como pagada: las prendas ya no se pueden apartar en un live y entran como pedido a la
+ * caja de resguardo de la clienta. Para deshacerla se elimina ese pedido en su caja. */
+const PRECIOS_VENTA_PRIVADA = [89, 129];
+function vistaVentaPrivada(id) {
+  const cl = idx.clienta(id);
+  if (!cl) { ir('clientas'); return; }
+  if (ROL !== 'duena') { ir(`clienta/${id}`); return; }
+  titulo('Venta privada', `clienta/${id}`);
+  if (!store.ventaPrivada) {
+    vista().innerHTML = `${tarjetaClienta(cl, false)}<p class="nota centro">La venta privada no está disponible en el modo de prueba.</p>`;
+    return;
+  }
+  vista().innerHTML = `
+    ${tarjetaClienta(cl, false)}
+    <form id="f-venta" class="formulario" novalidate>
+      <label>Claves de las prendas
+        <textarea name="claves" rows="6" placeholder="AB23&#10;AB24&#10;AC10" autocomplete="off" autocapitalize="characters" spellcheck="false"></textarea></label>
+      <p class="nota">Escríbelas o escanéalas con el lector, una por renglón (también sirven separadas por coma o espacio).</p>
+      <b>Precio de cada prenda</b>
+      <div class="fila-botones" id="vp-precios">
+        ${PRECIOS_VENTA_PRIVADA.map((v, i) => `<button type="button" class="btn ${i === 0 ? 'btn-primario' : 'btn-secundario'}" data-vp-precio="${v}" aria-pressed="${i === 0}">${dinero(v)}</button>`).join('')}
+        <button type="button" class="btn btn-secundario" data-vp-precio="otro" aria-pressed="false">Otro</button>
+      </div>
+      <label id="vp-otro" hidden>Precio de cada prenda<input name="otro" type="number" min="1" step="1" inputmode="numeric" placeholder="Ej. 150"></label>
+      <button class="btn btn-primario">Revisar claves</button>
+    </form>
+    <div id="vp-revision" style="margin-top:12px"></div>
+    <p class="nota">La venta se registra como <b>ya pagada</b>: las prendas quedan vendidas (ya no se pueden apartar en un live) y entran como un pedido a la caja de resguardo de la clienta. Si te equivocas, elimina ese pedido en su caja y las prendas regresan a disponibles.</p>`;
+  const f = $('#f-venta');
+  let elegido = String(PRECIOS_VENTA_PRIVADA[0]);
+  const precio = () => (elegido === 'otro' ? Math.floor(+f.otro.value) : +elegido);
+  const limpiar = () => { $('#vp-revision').innerHTML = ''; };
+  $$('[data-vp-precio]').forEach(b => {
+    b.onclick = () => {
+      elegido = b.dataset.vpPrecio;
+      $$('[data-vp-precio]').forEach(x => {
+        const activo = x === b;
+        x.classList.toggle('btn-primario', activo);
+        x.classList.toggle('btn-secundario', !activo);
+        x.setAttribute('aria-pressed', activo);
+      });
+      $('#vp-otro').hidden = elegido !== 'otro';
+      if (elegido === 'otro') f.otro.focus();
+      limpiar();
+    };
+  });
+  f.claves.oninput = limpiar;
+  f.otro.oninput = limpiar;
+  f.onsubmit = async e => {
+    e.preventDefault();
+    const claves = f.claves.value.trim();
+    const pr = precio();
+    if (!claves) { toast('Escribe o escanea por lo menos una clave.', 'error'); return; }
+    if (!(pr > 0)) { toast('Escribe el precio de cada prenda.', 'error'); return; }
+    const r = await accion(() => store.ventaPrivada(id, claves, pr, false), 'Revisando claves…');
+    if (!r) return;
+    const no = r.no || [], si = r.si || [];
+    $('#vp-revision').innerHTML = `
+      <div class="tarjeta">
+        ${si.length ? `<b>${si.length} ${si.length === 1 ? 'prenda' : 'prendas'} a ${dinero(r.precio)} · Total ${dinero(r.total)}</b>
+          <p>${si.map(esc).join(', ')}</p>` : '<b>Ninguna de esas claves se puede vender.</b>'}
+        ${no.length ? `<div class="banner banner-aviso">${IC.alerta}<span><b>${no.length === 1 ? 'Esta clave no entra' : `Estas ${no.length} claves no entran`} a la venta:</b><br>${no.map(x => `${esc(x.clave)}: ${esc(x.motivo)}`).join('<br>')}</span></div>` : ''}
+        ${si.length ? `<button type="button" class="btn btn-primario" id="vp-confirmar">Registrar venta · ${si.length} ${si.length === 1 ? 'prenda' : 'prendas'} · ${dinero(r.total)}</button>` : ''}
+      </div>`;
+    $('#vp-revision').scrollIntoView({ block: 'nearest' });
+    const c = $('#vp-confirmar');
+    if (c) c.onclick = async () => {
+      if (!(await confirmar(`Venta privada a <b>${esc(nombreCompleto(cl))}</b>:<br><br><b>${si.length} ${si.length === 1 ? 'prenda' : 'prendas'}</b> a ${dinero(r.precio)} · <b>Total ${dinero(r.total)}</b><br>${si.map(esc).join(', ')}<br><br>Confirma que <b>ya pagó</b>.`, { titulo: 'Registrar venta privada', si: 'Sí, ya pagó' }))) return;
+      const v = await accion(async () => {
+        const x = await store.ventaPrivada(id, claves, pr, true);
+        D.cargado = 0;
+        await refrescar(true);
+        return x;
+      }, 'Registrando venta…');
+      if (!v) return;
+      toast(`Venta registrada: ${v.prendas} ${v.prendas === 1 ? 'prenda' : 'prendas'} · ${dinero(v.total)} · caja ${v.caja}`);
+      ir(`caja/${encodeURIComponent(v.caja)}`);
+    };
+  };
+}
+
 function vistaClienta(id) {
   const cl = idx.clienta(id);
   titulo('Clienta', 'clientas');
@@ -2083,6 +2172,7 @@ function vistaClienta(id) {
     <div class="acciones">
       ${activa ? `<a class="btn btn-primario" href="#/caja/${encodeURIComponent(activa.caja)}">${IC.cajas} Ver caja ${esc(activa.caja)}</a>` : '<p class="nota centro">No tiene caja asignada. Escanea una caja libre para asignársela.</p>'}
       <a class="btn btn-secundario" href="#/clienta/${cl.id}/editar">Editar datos</a>
+      ${ROL === 'duena' ? `<a class="btn btn-secundario" href="#/clienta/${cl.id}/venta">${IC.mas} Venta privada</a>` : ''}
     </div>
     <div class="totales"><div><small>Compras</small><b>${todos.length}</b></div><div><small>Prendas</small><b>${r.prendas}</b></div><div><small>Total histórico</small><b>${dinero(r.total)}</b></div></div>
     <h3 class="seccion">Historial</h3>
