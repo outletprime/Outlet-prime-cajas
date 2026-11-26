@@ -511,8 +511,8 @@ const RED = { tiktok: 'TikTok', facebook: 'Facebook', instagram: 'Instagram', yo
 const ESTADO_AG = { conectado: 'leyendo', esperando: 'esperando live', error: 'error', apagado: 'apagado' };
 const mmss = seg => { const s = Math.max(0, Math.round(seg)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const nombreCorto = n => String(n || '').split(' ').slice(0, 2).join(' ');
-// Mensaje para contestarle a una clienta nueva por DM: solo se le pide su nombre y apellido
-const MENSAJE_DM = '¡Hola {usuario}! 💕 Para apartarte tus prendas mándanos por aquí tu nombre y por lo menos un apellido. Después de eso, todo lo que comentes en el live se te aparta solo.';
+// Mensaje para contestarle a una clienta nueva por DM: se le pide nombre, apellido y WhatsApp (obligatorio para registrarla)
+const MENSAJE_DM = '¡Hola {usuario}! 💕 Para apartarte tus prendas mándanos por aquí tu nombre, por lo menos un apellido y tu número de WhatsApp (10 dígitos). Después de eso, todo lo que comentes en el live se te aparta solo.';
 function textoDM(d) {
   return String(D.cfg.mensaje_dm || MENSAJE_DM)
     .replaceAll('{whatsapp}', (D.cfg.whatsapp_numero || '').trim() || '(número del bot)')
@@ -552,7 +552,7 @@ function tarjetaDM(d) {
 function htmlDMs() {
   if (!TIENE_COMENTARIOS || !D.dms.length) return '';
   return `<h3 class="seccion">🙋 Pide DM · ${D.dms.length}</h3>
-    <p class="nota">Comentaron pero todavía no están registradas. La host les pide mensaje directo; cuando escriban, contéstales con <b>Copiar mensaje</b> (les pide su nombre y apellido) y regístralas con <b>Registrar a mano</b>. Al registrarse, lo que pidieron pasa solo a su casillero.</p>
+    <p class="nota">Comentaron pero todavía no están registradas. La host les pide mensaje directo; cuando escriban, contéstales con <b>Copiar mensaje</b> (les pide su nombre, apellido y WhatsApp) y regístralas con <b>Registrar a mano</b>. Sin su WhatsApp no se pueden registrar. Al registrarse, lo que pidieron pasa solo a su casillero.</p>
     ${D.dms.map(tarjetaDM).join('')}`;
 }
 // Facebook no compartió quién comentó: el equipo ve el comentario en Facebook, escribe el nombre y lo aparta
@@ -614,27 +614,22 @@ async function ligarAMano(d) {
   const datos = await modal({
     titulo: `Registrar @${d.usuario} (${RED[d.red] || d.red})`,
     html: `<div class="formulario">
-      <p>Escribe el nombre que te mandó por DM. Con eso queda registrada y lo que pidió pasa a su casillero.</p>
+      <p>Escribe su <b>WhatsApp</b> y su nombre. El WhatsApp es obligatorio: con eso queda registrada y lo que pidió pasa a su casillero.</p>
       <div class="dos">
         <label>Nombre<input id="lg-nombre" autocomplete="off" autocapitalize="words"></label>
         <label>Apellido<input id="lg-apellidos" autocomplete="off" autocapitalize="words"></label>
       </div>
-      <label>WhatsApp <small>(opcional, 10 dígitos)</small><input id="lg-tel" inputmode="tel" maxlength="16" autocomplete="off"></label>
-      <p class="nota">Si pones su WhatsApp y ya era clienta, se liga a la clienta que ya existe.</p></div>`,
+      <label>WhatsApp <small>(obligatorio, 10 dígitos)</small><input id="lg-tel" inputmode="tel" maxlength="16" autocomplete="off"></label>
+      <p class="nota">Si ese WhatsApp ya es de una clienta, este usuario se liga a ella y no hace falta escribir el nombre.</p></div>`,
     botones: [{ texto: 'Cancelar', valor: null }, { texto: 'Registrar', valor: el => {
       const nombre = $('#lg-nombre', el).value.trim(), apellidos = $('#lg-apellidos', el).value.trim();
       const tel = $('#lg-tel', el).value.replace(/\D/g, '').slice(-10);
-      if (tel && tel.length !== 10) { toast('El WhatsApp debe tener 10 dígitos (o déjalo vacío).', 'error'); return undefined; }
-      if (!tel && (nombre.length < 2 || apellidos.length < 2)) { toast('Escribe su nombre y por lo menos un apellido.', 'error'); return undefined; }
+      if (tel.length !== 10) { toast('Escribe su WhatsApp con 10 dígitos. Es obligatorio para registrarla.', 'error'); return undefined; }
       return { tel, nombre, apellidos };
     } }],
   });
   if (!datos) return;
-  if (datos.tel) await accion(() => ligarDM(d, { p_telefono: datos.tel, p_nombre: [datos.nombre, datos.apellidos].filter(Boolean).join(' ') || null }));
-  else {
-    const r = await accion(() => rpc('live_dm_nombre', { p_dm: d.id, p_nombre: datos.nombre, p_apellidos: datos.apellidos, p_por: usuario.email }));
-    if (r && r !== true) toast(`@${d.usuario} registrada como ${r.clienta}${r.tuyas_txt ? ' · ' + r.tuyas_txt + ' a su casillero' : ''}`);
-  }
+  await accion(() => ligarDM(d, { p_telefono: datos.tel, p_nombre: [datos.nombre, datos.apellidos].filter(Boolean).join(' ') || null }));
   pintar();
 }
 // Liga el @usuario del aviso a una clienta (por su WhatsApp o porque ya se sabe quién es)
@@ -2734,7 +2729,7 @@ async function vistaAjustes() {
           <label>Nombre<input name="nombre" autocapitalize="words" required></label>
           <label>Apellido <small>(por lo menos uno)</small><input name="apellidos" autocapitalize="words" required></label>
         </div>
-        <label>WhatsApp <small>(opcional, 10 dígitos)</small><input name="tel" inputmode="tel" maxlength="16"></label>
+        <label>WhatsApp <small>(obligatorio, 10 dígitos)</small><input name="tel" inputmode="tel" maxlength="16" required></label>
         <button class="btn btn-primario">Agregar clienta</button>
       </form>
     </div>` : ''}
@@ -2795,7 +2790,7 @@ conectar.ajustes = raiz => {
     const tel = fa.tel.value.replace(/\D/g, '').slice(-10);
     if (!usuarioRed) return toast('Escribe su usuario.', 'error');
     if (nombre.length < 2 || apellidos.length < 2) return toast('Escribe su nombre y por lo menos un apellido.', 'error');
-    if (fa.tel.value.trim() && tel.length !== 10) return toast('El WhatsApp debe tener 10 dígitos (o déjalo vacío).', 'error');
+    if (tel.length !== 10) return toast('Escribe su WhatsApp con 10 dígitos. Es obligatorio para registrarla.', 'error');
     const r = await accion(() => rpc('live_clienta_agregar', { p_red: fa.red.value, p_usuario: usuarioRed, p_nombre: nombre, p_apellidos: apellidos, p_telefono: tel || null, p_por: usuario.email }));
     if (!r || r === true) return;
     const extra = [r.tuyas_txt ? `${r.tuyas_txt} a su casillero` : '', r.espera_txt ? `en espera de ${r.espera_txt}` : ''].filter(Boolean).join(' · ');
