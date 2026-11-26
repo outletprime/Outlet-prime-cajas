@@ -407,11 +407,9 @@ input[type="checkbox"] { width: 22px; min-height: 22px; height: 22px; accent-col
   #zona-impresion { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 6mm; }
   .etiqueta { display: flex; flex-direction: column; align-items: center; padding: 4mm; border: 1px dashed #aaa; break-inside: avoid; color: #000; }
   #zona-impresion.notas { display: block !important; color: #111; font-size: 10.5pt; line-height: 1.3; }
-  /* Cada nota es una hoja: la tabla de afuera repite un espacio arriba y abajo en cada página */
-  .ni-hoja { width: 100%; border-collapse: collapse; break-after: page; }
-  .ni-hoja:last-of-type { break-after: auto; }
-  .ni-hoja > thead > tr > td, .ni-hoja > tfoot > tr > td { height: 11mm; padding: 0; border: 0; }
-  .ni-hoja > tbody > tr > td { padding: 0 14mm; border: 0; vertical-align: top; }
+  /* Cada nota es una hoja carta completa (279 mm de alto): el espacio de arriba y de abajo lo da la propia nota */
+  .ni-hoja { padding: 0 14mm; }
+  .ni-hoja + .ni-hoja { break-before: page; }
   .ni-cabeza { display: flex; justify-content: space-between; align-items: center; gap: 8mm; padding-bottom: 4mm; border-bottom: 2.5px solid #ce091e; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .ni-cabeza img { width: 42mm; height: auto; }
   .ni-titulo { text-align: right; }
@@ -437,7 +435,11 @@ input[type="checkbox"] { width: 22px; min-height: 22px; height: 22px; accent-col
   .ni-total td { padding: 1.2mm 2mm; }
   .ni-total td:last-child { text-align: right; }
   .ni-total .ni-grande td { border-top: 1.5px solid #111; border-bottom: 1.5px solid #111; font-size: 15pt; font-weight: 800; padding: 2mm; }
-  .ni-gracias { margin: 9mm 0 0; padding-top: 3mm; border-top: 0.6px solid #c9c9c9; text-align: center; font-size: 10.5pt; font-weight: 700; break-inside: avoid; }
+  /* El pie ("Gracias por tu compra") queda siempre a la misma altura de la hoja, lleve 1 prenda o 40.
+     250 mm cabe en una hoja carta aunque el teléfono o la impresora agreguen sus propios márgenes. */
+  .ni-cuerpo { display: flex; flex-direction: column; box-sizing: border-box; min-height: 250mm; padding: 11mm 0 0; }
+  .ni-todos { margin: 5mm 0 0; text-align: right; font-size: 11pt; font-weight: 700; break-inside: avoid; }
+  .ni-gracias { margin: auto 0 0; padding-top: 3mm; border-top: 0.6px solid #c9c9c9; text-align: center; font-size: 10.5pt; font-weight: 700; break-inside: avoid; }
   .ni-gracias small { display: block; font-weight: 400; font-size: 8.5pt; color: #555; margin-top: .8mm; }
   .nota-imp-resumen { padding: 11mm 14mm; font-size: 12pt; font-weight: 700; text-align: right; }
   .etiqueta img { width: 38mm; height: auto; margin-bottom: 2mm; }
@@ -1937,7 +1939,7 @@ const puedeNotaPdf = p => PUEDE_IMPRIMIR_NOTA() && !(ventaDe(p) && ventaDe(p).es
 const PUEDE_IMPRIMIR_NOTA = () => ['duena', 'supervisor'].includes(ROL);
 const botonImprimirTodos = (a, pedidos) => PUEDE_IMPRIMIR_NOTA() && pedidos.length > 1
   ? `<div class="acciones"><button class="btn btn-secundario" data-imprimir-todos="${a.id}">Imprimir todos los pedidos (${pedidos.length})</button></div>` : '';
-function htmlNotaPedido(p) {
+function htmlNotaPedido(p, todos = '') {
   const n = datosNotaPedido(p);
   const v = ventaDe(p);
   const pagada = n.estado === 'pagada';
@@ -1950,7 +1952,7 @@ function htmlNotaPedido(p) {
     n.piezas.slice(c * porCol, (c + 1) * porCol).map((z, i) => `<tr><td class="ni-num">${c * porCol + i + 1}</td><td class="ni-clave">${esc(z.clave)}</td>${cols === 1 ? '<td>Prenda</td>' : ''}${conPrecio ? `<td class="ni-imp">${dinero(z.precio)}</td>` : ''}</tr>`).join('')}</tbody></table>`;
   const filasTipos = n.items.map((it, i) => `<tr><td class="ni-num">${i + 1}</td><td class="ni-clave">${it.cantidad}</td><td>${esc(it.nombre)}</td><td class="ni-imp">${dinero(it.importe)}</td></tr>`).join('');
   const datos = n.info.filter(([k]) => k !== 'Fecha');
-  return `<table class="ni-hoja"><thead><tr><td></td></tr></thead><tfoot><tr><td></td></tr></tfoot><tbody><tr><td>
+  return `<section class="ni-hoja"><div class="ni-cuerpo">
     <div class="ni-cabeza"><img src="icons/logo-claro.png" alt="Outlet Prime">
       <div class="ni-titulo"><h2>NOTA DE VENTA</h2><p>${esc(n.info[0][1])}</p></div></div>
     <div class="ni-datos">
@@ -1963,8 +1965,9 @@ function htmlNotaPedido(p) {
       <div class="ni-pago">${pagada ? `<span class="ni-sello">PAGADO</span>${v && v.pagada_en ? `<small>Pagado el ${fechaHora(v.pagada_en)}${v.referencia ? ' · ' + esc(v.referencia) : ''}</small>` : ''}` : ''}</div>
       <table class="ni-total"><tr><td>Prendas</td><td>${n.prendas}</td></tr><tr class="ni-grande"><td>TOTAL</td><td>${dinero(n.total)}</td></tr></table>
     </div>
+    ${todos ? `<p class="ni-todos">${todos}</p>` : ''}
     <p class="ni-gracias">¡Gracias por tu compra!<small>Outlet Prime · Ropa americana nueva con etiqueta</small></p>
-  </td></tr></tbody></table>`;
+  </div></section>`;
 }
 function imprimirNotas(pedidos) {
   pedidos = (pedidos || []).filter(Boolean).slice().sort((x, y) => (x.fecha < y.fecha ? -1 : 1));
@@ -1972,13 +1975,13 @@ function imprimirNotas(pedidos) {
   let area = $('#zona-impresion');
   if (!area) { area = document.createElement('div'); area.id = 'zona-impresion'; document.body.appendChild(area); }
   area.className = 'notas';
-  // Sin márgenes de página (el espacio lo dan las notas): así el navegador no imprime la dirección ni la fecha en la orilla
+  // Sin márgenes de página (el espacio lo da cada nota): así el navegador no imprime la dirección ni la fecha en la orilla
   let hoja = $('#pagina-notas');
   if (!hoja) { hoja = document.createElement('style'); hoja.id = 'pagina-notas'; document.head.appendChild(hoja); }
   hoja.textContent = '@media print { @page { size: letter; margin: 0; } }';
   const r = resumenPedidos(pedidos);
-  area.innerHTML = pedidos.map(htmlNotaPedido).join('')
-    + (pedidos.length > 1 ? `<div class="nota-imp-resumen">${esc(nombreCompleto(idx.clienta(pedidos[0].clienta_id)))} · ${pedidos.length} pedidos · ${r.prendas} prendas · Total ${dinero(r.total)}</div>` : '');
+  const todos = pedidos.length > 1 ? `Total de los ${pedidos.length} pedidos de ${esc(nombreCompleto(idx.clienta(pedidos[0].clienta_id)))}: ${r.prendas} prendas · ${dinero(r.total)}` : '';
+  area.innerHTML = pedidos.map((x, i) => htmlNotaPedido(x, i === pedidos.length - 1 ? todos : '')).join('');
   // Se espera al logo para que no salga en blanco en la primera impresión
   const imgs = $$('img', area);
   Promise.all(imgs.map(i => i.complete ? null : new Promise(ok => { i.onload = i.onerror = ok; }))).then(() => setTimeout(() => window.print(), 100));
