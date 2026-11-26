@@ -406,42 +406,6 @@ input[type="checkbox"] { width: 22px; min-height: 22px; height: 22px; accent-col
   body { background: #fff; }
   #zona-impresion { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 6mm; }
   .etiqueta { display: flex; flex-direction: column; align-items: center; padding: 4mm; border: 1px dashed #aaa; break-inside: avoid; color: #000; }
-  #zona-impresion.notas { display: block !important; color: #111; font-size: 10.5pt; line-height: 1.3; }
-  /* Cada nota es una hoja carta completa (279 mm de alto): el espacio de arriba y de abajo lo da la propia nota */
-  .ni-hoja { padding: 0 14mm; }
-  .ni-hoja + .ni-hoja { break-before: page; }
-  .ni-cabeza { display: flex; justify-content: space-between; align-items: center; gap: 8mm; padding-bottom: 4mm; border-bottom: 2.5px solid #ce091e; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .ni-cabeza img { width: 42mm; height: auto; }
-  .ni-titulo { text-align: right; }
-  .ni-titulo h2 { margin: 0 0 1mm; font-size: 19pt; letter-spacing: .5px; }
-  .ni-titulo p { margin: 0; font-size: 10pt; color: #444; }
-  .ni-datos { display: grid; grid-template-columns: 1.4fr 1fr; gap: 3mm 8mm; margin: 5mm 0 5mm; }
-  .ni-datos small { display: block; font-size: 7.5pt; letter-spacing: .6px; color: #666; text-transform: uppercase; }
-  .ni-datos b { font-size: 12pt; }
-  .ni-datos .ni-cliente b { font-size: 15pt; }
-  .ni-columnas { display: flex; align-items: flex-start; gap: 9mm; }
-  .ni-columnas .ni-tabla { flex: 1; }
-  .ni-tabla { width: 100%; border-collapse: collapse; }
-  .ni-tabla th { text-align: left; font-size: 8pt; letter-spacing: .6px; text-transform: uppercase; color: #333; padding: 1.6mm 2mm; border-top: 1.5px solid #111; border-bottom: 1.5px solid #111; }
-  .ni-tabla td { padding: 0.9mm 2mm; border-bottom: 0.6px solid #c9c9c9; line-height: 1.2; }
-  .ni-tabla tr { break-inside: avoid; }
-  .ni-tabla .ni-num { width: 11mm; color: #666; }
-  .ni-tabla .ni-clave { width: 30mm; font-weight: 700; font-size: 11.5pt; letter-spacing: .4px; }
-  .ni-tabla .ni-imp { text-align: right; width: 26mm; }
-  .ni-cierre { display: flex; justify-content: space-between; align-items: flex-start; gap: 8mm; margin-top: 5mm; break-inside: avoid; }
-  .ni-pago small { display: block; margin-top: 1.5mm; font-size: 9pt; color: #333; }
-  .ni-sello { display: inline-block; padding: 1.4mm 6mm; border: 3px solid #2f7d4f; border-radius: 2.5mm; color: #2f7d4f; font-size: 18pt; font-weight: 800; letter-spacing: 2px; transform: rotate(-4deg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .ni-total { border-collapse: collapse; min-width: 68mm; }
-  .ni-total td { padding: 1.2mm 2mm; }
-  .ni-total td:last-child { text-align: right; }
-  .ni-total .ni-grande td { border-top: 1.5px solid #111; border-bottom: 1.5px solid #111; font-size: 15pt; font-weight: 800; padding: 2mm; }
-  /* El pie ("Gracias por tu compra") queda siempre a la misma altura de la hoja, lleve 1 prenda o 40.
-     250 mm cabe en una hoja carta aunque el teléfono o la impresora agreguen sus propios márgenes. */
-  .ni-cuerpo { display: flex; flex-direction: column; box-sizing: border-box; min-height: 250mm; padding: 11mm 0 0; }
-  .ni-todos { margin: 5mm 0 0; text-align: right; font-size: 11pt; font-weight: 700; break-inside: avoid; }
-  .ni-gracias { margin: auto 0 0; padding-top: 3mm; border-top: 0.6px solid #c9c9c9; text-align: center; font-size: 10.5pt; font-weight: 700; break-inside: avoid; }
-  .ni-gracias small { display: block; font-weight: 400; font-size: 8.5pt; color: #555; margin-top: .8mm; }
-  .nota-imp-resumen { padding: 11mm 14mm; font-size: 12pt; font-weight: 700; text-align: right; }
   .etiqueta img { width: 38mm; height: auto; margin-bottom: 2mm; }
   .etiqueta svg { width: 46mm; height: 46mm; }
   .etiqueta b { font: 800 28pt -apple-system, Helvetica, Arial, sans-serif; margin-top: 2mm; }
@@ -1795,6 +1759,7 @@ function datosNotaPedido(p) {
     items: claves.length && unPrecio != null ? [] : items.map(i => ({ nombre: i.nombre, cantidad: i.cantidad, importe: Number(i.precio) * Number(i.cantidad) })),
     prendas: Number(p.prendas) || claves.length,
     total: Number(p.total) || 0,
+    pagoTxt: v && v.estado === 'pagada' && v.pagada_en ? `Pagado el ${fechaHora(v.pagada_en)}${v.referencia ? ' · ' + v.referencia : ''}` : '',
     archivo: `Nota ${nombreCompleto(cl)} ${new Date(p.fecha).toLocaleDateString('es-MX', { ...zona, day: '2-digit', month: 'short' }).replace('.', '')}${p.caja ? ' caja ' + p.caja : ''}.pdf`.replace(/[\\/:*?"<>|]/g, ''),
   };
 }
@@ -1895,32 +1860,165 @@ function pdfNotaPedido(n, jsPDF, logo) {
   doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(GRIS); centro('Outlet Prime · Ropa americana nueva con etiqueta', y + 38);
   return doc.output('blob');
 }
-// Arma la nota y abre el recuadro para descargarla, compartirla o imprimirla
+/* Nota de venta tamaño carta, para imprimir. Va en PDF (y no como página web) porque así sale idéntica en
+ * cualquier teléfono o impresora: siempre una hoja por nota, con el pie a la misma altura lleve 1 prenda o 40.
+ * `notas` son los datos de datosNotaPedido(); `todos` es el renglón con el total de varios pedidos (última hoja). */
+function pdfNotaCarta(notas, jsPDF, logo, todos = '') {
+  const W = 612, H = 792, M = 42, ROJO = [206, 9, 30], VERDE = [47, 125, 79], GRIS = 105;
+  const PIE = H - 76;            // línea del pie: siempre a esta altura
+  const TOPE = PIE - 100;        // hasta aquí pueden llegar las prendas; abajo van el total, el sello y el pie
+  const pesos = x => '$' + Number(x || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
+  const regla = (x1, x2, y, grosor = 0.6, color = 200) => { doc.setDrawColor(color); doc.setLineWidth(grosor); doc.line(x1, y, x2, y); };
+  const etiqueta = (txt, x, y, opc) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(60); doc.text(String(txt).toUpperCase(), x, y, { charSpace: 0.5, ...opc }); };
+
+  notas.forEach((n, k) => {
+    if (k) doc.addPage('letter');
+    // Encabezado
+    doc.addImage(logo, 'PNG', M, 34, 124, 62, 'logo', 'FAST');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(21); doc.setTextColor(20);
+    doc.text('NOTA DE VENTA', W - M, 64, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(GRIS);
+    doc.text(String(n.info[0][1]), W - M, 81, { align: 'right' });
+    doc.setDrawColor(...ROJO); doc.setLineWidth(2); doc.line(M, 110, W - M, 110);
+
+    // Datos: cliente, caja, tipo, pago…
+    const datos = [['Cliente', n.clienta], ...n.info.slice(1)];
+    datos.forEach(([nombre, val], i) => {
+      const x = i % 2 ? M + 322 : M, y = 134 + Math.floor(i / 2) * 36;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(GRIS); doc.text(String(nombre).toUpperCase(), x, y, { charSpace: 0.5 });
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(i === 0 ? 15 : 12); doc.setTextColor(20);
+      doc.text(doc.splitTextToSize(String(val), i % 2 ? W - M - x : 300)[0], x, y + (i === 0 ? 17 : 15));
+    });
+    let y = 134 + Math.ceil(datos.length / 2) * 36 + 4;
+
+    // Prendas: una clave por renglón. Los pedidos grandes van en varias columnas para caber en la hoja.
+    const ps = n.piezas || [], its = n.items || [];
+    const conPrecio = ps.length && ps[0].precio != null;
+    const altoTipos = its.length ? 22 + its.length * 18 + (ps.length ? 14 : 0) : 0;
+    if (ps.length) {
+      const cols = ps.length <= 16 ? 1 : ps.length <= 34 ? 2 : ps.length <= 60 ? 3 : 4;
+      const porCol = Math.ceil(ps.length / cols), SEP = 24;
+      const ancho = (W - 2 * M - (cols - 1) * SEP) / cols;
+      const alto = Math.max(8, Math.min(18, (TOPE - y - 22 - altoTipos) / porCol));
+      const letra = Math.min(11.5, alto * 0.64);
+      for (let c = 0; c < cols; c++) {
+        const x = M + c * (ancho + SEP);
+        regla(x, x + ancho, y, 1.2, 20);
+        etiqueta('No.', x + 4, y + 13); etiqueta('Clave', x + 36, y + 13);
+        if (cols === 1) etiqueta('Descripción', x + 130, y + 13);
+        if (conPrecio) etiqueta('Precio', x + ancho - 4, y + 13, { align: 'right' });
+        regla(x, x + ancho, y + 20, 1.2, 20);
+        ps.slice(c * porCol, (c + 1) * porCol).forEach((z, i) => {
+          const yy = y + 20 + (i + 1) * alto, base = yy - alto * 0.32;
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(letra - 1); doc.setTextColor(GRIS); doc.text(String(c * porCol + i + 1), x + 4, base);
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(letra); doc.setTextColor(20); doc.text(String(z.clave), x + 36, base, { charSpace: 0.3 });
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(letra - 0.5);
+          if (cols === 1) doc.text('Prenda', x + 130, base);
+          if (conPrecio) doc.text(pesos(z.precio), x + ancho - 4, base, { align: 'right' });
+          regla(x, x + ancho, yy);
+        });
+      }
+      y += 20 + porCol * alto + (its.length ? 14 : 0);
+    }
+    // Detalle por tipo de prenda (pedidos sin claves, o con claves a varios precios)
+    if (its.length) {
+      regla(M, W - M, y, 1.2, 20);
+      etiqueta('No.', M + 4, y + 13); etiqueta('Cant.', M + 36, y + 13); etiqueta('Descripción', M + 90, y + 13); etiqueta('Importe', W - M - 4, y + 13, { align: 'right' });
+      regla(M, W - M, y + 20, 1.2, 20);
+      its.forEach((it, i) => {
+        const yy = y + 20 + (i + 1) * 18, base = yy - 5.5;
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(GRIS); doc.text(String(i + 1), M + 4, base);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(20); doc.text(String(it.cantidad), M + 36, base);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+        doc.text(doc.splitTextToSize(String(it.nombre), W - 2 * M - 190)[0], M + 90, base);
+        doc.text(pesos(it.importe), W - M - 4, base, { align: 'right' });
+        regla(M, W - M, yy);
+      });
+      y += 20 + its.length * 18;
+    }
+
+    // Cierre: prendas y total a la derecha; sello PAGADO a la izquierda (solo con el pago confirmado)
+    y += 18;
+    const xt = W - M - 200;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(20);
+    doc.text('Prendas', xt + 6, y + 10); doc.text(String(n.prendas), W - M - 6, y + 10, { align: 'right' });
+    regla(xt, W - M, y + 19, 1.2, 20);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+    doc.text('TOTAL', xt + 6, y + 39); doc.text(pesos(n.total), W - M - 6, y + 39, { align: 'right' });
+    regla(xt, W - M, y + 49, 1.2, 20);
+    if (n.estado === 'pagada') {
+      doc.setDrawColor(...VERDE); doc.setLineWidth(2.4); doc.roundedRect(M, y - 2, 128, 34, 6, 6, 'S');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(...VERDE);
+      doc.text('PAGADO', M + 64, y + 22, { align: 'center', charSpace: 1.5 });
+      if (n.pagoTxt) { doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(60); doc.text(doc.splitTextToSize(n.pagoTxt, 300)[0], M, y + 47); }
+    }
+
+    // Pie de página: siempre a la misma altura de la hoja
+    if (todos && k === notas.length - 1) { doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(20); doc.text(todos, W - M, PIE - 12, { align: 'right' }); }
+    regla(M, W - M, PIE);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(20); doc.text('¡Gracias por tu compra!', W / 2, PIE + 19, { align: 'center' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(GRIS); doc.text('Outlet Prime · Ropa americana nueva con etiqueta', W / 2, PIE + 32, { align: 'center' });
+  });
+  return doc.output('blob');
+}
+// Recuadro para abrir, compartir, imprimir o descargar una nota ya armada
+async function mostrarNota({ titulo, resumen, blob, nombre, imprimir }) {
+  let archivo = null;
+  try { archivo = new File([blob], nombre, { type: 'application/pdf' }); } catch (e) { /* navegadores viejos: solo descarga */ }
+  const url = URL.createObjectURL(blob);
+  const compartir = !!(archivo && navigator.canShare && navigator.canShare({ files: [archivo] }));
+  await modal({
+    titulo,
+    html: `<p>${resumen}</p>
+      <div class="acciones">
+        ${compartir ? `<button type="button" class="btn btn-primario" id="np-compartir">${imprimir ? 'Imprimir o compartir' : 'Compartir o imprimir'}</button>` : ''}
+        <a class="btn ${compartir ? 'btn-secundario' : 'btn-primario'}" href="${url}" target="_blank" rel="noopener">${imprimir ? 'Abrir la nota para imprimir' : 'Ver la nota'}</a>
+        <a class="btn btn-secundario" href="${url}" download="${esc(nombre)}">Descargar PDF</a>
+      </div>
+      <p class="nota">${compartir
+        ? (imprimir ? 'Toca "Imprimir o compartir" y, en las opciones del teléfono, elige <b>Imprimir</b>. Sale en una hoja carta.' : '"Compartir o imprimir" abre las opciones del teléfono: ahí eliges WhatsApp para mandársela a la clienta, o Imprimir.')
+        : (imprimir ? 'Se abre la nota en tamaño carta: imprímela desde ahí.' : 'Descárgala y mándala por WhatsApp, o ábrela con "Ver la nota" para imprimirla.')}</p>`,
+    botones: [{ texto: 'Cerrar', valor: true }],
+    alAbrir: f => { const c = $('#np-compartir', f); if (c) c.onclick = () => navigator.share({ files: [archivo], title: nombre }).catch(() => {}); },
+  });
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+// Nota para mandar por WhatsApp (formato angosto, se lee bien en el celular)
 async function abrirNotaPdf(p) {
   if (!p) return;
   const nota = await accion(async () => {
     const [jsPDF, logo] = await Promise.all([cargarJsPDF(), logoNota()]);
     const n = datosNotaPedido(p);
-    const blob = pdfNotaPedido(n, jsPDF, logo);
-    let archivo = null;
-    try { archivo = new File([blob], n.archivo, { type: 'application/pdf' }); } catch (e) { /* navegadores viejos: solo descarga */ }
-    return { n, url: URL.createObjectURL(blob), archivo };
+    return { n, blob: pdfNotaPedido(n, jsPDF, logo) };
   }, 'Preparando nota…');
   if (!nota) return;
-  const compartir = !!(nota.archivo && navigator.canShare && navigator.canShare({ files: [nota.archivo] }));
-  await modal({
-    titulo: nota.n.titulo === 'PEDIDO PAGADO' ? 'Nota del pedido pagado' : 'Nota del pedido',
-    html: `<p><b>${esc(nota.n.clienta)}</b> · ${nota.n.prendas} ${nota.n.prendas === 1 ? 'prenda' : 'prendas'} · ${dinero(nota.n.total)}</p>
-      <div class="acciones">
-        ${compartir ? '<button type="button" class="btn btn-primario" id="np-compartir">Compartir o imprimir</button>' : ''}
-        <a class="btn ${compartir ? 'btn-secundario' : 'btn-primario'}" href="${nota.url}" download="${esc(nota.n.archivo)}">Descargar PDF</a>
-        <a class="btn btn-secundario" href="${nota.url}" target="_blank" rel="noopener">Ver la nota</a>
-      </div>
-      <p class="nota">${compartir ? '"Compartir o imprimir" abre las opciones del teléfono: ahí eliges WhatsApp para mandársela a la clienta, o Imprimir.' : 'Descárgala y mándala por WhatsApp, o ábrela con "Ver la nota" para imprimirla.'}</p>`,
-    botones: [{ texto: 'Cerrar', valor: true }],
-    alAbrir: f => { const c = $('#np-compartir', f); if (c) c.onclick = () => navigator.share({ files: [nota.archivo], title: nota.n.archivo }).catch(() => {}); },
+  await mostrarNota({
+    titulo: nota.n.estado === 'pagada' ? 'Nota del pedido pagado' : 'Nota del pedido',
+    resumen: `<b>${esc(nota.n.clienta)}</b> · ${nota.n.prendas} ${nota.n.prendas === 1 ? 'prenda' : 'prendas'} · ${dinero(nota.n.total)}`,
+    blob: nota.blob, nombre: nota.n.archivo, imprimir: false,
   });
-  setTimeout(() => URL.revokeObjectURL(nota.url), 60000);
+}
+// Nota (o notas) tamaño carta para imprimir: una hoja por pedido
+async function imprimirNotas(pedidos) {
+  pedidos = (pedidos || []).filter(Boolean).slice().sort((x, y) => (x.fecha < y.fecha ? -1 : 1));
+  if (!pedidos.length) return toast('No hay pedidos para imprimir.', 'error');
+  const r = resumenPedidos(pedidos);
+  const nota = await accion(async () => {
+    const [jsPDF, logo] = await Promise.all([cargarJsPDF(), logoNota()]);
+    const notas = pedidos.map(datosNotaPedido);
+    const todos = pedidos.length > 1 ? `Total de los ${pedidos.length} pedidos: ${r.prendas} prendas · ${dinero(r.total)}` : '';
+    return { notas, blob: pdfNotaCarta(notas, jsPDF, logo, todos) };
+  }, 'Preparando nota…');
+  if (!nota) return;
+  const varias = pedidos.length > 1;
+  await mostrarNota({
+    titulo: varias ? `${pedidos.length} notas para imprimir` : 'Nota para imprimir',
+    resumen: `<b>${esc(nota.notas[0].clienta)}</b> · ${varias ? `${pedidos.length} pedidos · ` : ''}${r.prendas} ${r.prendas === 1 ? 'prenda' : 'prendas'} · ${dinero(r.total)}${varias ? '<br>Sale una hoja por pedido.' : ''}`,
+    blob: nota.blob,
+    nombre: varias ? `Notas ${nota.notas[0].clienta} (${pedidos.length} pedidos).pdf`.replace(/[\\/:*?"<>|]/g, '') : nota.notas[0].archivo,
+    imprimir: true,
+  });
 }
 // Estado de pago que sale en las notas: 'pagada', 'por_cobrar' o null si no se sabe (pedidos hechos a mano).
 // Los pedidos del live entran a Cajas cuando su pago ya quedó completo.
@@ -1933,59 +2031,12 @@ function estadoPagoPedido(p) {
 // La nota en PDF de una venta privada solo sale cuando ya está pagada
 const puedeNotaPdf = p => PUEDE_IMPRIMIR_NOTA() && !(ventaDe(p) && ventaDe(p).estado !== 'pagada');
 
-/* ---------- Nota impresa de un pedido (Dueña y Supervisor) ----------
- * Va dentro del paquete: clienta, caja, fecha, prendas con precio, claves (si el pedido llegó del live) y total.
- * Sin teléfono ni dirección. Usa la misma zona de impresión que las etiquetas de cajas. */
+/* ---------- Notas de pedido (Dueña y Supervisor) ----------
+ * "Imprimir nota" arma la nota de venta tamaño carta (pdfNotaCarta) y "Nota en PDF" la angosta para WhatsApp.
+ * Llevan clienta, caja, fecha, cada clave con su precio y el total. Sin teléfono ni dirección. */
 const PUEDE_IMPRIMIR_NOTA = () => ['duena', 'supervisor'].includes(ROL);
 const botonImprimirTodos = (a, pedidos) => PUEDE_IMPRIMIR_NOTA() && pedidos.length > 1
   ? `<div class="acciones"><button class="btn btn-secundario" data-imprimir-todos="${a.id}">Imprimir todos los pedidos (${pedidos.length})</button></div>` : '';
-function htmlNotaPedido(p, todos = '') {
-  const n = datosNotaPedido(p);
-  const v = ventaDe(p);
-  const pagada = n.estado === 'pagada';
-  const conPrecio = n.piezas.length && n.piezas[0].precio != null;
-  // Una clave por renglón; si el pedido no trae claves (o van a varios precios), el detalle por tipo de prenda
-  // Cada clave en su renglón. Para que la nota quepa en una hoja, los pedidos grandes van en 2 o 3 columnas.
-  const cols = n.piezas.length <= 16 ? 1 : n.piezas.length <= 34 ? 2 : 3;
-  const porCol = Math.ceil(n.piezas.length / cols);
-  const tablaClaves = c => `<table class="ni-tabla"><thead><tr><th>No.</th><th>Clave</th>${cols === 1 ? '<th>Descripción</th>' : ''}${conPrecio ? '<th class="ni-imp">Precio</th>' : ''}</tr></thead><tbody>${
-    n.piezas.slice(c * porCol, (c + 1) * porCol).map((z, i) => `<tr><td class="ni-num">${c * porCol + i + 1}</td><td class="ni-clave">${esc(z.clave)}</td>${cols === 1 ? '<td>Prenda</td>' : ''}${conPrecio ? `<td class="ni-imp">${dinero(z.precio)}</td>` : ''}</tr>`).join('')}</tbody></table>`;
-  const filasTipos = n.items.map((it, i) => `<tr><td class="ni-num">${i + 1}</td><td class="ni-clave">${it.cantidad}</td><td>${esc(it.nombre)}</td><td class="ni-imp">${dinero(it.importe)}</td></tr>`).join('');
-  const datos = n.info.filter(([k]) => k !== 'Fecha');
-  return `<section class="ni-hoja"><div class="ni-cuerpo">
-    <div class="ni-cabeza"><img src="icons/logo-claro.png" alt="Outlet Prime">
-      <div class="ni-titulo"><h2>NOTA DE VENTA</h2><p>${esc(n.info[0][1])}</p></div></div>
-    <div class="ni-datos">
-      <div class="ni-cliente"><small>Cliente</small><b>${esc(n.clienta)}</b></div>
-      ${datos.map(([k, val]) => `<div><small>${esc(k)}</small><b>${esc(val)}</b></div>`).join('')}
-    </div>
-    ${n.piezas.length ? `<div class="ni-columnas">${Array.from({ length: cols }, (_, c) => tablaClaves(c)).join('')}</div>` : ''}
-    ${n.items.length ? `<table class="ni-tabla"${n.piezas.length ? ' style="margin-top:5mm"' : ''}><thead><tr><th>No.</th><th>Cant.</th><th>Descripción</th><th class="ni-imp">Importe</th></tr></thead><tbody>${filasTipos}</tbody></table>` : ''}
-    <div class="ni-cierre">
-      <div class="ni-pago">${pagada ? `<span class="ni-sello">PAGADO</span>${v && v.pagada_en ? `<small>Pagado el ${fechaHora(v.pagada_en)}${v.referencia ? ' · ' + esc(v.referencia) : ''}</small>` : ''}` : ''}</div>
-      <table class="ni-total"><tr><td>Prendas</td><td>${n.prendas}</td></tr><tr class="ni-grande"><td>TOTAL</td><td>${dinero(n.total)}</td></tr></table>
-    </div>
-    ${todos ? `<p class="ni-todos">${todos}</p>` : ''}
-    <p class="ni-gracias">¡Gracias por tu compra!<small>Outlet Prime · Ropa americana nueva con etiqueta</small></p>
-  </div></section>`;
-}
-function imprimirNotas(pedidos) {
-  pedidos = (pedidos || []).filter(Boolean).slice().sort((x, y) => (x.fecha < y.fecha ? -1 : 1));
-  if (!pedidos.length) return toast('No hay pedidos para imprimir.', 'error');
-  let area = $('#zona-impresion');
-  if (!area) { area = document.createElement('div'); area.id = 'zona-impresion'; document.body.appendChild(area); }
-  area.className = 'notas';
-  // Sin márgenes de página (el espacio lo da cada nota): así el navegador no imprime la dirección ni la fecha en la orilla
-  let hoja = $('#pagina-notas');
-  if (!hoja) { hoja = document.createElement('style'); hoja.id = 'pagina-notas'; document.head.appendChild(hoja); }
-  hoja.textContent = '@media print { @page { size: letter; margin: 0; } }';
-  const r = resumenPedidos(pedidos);
-  const todos = pedidos.length > 1 ? `Total de los ${pedidos.length} pedidos de ${esc(nombreCompleto(idx.clienta(pedidos[0].clienta_id)))}: ${r.prendas} prendas · ${dinero(r.total)}` : '';
-  area.innerHTML = pedidos.map((x, i) => htmlNotaPedido(x, i === pedidos.length - 1 ? todos : '')).join('');
-  // Se espera al logo para que no salga en blanco en la primera impresión
-  const imgs = $$('img', area);
-  Promise.all(imgs.map(i => i.complete ? null : new Promise(ok => { i.onload = i.onerror = ok; }))).then(() => setTimeout(() => window.print(), 100));
-}
 // Venta privada de un pedido (si lo es) y su estado de pago
 const ventaDe = p => (D.ventas || []).find(v => v.pedido_id === p.id);
 const porCobrarDe = pedidos => pedidos.map(ventaDe).filter(v => v && v.estado === 'por_cobrar');
@@ -3173,8 +3224,6 @@ function imprimirEtiquetas(codigos) {
   let area = $('#zona-impresion');
   if (!area) { area = document.createElement('div'); area.id = 'zona-impresion'; document.body.appendChild(area); }
   area.className = '';
-  const hojaNotas = $('#pagina-notas');
-  if (hojaNotas) hojaNotas.textContent = '';   // las etiquetas de cajas sí llevan los márgenes normales
   area.innerHTML = codigos.map(c => `<div class="etiqueta"><img src="icons/logo-claro.png" alt="">${qrSVG(textoQR(c), 300)}<b>${esc(c)}</b></div>`).join('');
   setTimeout(() => window.print(), 100);
 }
