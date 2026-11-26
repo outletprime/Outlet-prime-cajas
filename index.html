@@ -127,9 +127,20 @@ small { color: var(--texto-2); font-size: 13px; }
 .ayuda-sugerencias { display: grid; gap: 6px; margin-top: 2px; }
 .ayuda-sugerencias button { min-height: 42px; padding: 8px 12px; text-align: left; border-radius: 12px; border: 1px solid var(--borde); background: var(--superficie); color: var(--texto); font: inherit; font-size: 15px; cursor: pointer; }
 .ayuda-sugerencias button:active { background: var(--superficie-2); }
-.ayuda-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; padding: 10px 12px calc(var(--inf) + 10px); border-top: 1px solid var(--borde); }
+.ayuda-form { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: end; padding: 10px 12px calc(var(--inf) + 10px); border-top: 1px solid var(--borde); }
 .ayuda-form textarea { min-height: 46px; max-height: 120px; resize: none; }
-.ayuda-form .btn { width: 50px; padding: 0; }
+.ayuda-form > .btn { width: 50px; padding: 0; }
+.ayuda-adjuntar { width: 46px; height: 46px; padding: 0; display: grid; place-items: center; border: 1px solid var(--borde); border-radius: 12px; background: var(--superficie); color: var(--texto-2); cursor: pointer; }
+.ayuda-adjuntar svg { width: 22px; height: 22px; pointer-events: none; }
+.ayuda-adjuntar[aria-expanded="true"] { background: var(--superficie-2); color: var(--texto); }
+.ayuda-menu-foto { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ayuda-menu-foto .btn { min-height: 44px; }
+.ayuda-foto-lista { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--texto-2); }
+.ayuda-foto-lista img { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; border: 1px solid var(--borde); }
+.ayuda-foto-lista span { flex: 1; min-width: 0; }
+.ayuda-foto-lista button { width: 44px; height: 44px; border: 0; border-radius: 12px; background: none; color: var(--texto); font-size: 26px; line-height: 1; cursor: pointer; }
+.ayuda-menu-foto[hidden], .ayuda-foto-lista[hidden] { display: none; }
+.ayuda-msj img { display: block; max-width: 100%; max-height: 220px; margin-bottom: 6px; border-radius: 10px; }
 .btn-marca { background: var(--marca); color: #fff; }
 .btn-live { display: flex; align-items: center; gap: 5px; height: 36px; padding: 0 11px 0 9px; border-radius: 18px; border: 1.5px solid rgba(255,255,255,.35); color: #fff; font-weight: 700; font-size: 14px; text-decoration: none; }
 .btn-live svg { width: 20px; height: 20px; }
@@ -3668,33 +3679,78 @@ function abrirAyuda() {
     </header>
     <div class="ayuda-msjs" aria-live="polite"></div>
     <form class="ayuda-form">
+      <div class="ayuda-menu-foto" hidden>
+        <label class="btn btn-secundario">Tomar foto<input type="file" accept="image/*" capture="environment" hidden data-ayuda-foto></label>
+        <label class="btn btn-secundario">De la galería<input type="file" accept="image/*" hidden data-ayuda-foto></label>
+      </div>
+      <div class="ayuda-foto-lista" hidden><img alt="Foto que vas a enviar"><span>Foto lista. Escribe tu duda o solo envíala.</span><button type="button" class="ayuda-quitar-foto" aria-label="Quitar la foto">×</button></div>
+      <button type="button" class="ayuda-adjuntar" aria-label="Agregar una foto o captura de pantalla" aria-expanded="false" title="Foto o captura">${IC.foto}</button>
       <textarea name="duda" rows="1" maxlength="1000" placeholder="Escribe tu duda…" aria-label="Tu duda" enterkeyhint="send"></textarea>
       <button class="btn btn-marca" aria-label="Enviar">${IC.enviar}</button>
     </form></section>`;
   document.body.appendChild(fondo);
   const lista = $('.ayuda-msjs', fondo), form = $('.ayuda-form', fondo), campo = form.duda;
+  const menuFoto = $('.ayuda-menu-foto', fondo), fotoLista = $('.ayuda-foto-lista', fondo), btnFoto = $('.ayuda-adjuntar', fondo);
+  let foto = null;   // la foto elegida, ya reducida, lista para irse con la siguiente duda
+
+  // Reduce la foto en el propio celular (máx. 1568 px por lado) para que suba rápido aun con poca señal
+  const reducirFoto = archivo => new Promise((ok, mal) => {
+    const url = URL.createObjectURL(archivo), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1568 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.naturalWidth * k));
+      c.height = Math.max(1, Math.round(img.naturalHeight * k));
+      const g = c.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+      g.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      const datos = c.toDataURL('image/jpeg', 0.82);
+      /^data:image\/jpeg;base64,/.test(datos) ? ok(datos) : mal(new Error('foto'));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); mal(new Error('foto')); };
+    img.src = url;
+  });
+  const pintarFoto = () => {
+    fotoLista.hidden = !foto;
+    if (foto) $('img', fotoLista).src = foto;
+    menuFoto.hidden = true;
+    btnFoto.setAttribute('aria-expanded', 'false');
+  };
+  const elegirFoto = async entrada => {
+    const archivo = entrada.files && entrada.files[0];
+    entrada.value = '';
+    if (!archivo) return;
+    if (!/^image\//.test(archivo.type || 'image/')) { toast('Eso no es una foto. Elige una imagen.', 'error'); return; }
+    try { foto = await reducirFoto(archivo); pintarFoto(); campo.focus({ preventScroll: true }); }
+    catch (e) { console.error(e); toast('No se pudo abrir esa foto. Intenta con otra.', 'error'); }
+  };
 
   const pintarMsjs = () => {
     const sugerencias = AYUDA.mensajes.length ? '' : `<div class="ayuda-sugerencias">${(AYUDA_SUGERENCIAS[ROL] || AYUDA_SUGERENCIAS.operacion).map(t => `<button type="button" data-sugerencia="${esc(t)}">${esc(t)}</button>`).join('')}</div>`;
     lista.innerHTML = `<div class="ayuda-msj bot">${esc(ayudaSaludo())}</div>${sugerencias}`
-      + AYUDA.mensajes.map(m => `<div class="ayuda-msj ${m.rol === 'user' ? 'yo' : 'bot'}${m.falla ? ' falla' : ''}">${m.rol === 'user' ? esc(m.texto) : ayudaTexto(m.texto)}</div>`).join('')
+      + AYUDA.mensajes.map(m => `<div class="ayuda-msj ${m.rol === 'user' ? 'yo' : 'bot'}${m.falla ? ' falla' : ''}">${m.foto ? `<img src="${m.foto}" alt="Foto que enviaste">` : ''}${m.rol === 'user' ? esc(m.texto) : ayudaTexto(m.texto)}</div>`).join('')
       + (AYUDA.esperando ? '<div class="ayuda-msj bot espera">Escribiendo…</div>' : '');
     $('.ayuda-limpiar', fondo).hidden = !AYUDA.mensajes.length || AYUDA.esperando;
-    form.querySelector('button').disabled = AYUDA.esperando;
+    $('.btn-marca', form).disabled = AYUDA.esperando;
+    btnFoto.disabled = AYUDA.esperando;
     // Deja a la vista el inicio de la respuesta nueva (o el final, mientras se escribe)
     const ultimo = lista.lastElementChild;
     if (ultimo && AYUDA.mensajes.length) lista.scrollTop = AYUDA.esperando ? lista.scrollHeight : Math.max(0, ultimo.offsetTop - lista.offsetTop - 60);
   };
-  const preguntar = async texto => {
+  const preguntar = async (texto, conFoto) => {
     texto = String(texto || '').trim();
+    if (!texto && conFoto) texto = 'Te mando esta foto. ¿Me ayudas con esto?';
     if (!texto || AYUDA.esperando) return;
-    AYUDA.mensajes.push({ rol: 'user', texto });
+    AYUDA.mensajes.push(conFoto ? { rol: 'user', texto, foto: conFoto } : { rol: 'user', texto });
     AYUDA.esperando = true;
     pintarMsjs();
     let respuesta = null, falla = null;
     try {
       const { data, error } = await store.sb.functions.invoke('ayuda', {
-        body: { app: 'cajas', mensajes: AYUDA.mensajes.filter(m => !m.falla).slice(-12).map(m => ({ rol: m.rol, texto: m.texto })) },
+        body: { app: 'cajas', mensajes: AYUDA.mensajes.filter(m => !m.falla).slice(-12).map((m, i, v) => (m.foto && v.slice(i + 1).filter(x => x.foto).length < 2   // solo viajan las 2 fotos más recientes
+          ? { rol: m.rol, texto: m.texto, imagen: m.foto.slice(m.foto.indexOf(',') + 1) }
+          : { rol: m.rol, texto: m.foto ? m.texto + ' (aquí mandó una foto que ya no se adjunta)' : m.texto })) },
       });
       if (error) throw error;
       if (data && data.respuesta) respuesta = data.respuesta;
@@ -3727,17 +3783,25 @@ function abrirAyuda() {
     if (s) preguntar(s.dataset.sugerencia);
     else if (e.target === fondo || e.target.closest('.ayuda-cerrar')) cerrar();
     else if (e.target.closest('.ayuda-limpiar')) { AYUDA.mensajes = []; pintarMsjs(); }
+    else if (e.target.closest('.ayuda-quitar-foto')) { foto = null; pintarFoto(); }
+    else if (e.target.closest('.ayuda-adjuntar')) {
+      menuFoto.hidden = !menuFoto.hidden;
+      btnFoto.setAttribute('aria-expanded', String(!menuFoto.hidden));
+    }
   });
+  form.addEventListener('change', e => { if (e.target.matches('[data-ayuda-foto]')) elegirFoto(e.target); });
   const crecer = () => { campo.style.height = 'auto'; campo.style.height = Math.min(120, campo.scrollHeight + 2) + 'px'; };
   campo.addEventListener('input', crecer);
   campo.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); } });
   form.onsubmit = e => {
     e.preventDefault();
-    const t = campo.value;
-    if (!t.trim() || AYUDA.esperando) return;
+    const t = campo.value, f = foto;
+    if ((!t.trim() && !f) || AYUDA.esperando) return;
     campo.value = '';
+    foto = null;
+    pintarFoto();
     crecer();
-    preguntar(t);
+    preguntar(t, f);
   };
   pintarMsjs();
   $('.ayuda-cerrar', fondo).focus({ preventScroll: true });
