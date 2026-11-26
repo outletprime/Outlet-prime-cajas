@@ -187,6 +187,13 @@ small { color: var(--texto-2); font-size: 13px; }
 .chip-ok { background: var(--ok-suave); color: var(--ok); }
 .chip-aviso { background: var(--aviso-suave); color: var(--aviso); }
 .pago-venta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 0; }
+.vp-precio { display: flex; align-items: stretch; gap: 10px; margin: 8px 0 6px; }
+.vp-paso { flex: 0 0 64px; min-height: 60px; padding: 0; font-size: 34px; font-weight: 700; line-height: 1; }
+.vp-monto { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; margin: 0; padding: 0 12px; border: 1px solid var(--borde); border-radius: var(--radio); background: var(--superficie); font-size: 30px; font-weight: 800; }
+.vp-monto input { width: 4.2ch; min-width: 0; flex: 0 1 auto; border: 0; background: transparent; padding: 0; margin: 0; font: inherit; color: inherit; text-align: left; -moz-appearance: textfield; }
+.vp-monto input::-webkit-outer-spin-button, .vp-monto input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.vp-monto input:focus { outline: none; }
+.vp-monto:focus-within { outline: 2px solid var(--primario); border-color: transparent; }
 .chip-vencida { background: var(--vencida-suave); color: var(--vencida); }
 .texto-vencida { color: var(--vencida); font-weight: 600; }
 
@@ -2136,7 +2143,8 @@ function vistaClientas() {
  * Venta fuera de un live a una clienta ya registrada: se escriben o escanean las claves de las prendas y se
  * elige el precio. Queda como pagada: las prendas ya no se pueden apartar en un live y entran como pedido a la
  * caja de resguardo de la clienta. Para deshacerla se elimina ese pedido en su caja. */
-const PRECIOS_VENTA_PRIVADA = [89, 129];
+const PRECIO_VENTA_PRIVADA = 99;      // precio con el que abre la pantalla
+const PASO_VENTA_PRIVADA = 10;        // lo que suma o resta cada toque de + y −
 function vistaVentaPrivada(id) {
   const cl = idx.clienta(id);
   if (!cl) { ir('clientas'); return; }
@@ -2153,35 +2161,29 @@ function vistaVentaPrivada(id) {
         <textarea name="claves" rows="6" placeholder="AB23&#10;AB24&#10;AC10" autocomplete="off" autocapitalize="characters" spellcheck="false"></textarea></label>
       <p class="nota">Escríbelas o escanéalas con el lector, una por renglón (también sirven separadas por coma o espacio).</p>
       <b>Precio de cada prenda</b>
-      <div class="fila-botones" id="vp-precios">
-        ${PRECIOS_VENTA_PRIVADA.map((v, i) => `<button type="button" class="btn ${i === 0 ? 'btn-primario' : 'btn-secundario'}" data-vp-precio="${v}" aria-pressed="${i === 0}">${dinero(v)}</button>`).join('')}
-        <button type="button" class="btn btn-secundario" data-vp-precio="otro" aria-pressed="false">Otro</button>
+      <div class="vp-precio">
+        <button type="button" class="btn btn-secundario vp-paso" data-vp-paso="-1" aria-label="Restar ${dinero(PASO_VENTA_PRIVADA)}">−</button>
+        <label class="vp-monto"><span>$</span><input name="precio" type="number" min="1" step="1" inputmode="numeric" value="${PRECIO_VENTA_PRIVADA}" aria-label="Precio de cada prenda"></label>
+        <button type="button" class="btn btn-secundario vp-paso" data-vp-paso="1" aria-label="Sumar ${dinero(PASO_VENTA_PRIVADA)}">+</button>
       </div>
-      <label id="vp-otro" hidden>Precio de cada prenda<input name="otro" type="number" min="1" step="1" inputmode="numeric" placeholder="Ej. 150"></label>
+      <p class="nota">Empieza en ${dinero(PRECIO_VENTA_PRIVADA)}. Cada toque de <b>−</b> resta ${dinero(PASO_VENTA_PRIVADA)} y cada toque de <b>+</b> suma ${dinero(PASO_VENTA_PRIVADA)}. También puedes escribir la cantidad.</p>
       <button class="btn btn-primario">Revisar claves</button>
     </form>
     <div id="vp-revision" style="margin-top:12px"></div>
     <p class="nota">La venta se registra <b>por cobrar</b>. Siempre se le asigna una <b>caja libre</b>, aparte de lo que la clienta ya tenga pagado. Desde ese momento sus prendas cuentan para el límite de prendas y para los días de la caja, y ya no se pueden apartar en un live. Mientras no se confirme el pago, esa caja no se puede marcar para guía, enviar ni entregar. Cuando recibas el pago, confírmalo en el pedido, dentro de su caja. Si te equivocas, elimina ese pedido y las prendas regresan a disponibles.</p>`;
   const f = $('#f-venta');
-  let elegido = String(PRECIOS_VENTA_PRIVADA[0]);
-  const precio = () => (elegido === 'otro' ? Math.floor(+f.otro.value) : +elegido);
+  const precio = () => Math.floor(+f.precio.value) || 0;
   const limpiar = () => { $('#vp-revision').innerHTML = ''; };
-  $$('[data-vp-precio]').forEach(b => {
+  $$('[data-vp-paso]').forEach(b => {
     b.onclick = () => {
-      elegido = b.dataset.vpPrecio;
-      $$('[data-vp-precio]').forEach(x => {
-        const activo = x === b;
-        x.classList.toggle('btn-primario', activo);
-        x.classList.toggle('btn-secundario', !activo);
-        x.setAttribute('aria-pressed', activo);
-      });
-      $('#vp-otro').hidden = elegido !== 'otro';
-      if (elegido === 'otro') f.otro.focus();
+      const nuevo = (precio() || PRECIO_VENTA_PRIVADA) + (+b.dataset.vpPaso) * PASO_VENTA_PRIVADA;
+      if (nuevo < 1) { toast('El precio no puede bajar más.', 'error'); return; }
+      f.precio.value = nuevo;
       limpiar();
     };
   });
   f.claves.oninput = limpiar;
-  f.otro.oninput = limpiar;
+  f.precio.oninput = limpiar;
   f.onsubmit = async e => {
     e.preventDefault();
     const claves = f.claves.value.trim();
