@@ -278,6 +278,19 @@ textarea { resize: vertical; }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--primario); outline-offset: 0; border-color: transparent; }
 input[type="checkbox"] { width: 22px; min-height: 22px; height: 22px; accent-color: var(--primario); }
 .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tres { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.sky-caja { display: grid; gap: 6px; padding: 12px; margin: 4px 0 8px; border: 1px solid var(--borde); border-radius: var(--radio); background: var(--superficie-2); }
+.sky-caja.sky-ok { border-left: 5px solid #1a8a4a; }
+.sky-caja p { margin: 0; }
+.sky-caja .btn-mini { justify-self: start; }
+.tarjeta + .sky-caja { margin-top: -4px; margin-bottom: 12px; }
+.sky-tarifa { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 64px; padding: 10px 14px; text-align: left; font: inherit; color: inherit;
+  border: 1px solid var(--borde); border-radius: var(--radio); background: var(--superficie); box-shadow: var(--sombra); cursor: pointer; }
+.sky-tarifa span { display: grid; gap: 2px; min-width: 0; }
+.sky-tarifa small { color: var(--texto-2); font-size: 14px; }
+.sky-tarifa > b { font-size: 20px; white-space: nowrap; }
+.sky-tarifa:active { background: var(--superficie-2); }
+.sky-precio { display: inline-block; margin: 6px 0; font-size: 30px; font-weight: 800; }
 .en-linea { display: flex; gap: 10px; align-items: flex-end; margin-top: 12px; }
 .en-linea label { flex: 1; }
 .interruptor { display: flex; align-items: center; gap: 10px; font-weight: 500; color: var(--texto); }
@@ -491,6 +504,43 @@ class LocalStore {
     if (que === 'quitar-pegada') return this.update('asignaciones', id, { guia_pegada_en: null, guia_pegada_por: null, entrega: null });
     return this.update('asignaciones', id, { guia_pegada_en: ahora, guia_pegada_por: usuario.nombre, entrega: que, ...(datos.paqueteria ? { paqueteria: datos.paqueteria } : {}), ...(datos.guia ? { guia: datos.guia } : {}) });
   }
+  // Skydrop de mentiras para la vista previa: no cotiza ni compra nada de verdad
+  async enviosSkydrop() { return this._envios || []; }
+  async envioSugerido(asignacion) {
+    const prendas = resumenPedidos(idx.pedidosDe(asignacion)).prendas;
+    return { prendas, peso_kg: Math.max(1, Math.ceil(prendas * 0.2 + 0.5)), largo: 40, ancho: 30, alto: 30 };
+  }
+  async skydrop(accion, datos = {}) {
+    await new Promise(r => setTimeout(r, 500));
+    this._envios = this._envios || [];
+    if (accion === 'estado') return { listo: true, saldo: 1500, moneda: 'MXN' };
+    if (accion === 'cotizar') {
+      this._tarifas = [
+        { id: 't1', paqueteria: 'FedEx', servicio: 'Económico', dias: 3, total: 245 },
+        { id: 't2', paqueteria: 'Estafeta', servicio: 'Terrestre', dias: 4, total: 262.5 },
+        { id: 't3', paqueteria: 'DHL', servicio: 'Express', dias: 1, total: 318 },
+        { id: 't4', paqueteria: 'FedEx', servicio: 'Día siguiente', dias: 1, total: 1890 },
+      ];
+      this._cotizado = datos;
+      return { envio: 'demo', tarifas: this._tarifas, completa: true, saldo: 1500, moneda: 'MXN' };
+    }
+    if (accion === 'comprar') {
+      const t = this._tarifas.find(x => x.id === datos.tarifa);
+      const c = this._cotizado;
+      const e = { id: 'demo-' + Date.now(), asignacion_id: c.asignacion, estado: 'comprada', paqueteria: t.paqueteria, servicio: t.servicio, dias: t.dias, costo: t.total,
+        guia: '7946 0000 1111', etiqueta_url: 'https://example.com/guia.pdf', rastreo_url: '', comprada_en: new Date().toISOString(), comprada_por: usuario.nombre };
+      this._envios.push(e);
+      await this.update('asignaciones', c.asignacion, { paqueteria: t.paqueteria, guia: e.guia, costo_envio: t.total, peso_kg: c.peso_kg, medidas: `${c.largo}×${c.ancho}×${c.alto}` });
+      return { envio: e, saldo: 1500 - t.total };
+    }
+    if (accion === 'cancelar') {
+      const e = this._envios.find(x => x.id === datos.envio);
+      this._envios = this._envios.filter(x => x !== e);
+      if (e) await this.update('asignaciones', e.asignacion_id, { paqueteria: null, guia: null, costo_envio: null });
+      return { cancelada: true };
+    }
+    return {};
+  }
   async usuario() { return { nombre: localStorage.getItem('demo-nombre') || 'Prueba', email: '' }; }
   async rol() { return 'duena'; }
   async login() { return this.usuario(); }
@@ -602,6 +652,25 @@ class SupaStore {
     const { data, error } = await this.sb.from('ventas_privadas').select('*').is('cancelada_en', null);
     if (error) throw error;
     return data || [];
+  }
+  // Guías con Skydrop: las cotiza y compra la función "skydrop"; aquí solo se leen las guías vivas
+  async enviosSkydrop() {
+    const { data, error } = await this.sb.from('envios_skydrop')
+      .select('id, asignacion_id, estado, paqueteria, servicio, dias, costo, guia, etiqueta_url, rastreo_url, comprada_en, comprada_por')
+      .in('estado', ['comprando', 'comprada']);
+    if (error) throw error;
+    return data || [];
+  }
+  async envioSugerido(asignacion) {
+    const { data, error } = await this.sb.rpc('envio_sugerido', { p_asignacion: asignacion });
+    if (error) throw error;
+    return data;
+  }
+  async skydrop(accion, datos = {}) {
+    const { data, error } = await this.sb.functions.invoke('skydrop', { body: { accion, usuario: usuario.nombre, ...datos } });
+    if (error) throw error;
+    if (data && data.error) { const e = new Error(data.mensaje || 'No se pudo completar. Intenta de nuevo.'); e.codigo = data.error; throw e; }
+    return data;
   }
   async ventaPrivadaPagar(venta, pagada, referencia) {
     const { data, error } = await this.sb.rpc('venta_privada_pagar', { p_venta: venta, p_pagada: !!pagada, p_usuario: usuario.nombre, p_referencia: referencia || null });
@@ -1246,6 +1315,9 @@ async function refrescar(forzar = false) {
   TABLAS.forEach((t, i) => { D[t] = res[i]; });
   // Ventas privadas: dicen si el pedido está por cobrar o ya pagado. Si no cargan, las cajas se ven igual.
   D.ventas = store.ventasPrivadas ? await store.ventasPrivadas().catch(e => { console.error(e); return D.ventas || []; }) : [];
+  // Guías compradas en Skydrop (solo las ven Dueña y Supervisor). Si no cargan, la pantalla sigue igual.
+  D.envios = store.enviosSkydrop && ['duena', 'supervisor'].includes(ROL)
+    ? await store.enviosSkydrop().catch(e => { console.error(e); return D.envios || []; }) : [];
   D.cargado = Date.now();
 }
 const idx = {
@@ -1362,6 +1434,7 @@ const RUTAS = [
   [/^pedido$/, elegirCajaPedido, 'pedido', true],
   [/^pedido\/([^/]+)$/, formPedido, 'pedido', false],
   [/^enviar\/([^/]+)$/, formEnvio, 'cajas', false],
+  [/^guia\/([^/]+)$/, vistaGuiaSkydrop, 'cajas', false],
   [/^reasignar\/([^/]+)$/, vistaReasignar, 'cajas', true],
   [/^reportes$/, vistaReportes, 'reportes', true],
   [/^ajustes$/, vistaAjustes, '', true],
@@ -1584,10 +1657,39 @@ async function vistaSalida(asigId) {
  * 1) "Lista para generar guía": la marca quien metió los pedidos (Dueña, Operación, Operación live) → aviso al Supervisor.
  * 2) "Guía pegada": la marca el Supervisor (o una Dueña), para recolección o para llevar a sucursal → aviso a las Dueñas.
  * El envío final sigue siendo "Marcar como enviado". */
+const opcionesPaqueteria = actual => [...PAQUETERIAS, ...(actual && !PAQUETERIAS.includes(actual) ? [actual] : [])]
+  .map(p => `<option ${actual === p ? 'selected' : ''}>${esc(p)}</option>`).join('');
 const PUEDE_LISTA_GUIA = () => ['duena', 'operacion', 'live'].includes(ROL);
 const PUEDE_GUIA_PEGADA = () => ['duena', 'supervisor'].includes(ROL);
 const PUEDE_ENTREGAR_TIENDA = () => ['duena', 'operacion'].includes(ROL);
 const quienCorto = v => esc(String(v || '').split('@')[0]);
+const envioDe = a => (D.envios || []).find(e => e.asignacion_id === a.id);
+const urlSegura = u => (/^https:\/\//i.test(u || '') ? u : '');
+function htmlSkydrop(a) {
+  const e = envioDe(a);
+  if (e && e.estado === 'comprada') {
+    return `<div class="sky-caja sky-ok">
+      <b>Guía comprada en Skydrop</b>
+      <p>${esc([e.paqueteria, e.servicio].filter(Boolean).join(' · '))}${e.guia ? ` · Guía <b>${esc(e.guia)}</b>` : ''} · ${dinero(e.costo)}</p>
+      <small>La compró ${quienCorto(e.comprada_por)} · ${fechaHora(e.comprada_en)}</small>
+      ${urlSegura(e.etiqueta_url) ? `<a class="btn btn-primario" href="${esc(e.etiqueta_url)}" target="_blank" rel="noopener">${IC.qr} Abrir la guía para imprimir</a>` : ''}
+      ${urlSegura(e.rastreo_url) ? `<a class="btn btn-secundario" href="${esc(e.rastreo_url)}" target="_blank" rel="noopener">${IC.camion} Rastrear el paquete</a>` : ''}
+      ${a.guia_pegada_en ? '' : '<button class="btn btn-mini" type="button" data-sky="cancelar">Cancelar esta guía</button>'}
+    </div>`;
+  }
+  if (e) {
+    return `<div class="sky-caja">
+      <b>La compra de la guía sigue en proceso</b>
+      <p class="nota">Skydrop todavía no entrega la guía. Espera un momento y toca Revisar. No compres otra.</p>
+      <button class="btn btn-secundario" type="button" data-sky="revisar">Revisar</button>
+    </div>`;
+  }
+  if (a.guia_pegada_en) return '';
+  return `<div class="sky-caja">
+    <a class="btn btn-primario" href="#/guia/${a.id}">${IC.camion} Cotizar y comprar la guía con Skydrop</a>
+    <p class="nota">Compara paqueterías y compra la guía aquí mismo. Si la generaste por fuera, anótala abajo.</p>
+  </div>`;
+}
 function htmlGuia(a, pedidos) {
   if (a.guia_pegada_en) {
     return `<div class="tarjeta guia-paso guia-ok">
@@ -1595,7 +1697,7 @@ function htmlGuia(a, pedidos) {
       <p>${[a.paqueteria, a.guia].filter(Boolean).map(esc).join(' · ') || 'Sin número de guía anotado'}</p>
       <small>La marcó ${quienCorto(a.guia_pegada_por)} · ${fechaHora(a.guia_pegada_en)}</small>
       ${PUEDE_GUIA_PEGADA() ? '<button class="btn btn-mini" data-guia="quitar-pegada">Deshacer</button>' : ''}
-    </div>`;
+    </div>${PUEDE_GUIA_PEGADA() ? htmlSkydrop(a) : ''}`;
   }
   if (a.lista_guia_en && a.lista_para === 'tienda') {
     // Se marcó antes de que la opción liberara la caja: sigue ocupada hasta que se libere aquí
@@ -1611,9 +1713,9 @@ function htmlGuia(a, pedidos) {
     return `<div class="tarjeta guia-paso">
       <b>${IC.qr} Lista para generar guía</b>
       <small>La marcó ${quienCorto(a.lista_guia_por)} · ${fechaHora(a.lista_guia_en)}</small>
-      ${PUEDE_GUIA_PEGADA() ? `<form id="f-guia" class="formulario" novalidate>
-        <p class="nota">Cuando ya generaste la guía y la pegaste en el paquete:</p>
-        <label>Paquetería (opcional)<select name="paqueteria"><option value="">Selecciona…</option>${PAQUETERIAS.map(p => `<option ${a.paqueteria === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
+      ${PUEDE_GUIA_PEGADA() ? `${htmlSkydrop(a)}<form id="f-guia" class="formulario" novalidate>
+        <p class="nota">Cuando ya ${envioDe(a) ? 'imprimiste' : 'generaste'} la guía y la pegaste en el paquete:</p>
+        <label>Paquetería (opcional)<select name="paqueteria"><option value="">Selecciona…</option>${opcionesPaqueteria(a.paqueteria)}</select></label>
         <label>Número de guía (opcional)<input name="guia" autocomplete="off" value="${esc(a.guia || '')}"></label>
         <button class="btn btn-primario" type="button" data-guia="recoleccion">${IC.camion} Guía pegada · lista para recolección</button>
         <button class="btn btn-secundario" type="button" data-guia="sucursal">${IC.cajas} Guía pegada · llevar a sucursal</button>
@@ -1630,11 +1732,119 @@ function htmlGuia(a, pedidos) {
     <button class="btn btn-secundario" data-guia="tienda">${IC.cajas} La clienta la recoge en tienda</button>
   </div>`;
 }
+/* ---------- Guía con Skydrop (Dueña y Supervisor) ----------
+ * Cotizar es gratis. Comprar descuenta saldo de Skydrop: siempre pide confirmación con el precio a la vista. */
+function faltaDomicilio(c) {
+  const f = [['calle', 'calle'], ['numero', 'número'], ['colonia', 'colonia'], ['cp', 'código postal'], ['ciudad', 'ciudad'], ['estado', 'estado']]
+    .filter(([k]) => !String((c && c[k]) || '').trim()).map(([, n]) => n);
+  if (telLimpio(c && c.telefono).length < 10) f.push('teléfono');
+  return f;
+}
+async function vistaGuiaSkydrop(asigId) {
+  const a = idx.asig(asigId);
+  if (!a || !PUEDE_GUIA_PEGADA() || !yaSalio(a) || !a.lista_guia_en || a.lista_para === 'tienda' || a.guia_pegada_en || envioDe(a)) { ir(a && yaSalio(a) ? `salida/${a.id}` : 'cajas'); return; }
+  titulo('Guía con Skydrop', `salida/${a.id}`);
+  const cl = idx.clienta(a.clienta_id);
+  const prendas = resumenPedidos(idx.pedidosDe(a.id)).prendas;
+  const faltan = faltaDomicilio(cl);
+  vista().innerHTML = `
+    ${tarjetaClienta(cl, false)}
+    <p class="nota">La guía sale con ese domicilio. <a href="#/clienta/${cl.id}/editar"><b>Corregir domicilio</b></a></p>
+    ${faltan.length
+      ? `<div class="banner banner-vencida">${IC.alerta}<span><b>Falta el domicilio de la clienta.</b><br><small>Le falta: ${esc(faltan.join(', '))}. Complétalo en su ficha y vuelve aquí.</small></span></div>
+         <a class="btn btn-primario btn-grande" href="#/clienta/${cl.id}/editar">Completar domicilio</a>`
+      : `<form id="f-sky" class="formulario" novalidate>
+        <h3 class="seccion">Paquete · ${prendas} ${prendas === 1 ? 'prenda' : 'prendas'}</h3>
+        <p class="nota">El peso y las medidas son un estimado. <b>Corrígelos con lo que marquen la báscula y la cinta</b>: de eso depende el precio.</p>
+        <label>Peso (kg)<input name="peso_kg" type="number" step="0.1" min="1" max="70" inputmode="decimal" required></label>
+        <div class="tres">
+          <label>Largo (cm)<input name="largo" type="number" step="1" min="1" max="200" inputmode="numeric" required></label>
+          <label>Ancho (cm)<input name="ancho" type="number" step="1" min="1" max="200" inputmode="numeric" required></label>
+          <label>Alto (cm)<input name="alto" type="number" step="1" min="1" max="200" inputmode="numeric" required></label>
+        </div>
+        <button class="btn btn-primario btn-grande" type="submit">Cotizar envío</button>
+      </form>
+      <div id="sky-resultado"></div>`}`;
+  if (faltan.length) return;
+  const f = $('#f-sky'), zona = $('#sky-resultado');
+  const turno = turnoRender;
+  const sigoAqui = () => turno === turnoRender && document.body.contains(f);
+  // Estimado de peso y medidas, y si Skydrop ya está conectado
+  store.envioSugerido(a.id).catch(() => null).then(v => {
+    if (!sigoAqui()) return;
+    const d = v || { peso_kg: Math.max(1, Math.ceil(prendas * 0.2 + 0.5)), largo: 40, ancho: 30, alto: 30 };
+    ['peso_kg', 'largo', 'ancho', 'alto'].forEach(k => { if (!f[k].value) f[k].value = d[k]; });
+  });
+  store.skydrop('estado').then(e => {
+    if (!sigoAqui() || e.listo) return;
+    f.hidden = true;
+    zona.innerHTML = `<div class="banner banner-aviso">${IC.alerta}<span><b>Skydrop todavía no está conectado a Cajas.</b><br><small>Falta que una Dueña guarde las credenciales de Skydrop. Mientras, genera la guía en Skydrop y anótala a mano.</small></span></div>`;
+  }).catch(() => {});
+  const limpiar = () => { zona.innerHTML = ''; };
+  ['peso_kg', 'largo', 'ancho', 'alto'].forEach(k => { f[k].oninput = limpiar; });
+
+  f.onsubmit = async ev => {
+    ev.preventDefault();
+    const d = Object.fromEntries(['peso_kg', 'largo', 'ancho', 'alto'].map(k => [k, Number(f[k].value)]));
+    if (!(d.peso_kg >= 1 && d.peso_kg <= 70)) { toast('Escribe el peso en kilos (de 1 a 70).', 'error'); f.peso_kg.focus(); return; }
+    if (!['largo', 'ancho', 'alto'].every(k => d[k] >= 1 && d[k] <= 200)) { toast('Escribe las tres medidas en centímetros.', 'error'); return; }
+    const r = await accion(() => store.skydrop('cotizar', { asignacion: a.id, ...d }), 'Cotizando con las paqueterías…');
+    if (!r || !sigoAqui()) return;
+    zona.innerHTML = `
+      <h3 class="seccion">Elige la paquetería</h3>
+      ${r.saldo != null ? `<p class="nota">Saldo en Skydrop: <b>${dinero(r.saldo)}</b></p>` : ''}
+      <div class="lista">${r.tarifas.map((t, i) => `<button type="button" class="sky-tarifa" data-tarifa="${i}">
+        <span><b>${esc(t.paqueteria)}</b><small>${esc(t.servicio)}${t.dias ? ` · llega en ${t.dias} ${t.dias === 1 ? 'día' : 'días'}` : ''}</small></span>
+        <b>${dinero(t.total)}</b></button>`).join('')}</div>
+      <p class="nota">De la más barata a la más cara. El precio se respeta 24 horas; si cambias peso o medidas, cotiza de nuevo.</p>`;
+    zona.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $$('[data-tarifa]', zona).forEach(b => {
+      b.onclick = async () => {
+        const t = r.tarifas[+b.dataset.tarifa];
+        if (r.saldo != null && r.saldo < t.total) {
+          await modal({ titulo: 'No alcanza el saldo', html: `<p>Esta guía cuesta <b>${dinero(t.total)}</b> y en Skydrop hay <b>${dinero(r.saldo)}</b>.</p><p>Recarga saldo en Skydrop y vuelve a cotizar.</p>` });
+          return;
+        }
+        const si = await confirmar(`<b>${esc(t.paqueteria)} · ${esc(t.servicio)}</b>${t.dias ? ` · llega en ${t.dias} ${t.dias === 1 ? 'día' : 'días'}` : ''}<br>
+          <span class="sky-precio">${dinero(t.total)}</span><br>
+          Para <b>${esc(nombreCompleto(cl))}</b><br><small>${esc(direccion(cl))}</small><br><br>
+          Paquete de <b>${d.peso_kg} kg</b>, ${d.largo}×${d.ancho}×${d.alto} cm.<br><br>
+          Se descuenta del saldo de Skydrop en cuanto confirmes.`, { titulo: '¿Comprar esta guía?', si: 'Sí, comprar guía', no: 'Todavía no' });
+        if (!si) return;
+        espera.mostrar('Comprando la guía… no cierres esta pantalla');
+        let error = null;
+        try { await store.skydrop('comprar', { envio: r.envio, tarifa: t.id, total: t.total }); } catch (e) { console.error(e); error = e; }
+        D.cargado = 0;
+        await refrescar(true).catch(() => {});
+        espera.ocultar();
+        if (!error) { toast('Guía comprada. Ábrela para imprimirla.'); ir(`salida/${a.id}`); return; }
+        toast(traducirError(error), 'error');
+        if (envioDe(a)) ir(`salida/${a.id}`);         // quedó en proceso: se revisa desde "Por enviar"
+        else limpiar();                              // no se compró: hay que cotizar de nuevo
+      };
+    });
+  };
+}
 function conectarGuia(a, id) {
   const hacer = async (texto, fn, ok) => {
     const r = await accion(async () => { await fn(); D.cargado = 0; await refrescar(true); return true; }, texto);
     if (r) { toast(ok); navegar(); }
   };
+  $$('[data-sky]').forEach(b => {
+    b.onclick = async () => {
+      const e = envioDe(a);
+      if (!e) return;
+      if (b.dataset.sky === 'revisar') {
+        const r = await accion(async () => { const x = await store.skydrop('revisar', { envio: e.id }).catch(err => err); D.cargado = 0; await refrescar(true); if (x instanceof Error) throw x; return x; }, 'Revisando con Skydrop…');
+        if (r !== undefined) toast(r.envio && r.envio.estado === 'comprada' ? 'Listo: ya está la guía.' : 'Skydrop todavía no entrega la guía. Revisa en un momento.');
+        navegar();
+        return;
+      }
+      if (!(await confirmar(`Se cancela en Skydrop la guía <b>${esc([e.paqueteria, e.guia].filter(Boolean).join(' '))}</b> (${dinero(e.costo)}).<br><br>Skydrop regresa el saldo si la paquetería acepta la cancelación. <b>No uses esa guía</b> después de cancelarla.`, { titulo: '¿Cancelar la guía?', si: 'Sí, cancelar guía', no: 'No', peligro: true }))) return;
+      const ok = await accion(async () => { await store.skydrop('cancelar', { envio: e.id }); D.cargado = 0; await refrescar(true); return true; }, 'Cancelando en Skydrop…');
+      if (ok) { toast('Guía cancelada.'); navegar(); }
+    };
+  });
   $$('[data-guia]').forEach(b => {
     b.onclick = async () => {
       const que = b.dataset.guia;
@@ -2297,13 +2507,13 @@ function formEnvio(id) {
         <input type="file" accept="image/*" capture="environment" id="foto" hidden>
         <span id="foto-vista">${IC.foto}<b>Tomar foto de la guía de paquetería</b><small>Obligatoria. Queda guardada en el historial.</small></span>
       </label>
-      <label>Paquetería<select name="paqueteria" required><option value="">Selecciona…</option>${PAQUETERIAS.map(p => `<option ${a.paqueteria === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
+      <label>Paquetería<select name="paqueteria" required><option value="">Selecciona…</option>${opcionesPaqueteria(a.paqueteria)}</select></label>
       <label>Número de guía<input name="guia" autocomplete="off" inputmode="text" value="${esc(a.guia || '')}"></label>
       <div class="dos">
-        <label>Peso (kg)<input name="peso_kg" type="number" step="0.01" min="0" inputmode="decimal"></label>
-        <label>Medidas (cm)<input name="medidas" placeholder="40×30×20"></label>
+        <label>Peso (kg)<input name="peso_kg" type="number" step="0.01" min="0" inputmode="decimal" value="${a.peso_kg ?? ''}"></label>
+        <label>Medidas (cm)<input name="medidas" placeholder="40×30×20" value="${esc(a.medidas || '')}"></label>
       </div>
-      <label>Costo de envío<input name="costo_envio" type="number" step="0.01" min="0" inputmode="decimal" placeholder="$0.00"></label>
+      <label>Costo de envío<input name="costo_envio" type="number" step="0.01" min="0" inputmode="decimal" placeholder="$0.00" value="${a.costo_envio ?? ''}"></label>
       <label>Notas<textarea name="notas_envio" rows="2"></textarea></label>
       <button class="btn btn-primario btn-grande" type="submit">${IC.camion} ${suelto ? 'Confirmar envío' : 'Confirmar envío y liberar caja'}</button>
       <p class="nota centro">La clienta y sus pedidos quedan en su historial.${suelto ? '' : ` La caja ${esc(id)} quedará libre para usarse de nuevo.`}</p>
