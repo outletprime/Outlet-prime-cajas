@@ -406,24 +406,40 @@ input[type="checkbox"] { width: 22px; min-height: 22px; height: 22px; accent-col
   body { background: #fff; }
   #zona-impresion { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 6mm; }
   .etiqueta { display: flex; flex-direction: column; align-items: center; padding: 4mm; border: 1px dashed #aaa; break-inside: avoid; color: #000; }
-  #zona-impresion.notas { display: block !important; color: #000; font-size: 11pt; }
-  .nota-imp { break-inside: avoid; padding: 5mm 2mm 6mm; border-bottom: 1px dashed #888; }
-  .nota-imp:last-child { border-bottom: 0; }
-  .nota-imp-cabeza { display: flex; justify-content: space-between; align-items: center; gap: 6mm; margin-bottom: 3mm; }
-  .nota-imp-cabeza img { width: 30mm; height: auto; }
-  .nota-imp-cabeza div { text-align: right; }
-  .nota-imp h2 { margin: 0; font-size: 15pt; }
-  .nota-imp h3 { margin: 0 0 1mm; font-size: 14pt; }
-  .nota-imp p { margin: 0 0 1.5mm; }
-  .nota-imp table { width: 100%; border-collapse: collapse; margin: 2mm 0; }
-  .nota-imp th, .nota-imp td { text-align: left; padding: 1.2mm 1mm; border-bottom: 1px solid #ccc; }
-  .nota-imp th:nth-child(n+2), .nota-imp td:nth-child(n+2) { text-align: right; }
-  .nota-imp tfoot td { border-bottom: 0; font-weight: 700; font-size: 13pt; }
-  .nota-imp-claves { font-size: 12pt; letter-spacing: .3px; }
-  .nota-imp-sello { display: inline-block; margin-top: 2mm; padding: 1.2mm 4mm; border: 2.5px solid #000; border-radius: 2mm; font-size: 15pt; font-weight: 800; letter-spacing: 1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .nota-imp-sello.pagado { color: #2f7d4f; border-color: #2f7d4f; }
-  .nota-imp-sello.cobrar { color: #ce091e; border-color: #ce091e; }
-  .nota-imp-resumen { padding: 5mm 2mm; font-size: 13pt; font-weight: 700; text-align: right; }
+  #zona-impresion.notas { display: block !important; color: #111; font-size: 10.5pt; line-height: 1.3; }
+  /* Cada nota es una hoja: la tabla de afuera repite un espacio arriba y abajo en cada página */
+  .ni-hoja { width: 100%; border-collapse: collapse; break-after: page; }
+  .ni-hoja:last-of-type { break-after: auto; }
+  .ni-hoja > thead > tr > td, .ni-hoja > tfoot > tr > td { height: 11mm; padding: 0; border: 0; }
+  .ni-hoja > tbody > tr > td { padding: 0 14mm; border: 0; vertical-align: top; }
+  .ni-cabeza { display: flex; justify-content: space-between; align-items: center; gap: 8mm; padding-bottom: 4mm; border-bottom: 2.5px solid #ce091e; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ni-cabeza img { width: 42mm; height: auto; }
+  .ni-titulo { text-align: right; }
+  .ni-titulo h2 { margin: 0 0 1mm; font-size: 19pt; letter-spacing: .5px; }
+  .ni-titulo p { margin: 0; font-size: 10pt; color: #444; }
+  .ni-datos { display: grid; grid-template-columns: 1.4fr 1fr; gap: 3mm 8mm; margin: 5mm 0 5mm; }
+  .ni-datos small { display: block; font-size: 7.5pt; letter-spacing: .6px; color: #666; text-transform: uppercase; }
+  .ni-datos b { font-size: 12pt; }
+  .ni-datos .ni-cliente b { font-size: 15pt; }
+  .ni-columnas { display: flex; align-items: flex-start; gap: 9mm; }
+  .ni-columnas .ni-tabla { flex: 1; }
+  .ni-tabla { width: 100%; border-collapse: collapse; }
+  .ni-tabla th { text-align: left; font-size: 8pt; letter-spacing: .6px; text-transform: uppercase; color: #333; padding: 1.6mm 2mm; border-top: 1.5px solid #111; border-bottom: 1.5px solid #111; }
+  .ni-tabla td { padding: 0.9mm 2mm; border-bottom: 0.6px solid #c9c9c9; line-height: 1.2; }
+  .ni-tabla tr { break-inside: avoid; }
+  .ni-tabla .ni-num { width: 11mm; color: #666; }
+  .ni-tabla .ni-clave { width: 30mm; font-weight: 700; font-size: 11.5pt; letter-spacing: .4px; }
+  .ni-tabla .ni-imp { text-align: right; width: 26mm; }
+  .ni-cierre { display: flex; justify-content: space-between; align-items: flex-start; gap: 8mm; margin-top: 5mm; break-inside: avoid; }
+  .ni-pago small { display: block; margin-top: 1.5mm; font-size: 9pt; color: #333; }
+  .ni-sello { display: inline-block; padding: 1.4mm 6mm; border: 3px solid #2f7d4f; border-radius: 2.5mm; color: #2f7d4f; font-size: 18pt; font-weight: 800; letter-spacing: 2px; transform: rotate(-4deg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ni-total { border-collapse: collapse; min-width: 68mm; }
+  .ni-total td { padding: 1.2mm 2mm; }
+  .ni-total td:last-child { text-align: right; }
+  .ni-total .ni-grande td { border-top: 1.5px solid #111; border-bottom: 1.5px solid #111; font-size: 15pt; font-weight: 800; padding: 2mm; }
+  .ni-gracias { margin: 9mm 0 0; padding-top: 3mm; border-top: 0.6px solid #c9c9c9; text-align: center; font-size: 10.5pt; font-weight: 700; break-inside: avoid; }
+  .ni-gracias small { display: block; font-weight: 400; font-size: 8.5pt; color: #555; margin-top: .8mm; }
+  .nota-imp-resumen { padding: 11mm 14mm; font-size: 12pt; font-weight: 700; text-align: right; }
   .etiqueta img { width: 38mm; height: auto; margin-bottom: 2mm; }
   .etiqueta svg { width: 46mm; height: 46mm; }
   .etiqueta b { font: 800 28pt -apple-system, Helvetica, Arial, sans-serif; margin-top: 2mm; }
@@ -1764,7 +1780,8 @@ function datosNotaPedido(p) {
   const info = [['Fecha', dia(p.fecha)], ['Caja de resguardo', p.caja || '—']];
   const diaCorto = t => new Date(t).toLocaleDateString('es-MX', { ...zona, day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '');
   if (v) {
-    info.push(['Tipo', 'Venta privada'], ['Pago', v.estado === 'pagada' ? `Pagado · ${diaCorto(v.pagada_en)}` : 'Por cobrar']);
+    info.push(['Tipo', 'Venta privada']);
+    if (v.estado === 'pagada') info.push(['Pago', `Pagado · ${diaCorto(v.pagada_en)}`]);
     if (v.estado === 'pagada' && v.referencia) info.push(['Referencia del pago', v.referencia]);
   } else if (resto) info.push(['Detalle', resto]);
   return {
@@ -1806,7 +1823,7 @@ function pdfNotaPedido(n, jsPDF, logo) {
   let y = 205;
   doc.setFontSize(9.5); doc.setTextColor(GRIS); doc.text('CLIENTA', M, y);
   // Sello con el estado del pago, a la derecha del nombre
-  const sello = n.estado === 'pagada' ? ['PAGADO', VERDE] : n.estado === 'por_cobrar' ? ['POR COBRAR', ROJO] : null;
+  const sello = n.estado === 'pagada' ? ['PAGADO', VERDE] : null;   // sin pago confirmado, la nota no lleva sello
   let anchoSello = 0;
   if (sello) {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
@@ -1921,24 +1938,33 @@ const PUEDE_IMPRIMIR_NOTA = () => ['duena', 'supervisor'].includes(ROL);
 const botonImprimirTodos = (a, pedidos) => PUEDE_IMPRIMIR_NOTA() && pedidos.length > 1
   ? `<div class="acciones"><button class="btn btn-secundario" data-imprimir-todos="${a.id}">Imprimir todos los pedidos (${pedidos.length})</button></div>` : '';
 function htmlNotaPedido(p) {
-  const cl = idx.clienta(p.clienta_id);
-  const items = p.items || [];
-  // Los pedidos del live traen en sus notas "… · folio OP-012 · piezas AB10, AB12": las claves van aparte y grandes
-  const partes = String(p.notas || '').split(' · ');
-  const claves = (partes.find(x => /^piezas /.test(x)) || '').replace(/^piezas /, '');
-  const resto = partes.filter(x => x && !/^piezas /.test(x)).join(' · ');
-  return `<div class="nota-imp">
-    <div class="nota-imp-cabeza"><img src="icons/logo-claro.png" alt=""><div><h2>Nota de pedido</h2><small>${fechaHora(p.fecha)}</small>
-      ${estadoPagoPedido(p) ? `<br><span class="nota-imp-sello ${estadoPagoPedido(p) === 'pagada' ? 'pagado' : 'cobrar'}">${estadoPagoPedido(p) === 'pagada' ? 'PAGADO' : 'POR COBRAR'}</span>` : ''}</div></div>
-    <h3>${esc(nombreCompleto(cl))}</h3>
-    <p>Caja ${esc(p.caja || '—')}${resto ? ` · ${esc(resto)}` : ''}</p>
-    ${items.length ? `<table><thead><tr><th>Prendas</th><th>Cant.</th><th>Precio</th><th>Importe</th></tr></thead>
-      <tbody>${items.map(i => `<tr><td>${esc(i.nombre)}</td><td>${i.cantidad}</td><td>${dinero(i.precio)}</td><td>${dinero(i.precio * i.cantidad)}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td>Total</td><td>${p.prendas}</td><td></td><td>${dinero(p.total)}</td></tr></tfoot></table>`
-      : `<p><b>${p.prendas} ${p.prendas === 1 ? 'prenda' : 'prendas'} · Total ${dinero(p.total)}</b></p>`}
-    ${claves ? `<p class="nota-imp-claves"><b>Claves:</b> ${esc(claves)}</p>` : ''}
-    ${ventaDe(p) && ventaDe(p).estado === 'pagada' ? `<p>Pagado el ${fechaHora(ventaDe(p).pagada_en)}${ventaDe(p).referencia ? ' · ' + esc(ventaDe(p).referencia) : ''}</p>` : ''}
-  </div>`;
+  const n = datosNotaPedido(p);
+  const v = ventaDe(p);
+  const pagada = n.estado === 'pagada';
+  const conPrecio = n.piezas.length && n.piezas[0].precio != null;
+  // Una clave por renglón; si el pedido no trae claves (o van a varios precios), el detalle por tipo de prenda
+  // Cada clave en su renglón. Para que la nota quepa en una hoja, los pedidos grandes van en 2 o 3 columnas.
+  const cols = n.piezas.length <= 16 ? 1 : n.piezas.length <= 34 ? 2 : 3;
+  const porCol = Math.ceil(n.piezas.length / cols);
+  const tablaClaves = c => `<table class="ni-tabla"><thead><tr><th>No.</th><th>Clave</th>${cols === 1 ? '<th>Descripción</th>' : ''}${conPrecio ? '<th class="ni-imp">Precio</th>' : ''}</tr></thead><tbody>${
+    n.piezas.slice(c * porCol, (c + 1) * porCol).map((z, i) => `<tr><td class="ni-num">${c * porCol + i + 1}</td><td class="ni-clave">${esc(z.clave)}</td>${cols === 1 ? '<td>Prenda</td>' : ''}${conPrecio ? `<td class="ni-imp">${dinero(z.precio)}</td>` : ''}</tr>`).join('')}</tbody></table>`;
+  const filasTipos = n.items.map((it, i) => `<tr><td class="ni-num">${i + 1}</td><td class="ni-clave">${it.cantidad}</td><td>${esc(it.nombre)}</td><td class="ni-imp">${dinero(it.importe)}</td></tr>`).join('');
+  const datos = n.info.filter(([k]) => k !== 'Fecha');
+  return `<table class="ni-hoja"><thead><tr><td></td></tr></thead><tfoot><tr><td></td></tr></tfoot><tbody><tr><td>
+    <div class="ni-cabeza"><img src="icons/logo-claro.png" alt="Outlet Prime">
+      <div class="ni-titulo"><h2>NOTA DE VENTA</h2><p>${esc(n.info[0][1])}</p></div></div>
+    <div class="ni-datos">
+      <div class="ni-cliente"><small>Cliente</small><b>${esc(n.clienta)}</b></div>
+      ${datos.map(([k, val]) => `<div><small>${esc(k)}</small><b>${esc(val)}</b></div>`).join('')}
+    </div>
+    ${n.piezas.length ? `<div class="ni-columnas">${Array.from({ length: cols }, (_, c) => tablaClaves(c)).join('')}</div>` : ''}
+    ${n.items.length ? `<table class="ni-tabla"${n.piezas.length ? ' style="margin-top:5mm"' : ''}><thead><tr><th>No.</th><th>Cant.</th><th>Descripción</th><th class="ni-imp">Importe</th></tr></thead><tbody>${filasTipos}</tbody></table>` : ''}
+    <div class="ni-cierre">
+      <div class="ni-pago">${pagada ? `<span class="ni-sello">PAGADO</span>${v && v.pagada_en ? `<small>Pagado el ${fechaHora(v.pagada_en)}${v.referencia ? ' · ' + esc(v.referencia) : ''}</small>` : ''}` : ''}</div>
+      <table class="ni-total"><tr><td>Prendas</td><td>${n.prendas}</td></tr><tr class="ni-grande"><td>TOTAL</td><td>${dinero(n.total)}</td></tr></table>
+    </div>
+    <p class="ni-gracias">¡Gracias por tu compra!<small>Outlet Prime · Ropa americana nueva con etiqueta</small></p>
+  </td></tr></tbody></table>`;
 }
 function imprimirNotas(pedidos) {
   pedidos = (pedidos || []).filter(Boolean).slice().sort((x, y) => (x.fecha < y.fecha ? -1 : 1));
@@ -1946,6 +1972,10 @@ function imprimirNotas(pedidos) {
   let area = $('#zona-impresion');
   if (!area) { area = document.createElement('div'); area.id = 'zona-impresion'; document.body.appendChild(area); }
   area.className = 'notas';
+  // Sin márgenes de página (el espacio lo dan las notas): así el navegador no imprime la dirección ni la fecha en la orilla
+  let hoja = $('#pagina-notas');
+  if (!hoja) { hoja = document.createElement('style'); hoja.id = 'pagina-notas'; document.head.appendChild(hoja); }
+  hoja.textContent = '@media print { @page { size: letter; margin: 0; } }';
   const r = resumenPedidos(pedidos);
   area.innerHTML = pedidos.map(htmlNotaPedido).join('')
     + (pedidos.length > 1 ? `<div class="nota-imp-resumen">${esc(nombreCompleto(idx.clienta(pedidos[0].clienta_id)))} · ${pedidos.length} pedidos · ${r.prendas} prendas · Total ${dinero(r.total)}</div>` : '');
@@ -3140,6 +3170,8 @@ function imprimirEtiquetas(codigos) {
   let area = $('#zona-impresion');
   if (!area) { area = document.createElement('div'); area.id = 'zona-impresion'; document.body.appendChild(area); }
   area.className = '';
+  const hojaNotas = $('#pagina-notas');
+  if (hojaNotas) hojaNotas.textContent = '';   // las etiquetas de cajas sí llevan los márgenes normales
   area.innerHTML = codigos.map(c => `<div class="etiqueta"><img src="icons/logo-claro.png" alt="">${qrSVG(textoQR(c), 300)}<b>${esc(c)}</b></div>`).join('');
   setTimeout(() => window.print(), 100);
 }
