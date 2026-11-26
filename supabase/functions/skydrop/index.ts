@@ -1,6 +1,7 @@
 // Guías con Skydrop (API oficial de Skydropx PRO) para la app de Cajas.
 // Flujo: el Supervisor (o una Dueña) pesa, mide y cotiza → se avisa a las Dueñas → una Dueña elige la
-// paquetería y compra (descuenta saldo de Skydrop) → se avisa al Supervisor para que imprima la guía.
+// paquetería y compra (descuenta saldo de Skydrop) → la guía se imprime sola en la tienda (si el impresor
+// está apagado, se avisa al Supervisor para que la imprima). Con saldo bajo se avisa a las Dueñas.
 // Cotizar es gratis y no compromete nada. Comprar y cancelar solo lo hace una Dueña.
 //
 // Secretos (Supabase → Edge Functions → Secrets): SKYDROP_CLIENT_ID y SKYDROP_CLIENT_SECRET
@@ -112,9 +113,16 @@ async function origen(adm: SupabaseClient, cfg: Cfg): Promise<Record<string, str
   await adm.from('envios_config').update({ origen: o, actualizado_en: new Date().toISOString() }).eq('id', true);
   return o;
 }
+// Consulta el saldo y, si ya está bajo, avisa a las Dueñas con la sugerencia de recarga
+let admSaldo: SupabaseClient | null = null;
 async function saldo(): Promise<{ saldo: number | null; moneda: string }> {
   const r = await sky('GET', '/api/v1/finance/credits');
-  return { saldo: r.ok && r.d.data ? Number(r.d.data.balance) : null, moneda: (r.ok && r.d.data && r.d.data.currency) || 'MXN' };
+  const s = r.ok && r.d.data && r.d.data.balance != null ? Number(r.d.data.balance) : null;
+  if (s != null && Number.isFinite(s) && admSaldo) {
+    const { error } = await admSaldo.rpc('envios_saldo_aviso', { p_saldo: s });
+    if (error) console.error('aviso de saldo:', error.message);
+  }
+  return { saldo: s, moneda: (r.ok && r.d.data && r.d.data.currency) || 'MXN' };
 }
 
 // ---------- Cotizar ----------
@@ -257,6 +265,7 @@ Deno.serve(async req => {
 
   try {
     const cfg = await config(adm);
+    admSaldo = adm;
 
     // Diagnóstico al instalar (sin cuenta de persona): solo consultas y cotización suelta, nunca compra.
     const llave = req.headers.get('x-llave-prueba') || '';
