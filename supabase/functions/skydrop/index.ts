@@ -1,6 +1,7 @@
 // Guías con Skydrop (API oficial de Skydropx PRO) para la app de Cajas.
-// Cotizar es gratis y no compromete nada. Comprar la guía descuenta saldo de Skydrop:
-// solo ocurre cuando una Dueña o el Supervisor lo confirma en la pantalla.
+// Flujo: el Supervisor (o una Dueña) pesa, mide y cotiza → se avisa a las Dueñas → una Dueña elige la
+// paquetería y compra (descuenta saldo de Skydrop) → se avisa al Supervisor para que imprima la guía.
+// Cotizar es gratis y no compromete nada. Comprar y cancelar solo lo hace una Dueña.
 //
 // Secretos (Supabase → Edge Functions → Secrets): SKYDROP_CLIENT_ID y SKYDROP_CLIENT_SECRET
 // (Skydrop → Conexiones → API). Opcional SKYDROP_HOST para apuntar al ambiente de pruebas.
@@ -17,7 +18,8 @@ const json = (cuerpo: unknown, status = 200) =>
 const HOST = (Deno.env.get('SKYDROP_HOST') || 'https://api-pro.skydropx.com').replace(/\/+$/, '');
 const ID = Deno.env.get('SKYDROP_CLIENT_ID') ?? '';
 const SECRETO = Deno.env.get('SKYDROP_CLIENT_SECRET') ?? '';
-const PUEDEN = ['duena', 'supervisor'];
+const PUEDEN = ['duena', 'supervisor'];      // cotizar y revisar
+const AUTORIZA = 'duena';                    // comprar y cancelar
 const HORAS_TARIFA = 23;            // Skydrop respeta el precio 24 horas
 
 class Aviso extends Error {
@@ -232,12 +234,12 @@ async function guardarCompra(adm: SupabaseClient, fila: any, e: ReturnType<typeo
     }).eq('id', fila.asignacion_id).neq('estado', 'enviada');
   }
   if (e.etiqueta && fila.estado !== 'comprada') {
-    // Aviso a las Dueñas: se gastó saldo de Skydrop
+    // Aviso al Supervisor: la guía ya está comprada y lista para imprimir
     await adm.from('avisos').insert({
       tipo: 'caja', clave: `guia-comprada:${fila.id}`,
-      titulo: `🧾 Guía comprada · ${corto((fila.destino && fila.destino.company) || '', 40)}`,
-      cuerpo: corto(`${nueva.paqueteria || ''} ${nueva.servicio || ''} · $${Number(nueva.costo || 0).toFixed(2)} · guía ${nueva.guia || ''} · la compró ${String(quien).split('@')[0]}`, 180),
-      url: `index.html#/salida/${fila.asignacion_id}`, para_rol: 'duena',
+      titulo: `🖨️ Guía lista para imprimir · ${corto((fila.destino && fila.destino.company) || '', 40)}`,
+      cuerpo: corto(`${nueva.paqueteria || ''} ${nueva.servicio || ''} · guía ${nueva.guia || ''} · $${Number(nueva.costo || 0).toFixed(2)} · la autorizó ${String(quien).split('@')[0]}. Ábrela en Cajas → Falta guía.`, 200),
+      url: `index.html#/salida/${fila.asignacion_id}`, para_rol: 'supervisor',
     });
   }
   return nueva;
@@ -277,7 +279,7 @@ Deno.serve(async req => {
       global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } }, auth: { persistSession: false },
     });
     const { data: rol } = await sb.rpc('mi_rol');
-    if (!rol || !PUEDEN.includes(rol)) return json({ error: 'SIN_PERMISO', mensaje: 'Solo el Supervisor o una Dueña pueden cotizar y comprar guías.' });
+    if (!rol || !PUEDEN.includes(rol)) return json({ error: 'SIN_PERMISO', mensaje: 'Solo el Supervisor o una Dueña pueden cotizar guías.' });
     const { data: u } = await sb.auth.getUser();
     const quien = corto(c.usuario, 80) || (u && u.user && u.user.email) || rol;
 
@@ -300,10 +302,20 @@ Deno.serve(async req => {
         peso_kg: p.peso_kg, largo: p.largo, ancho: p.ancho, alto: p.alto, destino: para, cotizada_por: quien,
       }).select('id').single();
       if (error) throw error;
+      await adm.from('envios_skydrop').delete().eq('asignacion_id', a.id).eq('estado', 'cotizada').neq('id', fila.id);
+      if (rol !== AUTORIZA) {
+        await adm.from('avisos').insert({
+          tipo: 'caja', clave: `guia-autorizar:${fila.id}`,
+          titulo: `🧾 Guía por autorizar · ${corto(para.company, 40)}`,
+          cuerpo: corto(`${q.tarifas.length} ${q.tarifas.length === 1 ? 'opción' : 'opciones'} desde $${q.tarifas[0].total.toFixed(2)} · ${p.peso_kg} kg, ${p.largo}×${p.ancho}×${p.alto} cm · cotizó ${String(quien).split('@')[0]}. Elige la paquetería en Cajas.`, 200),
+          url: `index.html#/salida/${a.id}`, para_rol: AUTORIZA,
+        });
+      }
       return json({ envio: fila.id, tarifas: q.tarifas, completa: q.completa, ...(await saldo()) });
     }
 
     if (accion === 'comprar') {
+      if (rol !== AUTORIZA) throw new Aviso('SOLO_DUENA', 'La compra de la guía la autoriza una Dueña.');
       const { data: fila } = await adm.from('envios_skydrop').select('*').eq('id', String(c.envio || '')).maybeSingle();
       if (!fila) throw new Aviso('NO_EXISTE', 'Esa cotización ya no existe. Cotiza de nuevo.');
       const t = (fila.tarifas || []).find((x: any) => x.id === String(c.tarifa || ''));
@@ -372,6 +384,7 @@ Deno.serve(async req => {
     }
 
     if (accion === 'cancelar') {
+      if (rol !== AUTORIZA) throw new Aviso('SOLO_DUENA', 'Solo una Dueña puede cancelar una guía comprada.');
       const { data: fila } = await adm.from('envios_skydrop').select('*').eq('id', String(c.envio || '')).maybeSingle();
       if (!fila || fila.estado !== 'comprada' || !fila.envio_id) throw new Aviso('NO_EXISTE', 'No hay una guía comprada que cancelar.');
       const { data: a } = await adm.from('asignaciones').select('estado, guia').eq('id', fila.asignacion_id).maybeSingle();
@@ -380,7 +393,7 @@ Deno.serve(async req => {
       if (!r.ok || r.d.success === false) throw new Aviso('SKYDROP', `Skydrop no aceptó la cancelación: ${errorSky(r)}`);
       await adm.from('envios_skydrop').update({ estado: 'cancelada', cancelada_en: new Date().toISOString(), cancelada_por: quien }).eq('id', fila.id);
       if (a && a.guia === fila.guia) {
-        await adm.from('asignaciones').update({ paqueteria: null, guia: null, costo_envio: null, guia_pegada_en: null, guia_pegada_por: null, entrega: null })
+        await adm.from('asignaciones').update({ paqueteria: null, guia: null, costo_envio: null, guia_impresa_en: null, guia_impresa_por: null, guia_pegada_en: null, guia_pegada_por: null, entrega: null })
           .eq('id', fila.asignacion_id).neq('estado', 'enviada');
       }
       return json({ cancelada: true, estado_skydrop: r.d.status || null, ...(await saldo()) });

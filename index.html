@@ -291,6 +291,9 @@ input[type="checkbox"] { width: 22px; min-height: 22px; height: 22px; accent-col
 .sky-tarifa > b { font-size: 20px; white-space: nowrap; }
 .sky-tarifa:active { background: var(--superficie-2); }
 .sky-precio { display: inline-block; margin: 6px 0; font-size: 30px; font-weight: 800; }
+.sky-mano { margin: 2px 0 6px; }
+.sky-mano summary { cursor: pointer; padding: 8px 0; color: var(--texto-2); font-size: 14px; }
+.guia-paso .lista { margin: 4px 0; }
 .en-linea { display: flex; gap: 10px; align-items: flex-end; margin-top: 12px; }
 .en-linea label { flex: 1; }
 .interruptor { display: flex; align-items: center; gap: 10px; font-weight: 500; color: var(--texto); }
@@ -496,7 +499,9 @@ class LocalStore {
   guiaCaja(id, que, datos = {}) {
     const ahora = new Date().toISOString();
     // Al marcar la salida (guía o recoger en tienda) la caja queda libre: la asignación pasa a 'por_entregar'
-    const regresa = { estado: 'activa', enviada_en: null, enviada_por: null, paqueteria: null, lista_guia_en: null, lista_guia_por: null, lista_para: null };
+    const regresa = { estado: 'activa', enviada_en: null, enviada_por: null, paqueteria: null, lista_guia_en: null, lista_guia_por: null, lista_para: null, guia_impresa_en: null, guia_impresa_por: null };
+    if (que === 'impresa') return this.update('asignaciones', id, { guia_impresa_en: ahora, guia_impresa_por: usuario.nombre, ...(datos.paqueteria ? { paqueteria: datos.paqueteria } : {}), ...(datos.guia ? { guia: datos.guia } : {}) });
+    if (que === 'quitar-impresa') return this.update('asignaciones', id, { guia_impresa_en: null, guia_impresa_por: null });
     if (que === 'lista') return this.update('asignaciones', id, { estado: 'por_entregar', lista_guia_en: ahora, lista_guia_por: usuario.nombre, lista_para: 'guia' });
     if (que === 'tienda') return this.update('asignaciones', id, { estado: 'por_entregar', lista_guia_en: ahora, lista_guia_por: usuario.nombre, lista_para: 'tienda', paqueteria: null, guia: null });
     if (que === 'entregada-tienda') return this.update('asignaciones', id, { estado: 'enviada', enviada_en: ahora, enviada_por: usuario.nombre, paqueteria: 'Recoge en tienda', lista_para: 'tienda', recogida_en: ahora, recogida_por: usuario.nombre, notas_envio: 'Entregada a la clienta en tienda' });
@@ -506,37 +511,34 @@ class LocalStore {
   }
   // Skydrop de mentiras para la vista previa: no cotiza ni compra nada de verdad
   async enviosSkydrop() { return this._envios || []; }
-  async envioSugerido(asignacion) {
-    const prendas = resumenPedidos(idx.pedidosDe(asignacion)).prendas;
-    return { prendas, peso_kg: Math.max(1, Math.ceil(prendas * 0.2 + 0.5)), largo: 40, ancho: 30, alto: 30 };
-  }
   async skydrop(accion, datos = {}) {
     await new Promise(r => setTimeout(r, 500));
     this._envios = this._envios || [];
     if (accion === 'estado') return { listo: true, saldo: 1500, moneda: 'MXN' };
     if (accion === 'cotizar') {
-      this._tarifas = [
+      const tarifas = [
         { id: 't1', paqueteria: 'FedEx', servicio: 'Económico', dias: 3, total: 245 },
         { id: 't2', paqueteria: 'Estafeta', servicio: 'Terrestre', dias: 4, total: 262.5 },
         { id: 't3', paqueteria: 'DHL', servicio: 'Express', dias: 1, total: 318 },
         { id: 't4', paqueteria: 'FedEx', servicio: 'Día siguiente', dias: 1, total: 1890 },
       ];
-      this._cotizado = datos;
-      return { envio: 'demo', tarifas: this._tarifas, completa: true, saldo: 1500, moneda: 'MXN' };
+      const c = { id: 'demo-' + Date.now(), asignacion_id: datos.asignacion, estado: 'cotizada', tarifas, peso_kg: datos.peso_kg, largo: datos.largo, ancho: datos.ancho, alto: datos.alto,
+        cotizada_en: new Date().toISOString(), cotizada_por: usuario.nombre };
+      this._envios = [c, ...this._envios.filter(x => !(x.asignacion_id === datos.asignacion && x.estado === 'cotizada'))];
+      return { envio: c.id, tarifas, completa: true, saldo: 1500, moneda: 'MXN' };
     }
     if (accion === 'comprar') {
-      const t = this._tarifas.find(x => x.id === datos.tarifa);
-      const c = this._cotizado;
-      const e = { id: 'demo-' + Date.now(), asignacion_id: c.asignacion, estado: 'comprada', paqueteria: t.paqueteria, servicio: t.servicio, dias: t.dias, costo: t.total,
-        guia: '7946 0000 1111', etiqueta_url: 'https://example.com/guia.pdf', rastreo_url: '', comprada_en: new Date().toISOString(), comprada_por: usuario.nombre };
-      this._envios.push(e);
-      await this.update('asignaciones', c.asignacion, { paqueteria: t.paqueteria, guia: e.guia, costo_envio: t.total, peso_kg: c.peso_kg, medidas: `${c.largo}×${c.ancho}×${c.alto}` });
+      const e = this._envios.find(x => x.id === datos.envio);
+      const t = e.tarifas.find(x => x.id === datos.tarifa);
+      Object.assign(e, { estado: 'comprada', paqueteria: t.paqueteria, servicio: t.servicio, dias: t.dias, costo: t.total,
+        guia: '7946 0000 1111', etiqueta_url: 'https://example.com/guia.pdf', rastreo_url: '', comprada_en: new Date().toISOString(), comprada_por: usuario.nombre });
+      await this.update('asignaciones', e.asignacion_id, { paqueteria: t.paqueteria, guia: e.guia, costo_envio: t.total, peso_kg: e.peso_kg, medidas: `${e.largo}×${e.ancho}×${e.alto}` });
       return { envio: e, saldo: 1500 - t.total };
     }
     if (accion === 'cancelar') {
       const e = this._envios.find(x => x.id === datos.envio);
       this._envios = this._envios.filter(x => x !== e);
-      if (e) await this.update('asignaciones', e.asignacion_id, { paqueteria: null, guia: null, costo_envio: null });
+      if (e) await this.update('asignaciones', e.asignacion_id, { paqueteria: null, guia: null, costo_envio: null, guia_impresa_en: null, guia_impresa_por: null });
       return { cancelada: true };
     }
     return {};
@@ -656,15 +658,10 @@ class SupaStore {
   // Guías con Skydrop: las cotiza y compra la función "skydrop"; aquí solo se leen las guías vivas
   async enviosSkydrop() {
     const { data, error } = await this.sb.from('envios_skydrop')
-      .select('id, asignacion_id, estado, paqueteria, servicio, dias, costo, guia, etiqueta_url, rastreo_url, comprada_en, comprada_por')
-      .in('estado', ['comprando', 'comprada']);
+      .select('id, asignacion_id, estado, tarifas, peso_kg, largo, ancho, alto, paqueteria, servicio, dias, costo, guia, etiqueta_url, rastreo_url, cotizada_en, cotizada_por, comprada_en, comprada_por')
+      .in('estado', ['cotizada', 'comprando', 'comprada']).order('cotizada_en', { ascending: false });
     if (error) throw error;
     return data || [];
-  }
-  async envioSugerido(asignacion) {
-    const { data, error } = await this.sb.rpc('envio_sugerido', { p_asignacion: asignacion });
-    if (error) throw error;
-    return data;
   }
   async skydrop(accion, datos = {}) {
     const { data, error } = await this.sb.functions.invoke('skydrop', { body: { accion, usuario: usuario.nombre, ...datos } });
@@ -689,6 +686,8 @@ class SupaStore {
       ? await this.sb.rpc('caja_entregada_en_tienda', { p_asignacion: id, p_usuario: usuario.nombre })
       : que === 'lista' || que === 'quitar-lista'
       ? await this.sb.rpc('caja_lista_para_guia', { p_asignacion: id, p_lista: que === 'lista', p_usuario: usuario.nombre })
+      : que === 'impresa' || que === 'quitar-impresa'
+      ? await this.sb.rpc('caja_guia_impresa', { p_asignacion: id, p_impresa: que === 'impresa', p_paqueteria: datos.paqueteria || null, p_guia: datos.guia || null, p_usuario: usuario.nombre })
       : await this.sb.rpc('caja_guia_pegada', { p_asignacion: id, p_entrega: que === 'quitar-pegada' ? null : que, p_paqueteria: datos.paqueteria || null, p_guia: datos.guia || null, p_usuario: usuario.nombre });
     if (error) throw error;
   }
@@ -1524,7 +1523,8 @@ function vistaCajas(query) {
     .map(([k, t]) => `<a href="#/cajas?f=${k}"><b>${porFiltro[k].length}</b> ${t}</a>`);
   const avisoTienda = salidas.length && !listaSalida ? `<div class="banner banner-aviso">${IC.cajas}<span><b>${salidas.length === 1 ? '1 pedido ya salió' : `${salidas.length} pedidos ya salieron`} de su caja y ${salidas.length === 1 ? 'falta' : 'faltan'} por entregar:</b> ${partes.join(' · ')}.</span></div>` : '';
   const NOTA_SALIDA = { tienda: 'Clientas que pasan por su pedido a la tienda.', guia: 'Pedidos por enviar a los que les falta generar y pegar la guía.', pegada: 'Pedidos con la guía pegada: falta marcarlos como enviados.' };
-  const CHIP_SALIDA = x => porRecoger(x) ? 'Por recoger' : x.guia_pegada_en ? `Guía pegada · ${x.entrega === 'sucursal' ? 'sucursal' : 'recolección'}` : 'Falta guía';
+  const PASO_CHIP = { impresa: 'Falta pegar la guía', comprada: 'Falta imprimir la guía', comprando: 'Comprando guía', cotizada: 'Falta autorizar la guía', sin: PUEDE_GUIA_PEGADA() ? 'Falta cotizar la guía' : 'Falta guía' };
+  const CHIP_SALIDA = x => porRecoger(x) ? 'Por recoger' : x.guia_pegada_en ? `Guía pegada · ${x.entrega === 'sucursal' ? 'llevar a paquetería' : 'la recogen'}` : PASO_CHIP[pasoGuia(x)];
   vista().innerHTML = `
     ${aviso}
     ${avisoTienda}
@@ -1660,21 +1660,36 @@ async function vistaSalida(asigId) {
 const opcionesPaqueteria = actual => [...PAQUETERIAS, ...(actual && !PAQUETERIAS.includes(actual) ? [actual] : [])]
   .map(p => `<option ${actual === p ? 'selected' : ''}>${esc(p)}</option>`).join('');
 const PUEDE_LISTA_GUIA = () => ['duena', 'operacion', 'live'].includes(ROL);
-const PUEDE_GUIA_PEGADA = () => ['duena', 'supervisor'].includes(ROL);
+const PUEDE_GUIA_PEGADA = () => ['duena', 'supervisor'].includes(ROL);          // cotizar la guía y marcarla impresa
+const PUEDE_AUTORIZAR_GUIA = () => ROL === 'duena';                             // elegir paquetería y comprar
+const PUEDE_PEGAR_GUIA = () => ['duena', 'supervisor', 'operacion'].includes(ROL);   // marcar la guía pegada
 const PUEDE_ENTREGAR_TIENDA = () => ['duena', 'operacion'].includes(ROL);
 const quienCorto = v => esc(String(v || '').split('@')[0]);
-const envioDe = a => (D.envios || []).find(e => e.asignacion_id === a.id);
+const HORAS_COTIZACION = 23;   // Skydrop respeta el precio 24 horas
+const envioDe = a => (D.envios || []).find(e => e.asignacion_id === a.id && e.estado !== 'cotizada');   // guía comprada o en proceso
+const cotizacionDe = a => (D.envios || []).find(e => e.asignacion_id === a.id && e.estado === 'cotizada');   // la más reciente
+const cotizacionVigente = c => !!c && Date.now() - new Date(c.cotizada_en).getTime() < HORAS_COTIZACION * 3600000;
 const urlSegura = u => (/^https:\/\//i.test(u || '') ? u : '');
-function htmlSkydrop(a) {
+const paqueteTxt = x => `${Number(x.peso_kg)} kg · ${x.largo}×${x.ancho}×${x.alto} cm`;
+const tarifaTxt = t => `${esc(t.servicio)}${t.dias ? ` · llega en ${t.dias} ${t.dias === 1 ? 'día' : 'días'}` : ''}`;
+// En qué paso va la guía de un pedido por enviar (lo que ve cada quien depende de su nivel)
+function pasoGuia(a) {
+  if (a.guia_pegada_en) return 'pegada';
+  if (a.guia_impresa_en) return 'impresa';
   const e = envioDe(a);
+  if (e) return e.estado === 'comprada' ? 'comprada' : 'comprando';
+  return cotizacionVigente(cotizacionDe(a)) ? 'cotizada' : 'sin';
+}
+function htmlSkydrop(a) {
+  const e = envioDe(a), c = cotizacionDe(a);
   if (e && e.estado === 'comprada') {
     return `<div class="sky-caja sky-ok">
       <b>Guía comprada en Skydrop</b>
       <p>${esc([e.paqueteria, e.servicio].filter(Boolean).join(' · '))}${e.guia ? ` · Guía <b>${esc(e.guia)}</b>` : ''} · ${dinero(e.costo)}</p>
-      <small>La compró ${quienCorto(e.comprada_por)} · ${fechaHora(e.comprada_en)}</small>
+      <small>La autorizó ${quienCorto(e.comprada_por)} · ${fechaHora(e.comprada_en)}</small>
       ${urlSegura(e.etiqueta_url) ? `<a class="btn btn-primario" href="${esc(e.etiqueta_url)}" target="_blank" rel="noopener">${IC.qr} Abrir la guía para imprimir</a>` : ''}
       ${urlSegura(e.rastreo_url) ? `<a class="btn btn-secundario" href="${esc(e.rastreo_url)}" target="_blank" rel="noopener">${IC.camion} Rastrear el paquete</a>` : ''}
-      ${a.guia_pegada_en ? '' : '<button class="btn btn-mini" type="button" data-sky="cancelar">Cancelar esta guía</button>'}
+      ${!a.guia_pegada_en && PUEDE_AUTORIZAR_GUIA() ? '<button class="btn btn-mini" type="button" data-sky="cancelar">Cancelar esta guía</button>' : ''}
     </div>`;
   }
   if (e) {
@@ -1684,19 +1699,42 @@ function htmlSkydrop(a) {
       <button class="btn btn-secundario" type="button" data-sky="revisar">Revisar</button>
     </div>`;
   }
-  if (a.guia_pegada_en) return '';
+  if (a.guia_pegada_en || a.guia_impresa_en) return '';
+  if (cotizacionVigente(c)) {
+    const corregir = `<a class="btn btn-mini" href="#/guia/${a.id}">Corregir peso o medidas</a>`;
+    if (PUEDE_AUTORIZAR_GUIA()) {
+      return `<div class="sky-caja">
+        <b>Guía por autorizar</b>
+        <p>Paquete de <b>${paqueteTxt(c)}</b></p>
+        <small>Cotizó ${quienCorto(c.cotizada_por)} · ${fechaHora(c.cotizada_en)}<span id="sky-saldo"></span></small>
+        <p class="nota">Elige la paquetería. Al confirmar se compra la guía y se descuenta del saldo de Skydrop.</p>
+        <div class="lista">${(c.tarifas || []).map((t, i) => `<button type="button" class="sky-tarifa" data-sky-tarifa="${i}">
+          <span><b>${esc(t.paqueteria)}</b><small>${tarifaTxt(t)}</small></span><b>${dinero(t.total)}</b></button>`).join('')}</div>
+        ${corregir}
+      </div>`;
+    }
+    const barata = (c.tarifas || [])[0];
+    return `<div class="sky-caja">
+      <b>Cotización enviada a las Dueñas</b>
+      <p>Paquete de <b>${paqueteTxt(c)}</b>${barata ? ` · ${c.tarifas.length} ${c.tarifas.length === 1 ? 'opción' : 'opciones'} desde ${dinero(barata.total)}` : ''}</p>
+      <small>Cotizó ${quienCorto(c.cotizada_por)} · ${fechaHora(c.cotizada_en)}</small>
+      <p class="nota">Falta que una Dueña elija la paquetería y autorice la compra. Cuando la guía esté lista para imprimir aparece aquí.</p>
+      ${corregir}
+    </div>`;
+  }
   return `<div class="sky-caja">
-    <a class="btn btn-primario" href="#/guia/${a.id}">${IC.camion} Cotizar y comprar la guía con Skydrop</a>
-    <p class="nota">Compara paqueterías y compra la guía aquí mismo. Si la generaste por fuera, anótala abajo.</p>
+    ${c ? '<p class="nota"><b>La cotización venció</b> (los precios duran 24 horas). Hay que cotizar de nuevo.</p>' : ''}
+    <a class="btn btn-primario" href="#/guia/${a.id}">${IC.camion} Pesar, medir y cotizar la guía</a>
+    <p class="nota">Escribe el peso y las medidas del paquete. Después una Dueña elige la paquetería y autoriza la compra.</p>
   </div>`;
 }
 function htmlGuia(a, pedidos) {
   if (a.guia_pegada_en) {
     return `<div class="tarjeta guia-paso guia-ok">
-      <b>${IC.camion} Guía pegada · ${a.entrega === 'sucursal' ? 'para llevar a sucursal' : 'lista para recolección'}</b>
+      <b>${IC.camion} Guía pegada · ${a.entrega === 'sucursal' ? 'lista para llevar a paquetería' : 'la recoge la paquetería'}</b>
       <p>${[a.paqueteria, a.guia].filter(Boolean).map(esc).join(' · ') || 'Sin número de guía anotado'}</p>
       <small>La marcó ${quienCorto(a.guia_pegada_por)} · ${fechaHora(a.guia_pegada_en)}</small>
-      ${PUEDE_GUIA_PEGADA() ? '<button class="btn btn-mini" data-guia="quitar-pegada">Deshacer</button>' : ''}
+      ${PUEDE_PEGAR_GUIA() ? '<button class="btn btn-mini" data-guia="quitar-pegada">Deshacer</button>' : ''}
     </div>${PUEDE_GUIA_PEGADA() ? htmlSkydrop(a) : ''}`;
   }
   if (a.lista_guia_en && a.lista_para === 'tienda') {
@@ -1710,17 +1748,38 @@ function htmlGuia(a, pedidos) {
     </div>`;
   }
   if (a.lista_guia_en) {
+    const paso = pasoGuia(a), genera = PUEDE_GUIA_PEGADA(), viva = !!envioDe(a);
+    const titulos = { impresa: 'Guía impresa · falta pegarla', comprada: 'Guía lista para imprimir', comprando: 'Comprando la guía…', cotizada: 'Guía por autorizar', sin: 'Lista para generar guía' };
+    // Operación no ve las cotizaciones: para ella, antes de imprimir, solo falta la guía
+    const cabeza = genera || paso === 'impresa' ? titulos[paso] : 'Lista para generar guía';
+    let cuerpo;
+    if (paso === 'impresa') {
+      cuerpo = `<small>Guía impresa por ${quienCorto(a.guia_impresa_por)} · ${fechaHora(a.guia_impresa_en)}${a.paqueteria || a.guia ? ` · ${[a.paqueteria, a.guia].filter(Boolean).map(esc).join(' ')}` : ''}</small>
+        ${PUEDE_PEGAR_GUIA() ? `<p class="nota">Pega la guía en el paquete de <b>${esc(nombreCompleto(idx.clienta(a.clienta_id)))}</b> y márcalo:</p>
+          <button class="btn btn-primario" type="button" data-guia="sucursal">${IC.cajas} Guía pegada · lista para llevar a paquetería</button>
+          <button class="btn btn-secundario" type="button" data-guia="recoleccion">${IC.camion} Guía pegada · la recoge la paquetería</button>` : '<p class="nota">Falta que Operación pegue la guía en el paquete.</p>'}
+        ${genera ? '<button class="btn btn-mini" type="button" data-guia="quitar-impresa">Todavía no está impresa (deshacer)</button>' : ''}`;
+    } else if (!genera) {
+      cuerpo = '<p class="nota">Falta que el Supervisor cotice la guía, que una Dueña la autorice y que se imprima. Te llega un aviso cuando esté lista para pegar.</p>';
+    } else if (paso === 'comprada') {
+      cuerpo = `<p class="nota">Imprime la guía y entrégasela a Operación para que la pegue:</p>
+        <button class="btn btn-primario" type="button" data-guia="impresa">${IC.qr} Guía impresa · avisar a Operación</button>`;
+    } else if (paso === 'comprando') {
+      cuerpo = '';
+    } else {
+      cuerpo = `<details class="sky-mano"><summary>La guía se generó por fuera de Cajas</summary>
+        <form id="f-guia" class="formulario" novalidate>
+          <label>Paquetería (opcional)<select name="paqueteria"><option value="">Selecciona…</option>${opcionesPaqueteria(a.paqueteria)}</select></label>
+          <label>Número de guía (opcional)<input name="guia" autocomplete="off" value="${esc(a.guia || '')}"></label>
+          <button class="btn btn-secundario" type="button" data-guia="impresa">${IC.qr} Guía impresa · avisar a Operación</button>
+        </form></details>`;
+    }
     return `<div class="tarjeta guia-paso">
-      <b>${IC.qr} Lista para generar guía</b>
-      <small>La marcó ${quienCorto(a.lista_guia_por)} · ${fechaHora(a.lista_guia_en)}</small>
-      ${PUEDE_GUIA_PEGADA() ? `${htmlSkydrop(a)}<form id="f-guia" class="formulario" novalidate>
-        <p class="nota">Cuando ya ${envioDe(a) ? 'imprimiste' : 'generaste'} la guía y la pegaste en el paquete:</p>
-        <label>Paquetería (opcional)<select name="paqueteria"><option value="">Selecciona…</option>${opcionesPaqueteria(a.paqueteria)}</select></label>
-        <label>Número de guía (opcional)<input name="guia" autocomplete="off" value="${esc(a.guia || '')}"></label>
-        <button class="btn btn-primario" type="button" data-guia="recoleccion">${IC.camion} Guía pegada · lista para recolección</button>
-        <button class="btn btn-secundario" type="button" data-guia="sucursal">${IC.cajas} Guía pegada · llevar a sucursal</button>
-      </form>` : '<p class="nota">Falta que el Supervisor genere la guía y la pegue en el paquete.</p>'}
-      ${PUEDE_LISTA_GUIA() ? `<p class="nota">¿No se va a enviar? Si la clienta pasa por su pedido:</p>
+      <b>${IC.qr} ${cabeza}</b>
+      <small>Lista desde ${fechaHora(a.lista_guia_en)} · la marcó ${quienCorto(a.lista_guia_por)}</small>
+      ${genera ? htmlSkydrop(a) : ''}
+      ${cuerpo}
+      ${PUEDE_LISTA_GUIA() && !viva && paso !== 'impresa' ? `<p class="nota">¿No se va a enviar? Si la clienta pasa por su pedido:</p>
         <button class="btn btn-secundario" type="button" data-guia="tienda">${IC.cajas} La clienta la recoge en tienda</button>
         <button class="btn btn-mini" data-guia="quitar-lista">${yaSalio(a) ? `Deshacer: regresar sus prendas a la caja ${esc(a.caja)}` : 'Todavía no está lista (deshacer)'}</button>` : ''}
     </div>`;
@@ -1742,11 +1801,13 @@ function faltaDomicilio(c) {
 }
 async function vistaGuiaSkydrop(asigId) {
   const a = idx.asig(asigId);
-  if (!a || !PUEDE_GUIA_PEGADA() || !yaSalio(a) || !a.lista_guia_en || a.lista_para === 'tienda' || a.guia_pegada_en || envioDe(a)) { ir(a && yaSalio(a) ? `salida/${a.id}` : 'cajas'); return; }
-  titulo('Guía con Skydrop', `salida/${a.id}`);
+  if (!a || !PUEDE_GUIA_PEGADA() || !yaSalio(a) || !a.lista_guia_en || a.lista_para === 'tienda' || a.guia_pegada_en || a.guia_impresa_en || envioDe(a)) { ir(a && yaSalio(a) ? `salida/${a.id}` : 'cajas'); return; }
+  titulo('Cotizar la guía', `salida/${a.id}`);
   const cl = idx.clienta(a.clienta_id);
   const prendas = resumenPedidos(idx.pedidosDe(a.id)).prendas;
   const faltan = faltaDomicilio(cl);
+  const antes = cotizacionDe(a) || {};   // si ya se había cotizado, se parte de lo que se escribió esa vez
+  const campo = (name, label, attrs) => `<label>${label}<input name="${name}" type="number" ${attrs} required value="${antes[name] != null ? Number(antes[name]) : ''}"></label>`;
   vista().innerHTML = `
     ${tarjetaClienta(cl, false)}
     <p class="nota">La guía sale con ese domicilio. <a href="#/clienta/${cl.id}/editar"><b>Corregir domicilio</b></a></p>
@@ -1755,77 +1816,77 @@ async function vistaGuiaSkydrop(asigId) {
          <a class="btn btn-primario btn-grande" href="#/clienta/${cl.id}/editar">Completar domicilio</a>`
       : `<form id="f-sky" class="formulario" novalidate>
         <h3 class="seccion">Paquete · ${prendas} ${prendas === 1 ? 'prenda' : 'prendas'}</h3>
-        <p class="nota">El peso y las medidas son un estimado. <b>Corrígelos con lo que marquen la báscula y la cinta</b>: de eso depende el precio.</p>
-        <label>Peso (kg)<input name="peso_kg" type="number" step="0.1" min="1" max="70" inputmode="decimal" required></label>
+        <p class="nota">Pesa el paquete ya cerrado y mídelo con la cinta. <b>Escribe lo que marquen</b>: de eso depende el precio.</p>
+        ${campo('peso_kg', 'Peso (kg)', 'step="0.1" min="1" max="70" inputmode="decimal" placeholder="Ej. 8.5"')}
         <div class="tres">
-          <label>Largo (cm)<input name="largo" type="number" step="1" min="1" max="200" inputmode="numeric" required></label>
-          <label>Ancho (cm)<input name="ancho" type="number" step="1" min="1" max="200" inputmode="numeric" required></label>
-          <label>Alto (cm)<input name="alto" type="number" step="1" min="1" max="200" inputmode="numeric" required></label>
+          ${campo('largo', 'Largo (cm)', 'step="1" min="1" max="200" inputmode="numeric"')}
+          ${campo('ancho', 'Ancho (cm)', 'step="1" min="1" max="200" inputmode="numeric"')}
+          ${campo('alto', 'Alto (cm)', 'step="1" min="1" max="200" inputmode="numeric"')}
         </div>
-        <button class="btn btn-primario btn-grande" type="submit">Cotizar envío</button>
+        <button class="btn btn-primario btn-grande" type="submit">Cotizar</button>
+        <p class="nota centro">${PUEDE_AUTORIZAR_GUIA() ? 'Cotizar no cuesta. Después eliges la paquetería.' : 'Cotizar no cuesta. Las Dueñas reciben el aviso para elegir la paquetería y autorizar la compra.'}</p>
       </form>
       <div id="sky-resultado"></div>`}`;
   if (faltan.length) return;
   const f = $('#f-sky'), zona = $('#sky-resultado');
   const turno = turnoRender;
-  const sigoAqui = () => turno === turnoRender && document.body.contains(f);
-  // Estimado de peso y medidas, y si Skydrop ya está conectado
-  store.envioSugerido(a.id).catch(() => null).then(v => {
-    if (!sigoAqui()) return;
-    const d = v || { peso_kg: Math.max(1, Math.ceil(prendas * 0.2 + 0.5)), largo: 40, ancho: 30, alto: 30 };
-    ['peso_kg', 'largo', 'ancho', 'alto'].forEach(k => { if (!f[k].value) f[k].value = d[k]; });
-  });
   store.skydrop('estado').then(e => {
-    if (!sigoAqui() || e.listo) return;
+    if (turno !== turnoRender || !document.body.contains(f) || e.listo) return;
     f.hidden = true;
-    zona.innerHTML = `<div class="banner banner-aviso">${IC.alerta}<span><b>Skydrop todavía no está conectado a Cajas.</b><br><small>Falta que una Dueña guarde las credenciales de Skydrop. Mientras, genera la guía en Skydrop y anótala a mano.</small></span></div>`;
+    zona.innerHTML = `<div class="banner banner-aviso">${IC.alerta}<span><b>Skydrop todavía no está conectado a Cajas.</b><br><small>Falta que una Dueña guarde las credenciales de Skydrop. Mientras, genera la guía en Skydrop y márcala como "se generó por fuera de Cajas".</small></span></div>`;
   }).catch(() => {});
-  const limpiar = () => { zona.innerHTML = ''; };
-  ['peso_kg', 'largo', 'ancho', 'alto'].forEach(k => { f[k].oninput = limpiar; });
-
   f.onsubmit = async ev => {
     ev.preventDefault();
+    const vacio = ['peso_kg', 'largo', 'ancho', 'alto'].find(k => !f[k].value.trim());
+    if (vacio) { toast('Escribe el peso y las tres medidas del paquete.', 'error'); f[vacio].focus(); return; }
     const d = Object.fromEntries(['peso_kg', 'largo', 'ancho', 'alto'].map(k => [k, Number(f[k].value)]));
     if (!(d.peso_kg >= 1 && d.peso_kg <= 70)) { toast('Escribe el peso en kilos (de 1 a 70).', 'error'); f.peso_kg.focus(); return; }
     if (!['largo', 'ancho', 'alto'].every(k => d[k] >= 1 && d[k] <= 200)) { toast('Escribe las tres medidas en centímetros.', 'error'); return; }
-    const r = await accion(() => store.skydrop('cotizar', { asignacion: a.id, ...d }), 'Cotizando con las paqueterías…');
-    if (!r || !sigoAqui()) return;
-    zona.innerHTML = `
-      <h3 class="seccion">Elige la paquetería</h3>
-      ${r.saldo != null ? `<p class="nota">Saldo en Skydrop: <b>${dinero(r.saldo)}</b></p>` : ''}
-      <div class="lista">${r.tarifas.map((t, i) => `<button type="button" class="sky-tarifa" data-tarifa="${i}">
-        <span><b>${esc(t.paqueteria)}</b><small>${esc(t.servicio)}${t.dias ? ` · llega en ${t.dias} ${t.dias === 1 ? 'día' : 'días'}` : ''}</small></span>
-        <b>${dinero(t.total)}</b></button>`).join('')}</div>
-      <p class="nota">De la más barata a la más cara. El precio se respeta 24 horas; si cambias peso o medidas, cotiza de nuevo.</p>`;
-    zona.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    $$('[data-tarifa]', zona).forEach(b => {
-      b.onclick = async () => {
-        const t = r.tarifas[+b.dataset.tarifa];
-        if (r.saldo != null && r.saldo < t.total) {
-          await modal({ titulo: 'No alcanza el saldo', html: `<p>Esta guía cuesta <b>${dinero(t.total)}</b> y en Skydrop hay <b>${dinero(r.saldo)}</b>.</p><p>Recarga saldo en Skydrop y vuelve a cotizar.</p>` });
-          return;
-        }
-        const si = await confirmar(`<b>${esc(t.paqueteria)} · ${esc(t.servicio)}</b>${t.dias ? ` · llega en ${t.dias} ${t.dias === 1 ? 'día' : 'días'}` : ''}<br>
-          <span class="sky-precio">${dinero(t.total)}</span><br>
-          Para <b>${esc(nombreCompleto(cl))}</b><br><small>${esc(direccion(cl))}</small><br><br>
-          Paquete de <b>${d.peso_kg} kg</b>, ${d.largo}×${d.ancho}×${d.alto} cm.<br><br>
-          Se descuenta del saldo de Skydrop en cuanto confirmes.`, { titulo: '¿Comprar esta guía?', si: 'Sí, comprar guía', no: 'Todavía no' });
-        if (!si) return;
-        espera.mostrar('Comprando la guía… no cierres esta pantalla');
-        let error = null;
-        try { await store.skydrop('comprar', { envio: r.envio, tarifa: t.id, total: t.total }); } catch (e) { console.error(e); error = e; }
-        D.cargado = 0;
-        await refrescar(true).catch(() => {});
-        espera.ocultar();
-        if (!error) { toast('Guía comprada. Ábrela para imprimirla.'); ir(`salida/${a.id}`); return; }
-        toast(traducirError(error), 'error');
-        if (envioDe(a)) ir(`salida/${a.id}`);         // quedó en proceso: se revisa desde "Por enviar"
-        else limpiar();                              // no se compró: hay que cotizar de nuevo
-      };
-    });
+    const r = await accion(async () => { const x = await store.skydrop('cotizar', { asignacion: a.id, ...d }); D.cargado = 0; await refrescar(true); return x; }, 'Cotizando con las paqueterías…');
+    if (!r) return;
+    toast(PUEDE_AUTORIZAR_GUIA() ? 'Cotización lista: elige la paquetería.' : 'Cotización enviada. Se avisó a las Dueñas.');
+    ir(`salida/${a.id}`);
   };
 }
+// Una Dueña elige la paquetería de la cotización y compra la guía (descuenta saldo de Skydrop)
+function conectarAutorizar(a) {
+  const c = cotizacionDe(a);
+  if (!c || !PUEDE_AUTORIZAR_GUIA() || !$$('[data-sky-tarifa]').length) return;
+  let saldo = null;
+  const turno = turnoRender;
+  store.skydrop('estado').then(e => {
+    if (turno !== turnoRender || e.saldo == null) return;
+    saldo = e.saldo;
+    const z = $('#sky-saldo');
+    if (z) z.innerHTML = ` · Saldo en Skydrop: <b>${dinero(saldo)}</b>`;
+  }).catch(() => {});
+  const cl = idx.clienta(a.clienta_id);
+  $$('[data-sky-tarifa]').forEach(b => {
+    b.onclick = async () => {
+      const t = c.tarifas[+b.dataset.skyTarifa];
+      if (saldo != null && saldo < t.total) {
+        await modal({ titulo: 'No alcanza el saldo', html: `<p>Esta guía cuesta <b>${dinero(t.total)}</b> y en Skydrop hay <b>${dinero(saldo)}</b>.</p><p>Recarga saldo en Skydrop y vuelve a intentar.</p>` });
+        return;
+      }
+      const si = await confirmar(`<b>${esc(t.paqueteria)} · ${tarifaTxt(t)}</b><br>
+        <span class="sky-precio">${dinero(t.total)}</span><br>
+        Para <b>${esc(nombreCompleto(cl))}</b><br><small>${esc(direccion(cl))}</small><br><br>
+        Paquete de <b>${paqueteTxt(c)}</b>.<br><br>
+        Se descuenta del saldo de Skydrop en cuanto confirmes, y se le avisa al Supervisor para que imprima la guía.`, { titulo: '¿Autorizar y comprar esta guía?', si: 'Sí, comprar guía', no: 'Todavía no' });
+      if (!si) return;
+      espera.mostrar('Comprando la guía… no cierres esta pantalla');
+      let error = null;
+      try { await store.skydrop('comprar', { envio: c.id, tarifa: t.id, total: t.total }); } catch (e) { console.error(e); error = e; }
+      D.cargado = 0;
+      await refrescar(true).catch(() => {});
+      espera.ocultar();
+      toast(error ? traducirError(error) : 'Guía comprada. Se avisó al Supervisor para que la imprima.', error ? 'error' : 'ok');
+      navegar();
+    };
+  });
+}
 function conectarGuia(a, id) {
+  conectarAutorizar(a);
   const hacer = async (texto, fn, ok) => {
     const r = await accion(async () => { await fn(); D.cargado = 0; await refrescar(true); return true; }, texto);
     if (r) { toast(ok); navegar(); }
@@ -1840,7 +1901,7 @@ function conectarGuia(a, id) {
         navegar();
         return;
       }
-      if (!(await confirmar(`Se cancela en Skydrop la guía <b>${esc([e.paqueteria, e.guia].filter(Boolean).join(' '))}</b> (${dinero(e.costo)}).<br><br>Skydrop regresa el saldo si la paquetería acepta la cancelación. <b>No uses esa guía</b> después de cancelarla.`, { titulo: '¿Cancelar la guía?', si: 'Sí, cancelar guía', no: 'No', peligro: true }))) return;
+      if (!(await confirmar(`Se cancela en Skydrop la guía <b>${esc([e.paqueteria, e.guia].filter(Boolean).join(' '))}</b> (${dinero(e.costo)}).<br><br>Skydrop regresa el saldo si la paquetería acepta la cancelación. <b>No uses esa guía</b> después de cancelarla. Hay que cotizar de nuevo.`, { titulo: '¿Cancelar la guía?', si: 'Sí, cancelar guía', no: 'No', peligro: true }))) return;
       const ok = await accion(async () => { await store.skydrop('cancelar', { envio: e.id }); D.cargado = 0; await refrescar(true); return true; }, 'Cancelando en Skydrop…');
       if (ok) { toast('Guía cancelada.'); navegar(); }
     };
@@ -1886,11 +1947,16 @@ function conectarGuia(a, id) {
       } else if (que === 'quitar-pegada') {
         if (!(await confirmar('Se quita la marca de <b>guía pegada</b> de esta caja.', { titulo: '¿Deshacer?', si: 'Sí, deshacer' }))) return;
         hacer('Guardando…', () => store.guiaCaja(a.id, 'quitar-pegada'), 'Se quitó la marca de guía pegada.');
+      } else if (que === 'impresa') {
+        const f = $('#f-guia') ? Object.fromEntries(new FormData($('#f-guia'))) : {};
+        if (!(await confirmar(`¿Ya está <b>impresa</b> la guía de <b>${esc(nombreCompleto(idx.clienta(a.clienta_id)))}</b>?<br><br>Se le avisa a Operación para que la pegue en el paquete.`, { titulo: 'Guía impresa', si: 'Sí, ya está impresa' }))) return;
+        hacer('Guardando…', () => store.guiaCaja(a.id, 'impresa', f), 'Guía impresa. Se avisó a Operación.');
+      } else if (que === 'quitar-impresa') {
+        hacer('Guardando…', () => store.guiaCaja(a.id, 'quitar-impresa'), 'Se quitó la marca de guía impresa.');
       } else {
-        const f = Object.fromEntries(new FormData($('#f-guia')));
-        const destino = que === 'sucursal' ? 'para <b>llevar a sucursal</b>' : 'lista para <b>recolección</b>';
-        if (!(await confirmar(`¿La guía ya está <b>pegada</b> en el paquete de <b>${esc(nombreCompleto(idx.clienta(a.clienta_id)))}</b>?<br><br>Queda ${destino} y se les avisa a las Dueñas.`, { titulo: 'Guía pegada', si: 'Sí, ya está pegada' }))) return;
-        hacer('Guardando…', () => store.guiaCaja(a.id, que, f), 'Guía pegada. Se avisó a las Dueñas.');
+        const destino = que === 'sucursal' ? 'lista para <b>llevar a paquetería</b>' : 'lista para que <b>la recoja la paquetería</b>';
+        if (!(await confirmar(`¿La guía ya está <b>pegada</b> en el paquete de <b>${esc(nombreCompleto(idx.clienta(a.clienta_id)))}</b>?<br><br>Queda ${destino} y se avisa a las Dueñas y a Operación.`, { titulo: 'Guía pegada', si: 'Sí, ya está pegada' }))) return;
+        hacer('Guardando…', () => store.guiaCaja(a.id, que), 'Guía pegada. Se avisó a las Dueñas y a Operación.');
       }
     };
   });
