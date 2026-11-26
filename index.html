@@ -420,6 +420,9 @@ input[type="checkbox"] { width: 22px; min-height: 22px; height: 22px; accent-col
   .nota-imp th:nth-child(n+2), .nota-imp td:nth-child(n+2) { text-align: right; }
   .nota-imp tfoot td { border-bottom: 0; font-weight: 700; font-size: 13pt; }
   .nota-imp-claves { font-size: 12pt; letter-spacing: .3px; }
+  .nota-imp-sello { display: inline-block; margin-top: 2mm; padding: 1.2mm 4mm; border: 2.5px solid #000; border-radius: 2mm; font-size: 15pt; font-weight: 800; letter-spacing: 1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .nota-imp-sello.pagado { color: #2f7d4f; border-color: #2f7d4f; }
+  .nota-imp-sello.cobrar { color: #ce091e; border-color: #ce091e; }
   .nota-imp-resumen { padding: 5mm 2mm; font-size: 13pt; font-weight: 700; text-align: right; }
   .etiqueta img { width: 38mm; height: auto; margin-bottom: 2mm; }
   .etiqueta svg { width: 46mm; height: 46mm; }
@@ -1765,8 +1768,8 @@ function datosNotaPedido(p) {
     if (v.estado === 'pagada' && v.referencia) info.push(['Referencia del pago', v.referencia]);
   } else if (resto) info.push(['Detalle', resto]);
   return {
-    titulo: v ? (v.estado === 'pagada' ? 'PEDIDO PAGADO' : 'NOTA DE VENTA') : 'NOTA DE PEDIDO',
-    estado: v ? v.estado : null,
+    titulo: estadoPagoPedido(p) === 'pagada' ? 'PEDIDO PAGADO' : v ? 'NOTA DE VENTA' : 'NOTA DE PEDIDO',
+    estado: estadoPagoPedido(p),
     clienta: nombreCompleto(cl),
     info,
     piezas: claves.map(c => ({ clave: c, precio: unPrecio })),
@@ -1802,8 +1805,19 @@ function pdfNotaPedido(n, jsPDF, logo) {
   // Clienta
   let y = 205;
   doc.setFontSize(9.5); doc.setTextColor(GRIS); doc.text('CLIENTA', M, y);
+  // Sello con el estado del pago, a la derecha del nombre
+  const sello = n.estado === 'pagada' ? ['PAGADO', VERDE] : n.estado === 'por_cobrar' ? ['POR COBRAR', ROJO] : null;
+  let anchoSello = 0;
+  if (sello) {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+    anchoSello = doc.getTextWidth(sello[0]) + 26;
+    doc.setDrawColor(...sello[1]); doc.setLineWidth(2.2);
+    doc.roundedRect(W - M - anchoSello, y - 6, anchoSello, 32, 6, 6, 'S');
+    doc.setTextColor(...sello[1]);
+    doc.text(sello[0], W - M - anchoSello / 2, y + 15.5, { align: 'center' });
+  }
   doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(20);
-  doc.text(doc.splitTextToSize(n.clienta || '', W - 2 * M)[0], M, y + 19);
+  doc.text(doc.splitTextToSize(n.clienta || '', W - 2 * M - (anchoSello ? anchoSello + 12 : 0))[0], M, y + 19);
 
   // Datos (dos columnas)
   const mitad = (W - 2 * M) / 2;
@@ -1811,7 +1825,8 @@ function pdfNotaPedido(n, jsPDF, logo) {
     const x = M + (i % 2) * mitad, yy = 250 + Math.floor(i / 2) * 32;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(GRIS); doc.text(String(k).toUpperCase(), x, yy);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5); doc.setTextColor(20);
-    doc.text(doc.splitTextToSize(String(val), mitad - 10)[0], x, yy + 15);
+    const solo = i === n.info.length - 1 && i % 2 === 0;   // el último, si queda solo en su renglón, usa todo el ancho
+    doc.text(doc.splitTextToSize(String(val), solo ? W - 2 * M : mitad - 10)[0], x, yy + 15);
   });
   y = 238 + altoInfo;
 
@@ -1888,6 +1903,14 @@ async function abrirNotaPdf(p) {
   });
   setTimeout(() => URL.revokeObjectURL(nota.url), 60000);
 }
+// Estado de pago que sale en las notas: 'pagada', 'por_cobrar' o null si no se sabe (pedidos hechos a mano).
+// Los pedidos del live entran a Cajas cuando su pago ya quedó completo.
+function estadoPagoPedido(p) {
+  const v = ventaDe(p);
+  if (v) return v.estado === 'pagada' ? 'pagada' : 'por_cobrar';
+  const delLive = p.creado_por === 'Sistema de lives' || (p.items || []).some(i => i.cat === 'live' || i.cat === 'prime');
+  return delLive ? 'pagada' : null;
+}
 // La nota en PDF de una venta privada solo sale cuando ya está pagada
 const puedeNotaPdf = p => PUEDE_IMPRIMIR_NOTA() && !(ventaDe(p) && ventaDe(p).estado !== 'pagada');
 
@@ -1905,7 +1928,8 @@ function htmlNotaPedido(p) {
   const claves = (partes.find(x => /^piezas /.test(x)) || '').replace(/^piezas /, '');
   const resto = partes.filter(x => x && !/^piezas /.test(x)).join(' · ');
   return `<div class="nota-imp">
-    <div class="nota-imp-cabeza"><img src="icons/logo-claro.png" alt=""><div><h2>Nota de pedido</h2><small>${fechaHora(p.fecha)}</small></div></div>
+    <div class="nota-imp-cabeza"><img src="icons/logo-claro.png" alt=""><div><h2>Nota de pedido</h2><small>${fechaHora(p.fecha)}</small>
+      ${estadoPagoPedido(p) ? `<br><span class="nota-imp-sello ${estadoPagoPedido(p) === 'pagada' ? 'pagado' : 'cobrar'}">${estadoPagoPedido(p) === 'pagada' ? 'PAGADO' : 'POR COBRAR'}</span>` : ''}</div></div>
     <h3>${esc(nombreCompleto(cl))}</h3>
     <p>Caja ${esc(p.caja || '—')}${resto ? ` · ${esc(resto)}` : ''}</p>
     ${items.length ? `<table><thead><tr><th>Prendas</th><th>Cant.</th><th>Precio</th><th>Importe</th></tr></thead>
@@ -1913,7 +1937,7 @@ function htmlNotaPedido(p) {
       <tfoot><tr><td>Total</td><td>${p.prendas}</td><td></td><td>${dinero(p.total)}</td></tr></tfoot></table>`
       : `<p><b>${p.prendas} ${p.prendas === 1 ? 'prenda' : 'prendas'} · Total ${dinero(p.total)}</b></p>`}
     ${claves ? `<p class="nota-imp-claves"><b>Claves:</b> ${esc(claves)}</p>` : ''}
-    ${ventaDe(p) ? `<p><b>${ventaDe(p).estado === 'pagada' ? 'PAGADA' : 'POR COBRAR'}</b></p>` : ''}
+    ${ventaDe(p) && ventaDe(p).estado === 'pagada' ? `<p>Pagado el ${fechaHora(ventaDe(p).pagada_en)}${ventaDe(p).referencia ? ' · ' + esc(ventaDe(p).referencia) : ''}</p>` : ''}
   </div>`;
 }
 function imprimirNotas(pedidos) {
