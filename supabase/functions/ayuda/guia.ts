@@ -39,6 +39,12 @@ export const GUIA = `# Guía del equipo · Outlet Prime (panel del live)
 - Una Dueña que conduce el live puede tener sus avisos en "solo Pide DM": en su celular solo le llegan esos avisos, pero en el panel sigue viendo todo.
 Si un botón no aparece o sale "Tu nivel de acceso no permite hacer esto", es por el nivel: hay que pedírselo a una Dueña u Operación.
 
+## Franja "Tareas por hacer" (arriba de cada pantalla del panel)
+- Arriba de todas las pantallas del panel sale la franja **Tareas por hacer**, con el número de tareas pendientes. Se toca para abrirla o cerrarla. Cada renglón dice cuántas cosas faltan y, al tocarlo, lleva a la pantalla donde se hace (Casilleros, Acomodo o la app de Cajas). Se actualiza sola.
+- **Cada quien ve solo lo que le toca.** Operación live: prendas por acomodar, pedidos por revisar en su casillero, pedidos pagados por mover a su caja y pedidos sin video. Operación: además de eso, notas de cobro por mandar, casilleros por vaciar (sin pago o cancelados), guías impresas por pegar, paquetes con guía pegada por entregar a paquetería, pedidos por entregar en tienda y clientas nuevas por registrar. Supervisor: guías por cotizar, guías compradas por imprimir, guías por pegar y clientas nuevas por registrar (pide DM).
+- **Las Dueñas ven las tareas de todo el equipo**, agrupadas por responsable (Dueñas, Operación, Operación live, Supervisor). Las que son solo de Dueñas: pedidos esperando pago (registrar el pago), guías cotizadas por autorizar y comprar, ventas privadas por cobrar y pedidos pagados sin caja libre.
+- Si no hay nada pendiente dice "Sin tareas por hacer". Presentadora y Resurtido no tienen la franja (solo tienen su pantalla). Las prendas por reponer en la sala no salen en la franja (se ven en Prendas → Resurtir). Las tareas no se escriben a mano: salen solas de lo que falta en el sistema y desaparecen cuando se hace.
+
 ## Pestaña En vivo
 - Sin live: botón para iniciar (el nombre es opcional). Si dice "Falta la CLABE para cobrar", una Dueña debe ponerla en Ajustes antes de cerrar.
 - **Precio de las prendas en el próximo live** (tarjeta que sale cuando no hay live, arriba de "Iniciar live"): Dueña u Operación tocan **$89** o **$129** antes de empezar a transmitir. Todo el live va a ese precio y el agente aparta así. Si nadie elige, el live sale en $89. Vale solo para el siguiente live: después regresa a $89. Los demás niveles solo ven a cuánto va. Las prendas con precio especial conservan el suyo.

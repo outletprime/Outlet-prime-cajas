@@ -54,6 +54,25 @@ small, .nota { color: var(--texto-2); font-size: 13px; }
 .btn-icono { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: #fff; text-decoration: none; }
 .btn-icono:active { background: rgba(255,255,255,.15); }
 #vista { padding: 14px 16px calc(var(--inf) + 96px); max-width: 760px; margin: 0 auto; display: grid; gap: 12px; }
+/* Franja de tareas por hacer (arriba de cada pantalla) */
+#tareas { max-width: 760px; margin: 0 auto; padding: 10px 16px 0; }
+#tareas:empty { display: none; }
+body.host #tareas { display: none; }
+.tareas-caja { border: 1px solid var(--borde); border-radius: var(--radio); background: var(--superficie); box-shadow: var(--sombra); overflow: hidden; }
+.tareas-caja > summary { display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-weight: 700; font-size: 15px; cursor: pointer; list-style: none; }
+.tareas-caja > summary::-webkit-details-marker { display: none; }
+.tareas-caja > summary .tareas-n { min-width: 24px; height: 24px; padding: 0 7px; border-radius: 99px; background: var(--marca); color: #fff; font-size: 13px; display: grid; place-items: center; }
+.tareas-caja > summary .tareas-n.cero { background: var(--ok-suave); color: var(--ok); }
+.tareas-caja > summary small { flex: 1; min-width: 0; font-weight: 500; color: var(--texto-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tareas-caja > summary::after { content: '▾'; color: var(--texto-2); }
+.tareas-caja[open] > summary::after { content: '▴'; }
+.tareas-grupo { padding: 8px 12px 2px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--texto-2); border-top: 1px solid var(--borde); }
+.tarea { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: 0; border-top: 1px solid var(--borde); background: none; color: var(--texto); font: 500 15px/1.3 inherit; font-family: inherit; text-align: left; cursor: pointer; }
+.tareas-grupo + .tarea { border-top: 0; }
+.tarea:active { background: var(--superficie-2); }
+.tarea b { flex: none; min-width: 34px; padding: 2px 7px; border-radius: 99px; background: var(--aviso-suave); color: var(--aviso); font-size: 14px; text-align: center; }
+.tarea span { flex: 1; min-width: 0; }
+.tarea::after { content: '›'; flex: none; color: var(--texto-2); font-size: 20px; line-height: 1; }
 
 .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: repeat(5, 1fr); padding: 6px 4px calc(var(--inf) + 6px); background: color-mix(in srgb, var(--superficie) 94%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-top: 1px solid var(--borde); }
 .tabs button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0; border: 0; background: none; color: var(--texto-2); font: 500 11px/1.2 inherit; font-family: inherit; cursor: pointer; position: relative; }
@@ -1336,6 +1355,7 @@ function montar() {
       ${ROL === 'supervisor' ? '<span class="chip chip-monitor">Monitor</span>' : ROL === 'operacion' ? '<span class="chip chip-monitor">Operación</span>' : ROL === 'live' ? '<span class="chip chip-monitor">Acomodo</span>' : ROL === 'resurtido' ? '<span class="chip chip-monitor">Resurtido</span>' : ROL === 'presentadora' ? '<span class="chip chip-monitor">Presentadora</span>' : ''}
       ${['presentadora', 'resurtido'].includes(ROL) ? '' : `<a class="btn-cambio" href="index.html#/cajas" aria-label="Ir a la app de Cajas">${IC.cajas}<span>Cajas</span></a>`}
     </header>
+    <section id="tareas" aria-label="Tareas por hacer"></section>
     <main id="vista"></main>
     <nav class="tabs" aria-label="Secciones" style="grid-template-columns:repeat(${VISTAS.filter(vistaVisible).length}, 1fr)">
       ${VISTAS.filter(vistaVisible).map(v => `<button type="button" data-vista="${v.id}">${v.icono}<span>${v.nombre}</span><span class="punto" data-punto="${v.id}" hidden></span></button>`).join('')}
@@ -1347,6 +1367,7 @@ function irA(v) {
   const permitidas = VISTAS.filter(vistaVisible).map(x => x.id).concat(SOLO[ROL] ? [] : OCULTAS.filter(o => o !== 'resurtir' || puede.verResurtido()));
   if (!permitidas.includes(v)) v = permitidas[0];
   vista = v;
+  tareasCuando = 0;   // al cambiar de pantalla se vuelven a contar las tareas
   history.replaceState(null, '', '#' + v);
   window.scrollTo(0, 0);
   pintar(true);
@@ -1363,6 +1384,7 @@ function marcarTabs() {
 }
 async function pintar(cambioDeVista = false) {
   marcarTabs();
+  cargarTareas();
   const v = $('#vista');
   if (cambioDeVista) v.innerHTML = '<div class="cargando"><div class="spinner"></div></div>';
   try {
@@ -1374,6 +1396,70 @@ async function pintar(cambioDeVista = false) {
     v.innerHTML = `<div class="vacio">${IC.alerta}<h2>No se pudo cargar</h2><p>${esc(traducirError(e))}</p><button class="btn btn-primario" onclick="pintar(true)">Reintentar</button></div>`;
   }
 }
+/* ---------- Franja "Tareas por hacer" ----------
+ * Lo que falta por hacer en el sistema, según a quién le toca. Cada nivel ve solo lo suyo; las Dueñas ven
+ * lo de todos, agrupado por responsable. Los números los cuenta la base (tareas_equipo). Al tocar una tarea
+ * se abre la pantalla donde se hace. */
+const irCajas = f => () => { location.href = 'index.html#/cajas' + (f ? '?f=' + f : ''); };
+const irCasilleros = f => () => { filtroCas = f; irA('casilleros'); };
+const TAREAS = [
+  // [clave, responsable, niveles que la ven, texto con 1, texto con varias, a dónde lleva]
+  ['pagos', 'Dueñas', ['duena'], 'pedido esperando pago: registra el pago cuando llegue', 'pedidos esperando pago: registra los que ya pagaron', irCasilleros('pago')],
+  ['autorizar', 'Dueñas', ['duena'], 'guía cotizada por autorizar y comprar', 'guías cotizadas por autorizar y comprar', irCajas('guia')],
+  ['ventas_privadas', 'Dueñas', ['duena'], 'venta privada por cobrar', 'ventas privadas por cobrar', irCajas('ocupadas')],
+  ['sin_caja', 'Dueñas', ['duena'], 'pedido pagado sin caja libre: crea o libera cajas', 'pedidos pagados sin caja libre: crea o libera cajas', irCasilleros('accion')],
+  ['cobrar', 'Operación', ['duena', 'operacion'], 'nota de cobro por mandar', 'notas de cobro por mandar', irCasilleros('cobrar')],
+  ['vaciar', 'Operación', ['duena', 'operacion'], 'casillero por vaciar (sin pago o cancelado)', 'casilleros por vaciar (sin pago o cancelados)', irCasilleros('accion')],
+  ['pegar', 'Operación', ['duena', 'operacion', 'supervisor'], 'guía impresa por pegar en su paquete', 'guías impresas por pegar en su paquete', irCajas('guia')],
+  ['enviar', 'Operación', ['duena', 'operacion'], 'paquete con guía pegada por entregar a paquetería', 'paquetes con guía pegada por entregar a paquetería', irCajas('pegada')],
+  ['tienda', 'Operación', ['duena', 'operacion'], 'pedido por entregar en tienda', 'pedidos por entregar en tienda', irCajas('tienda')],
+  ['acomodo', 'Operación live', ['duena', 'operacion', 'live'], 'prenda por acomodar', 'prendas por acomodar', () => irA('acomodo')],
+  ['revisar', 'Operación live', ['duena', 'operacion', 'live'], 'pedido por revisar en su casillero', 'pedidos por revisar en su casillero', irCasilleros('revision')],
+  ['mover', 'Operación live', ['duena', 'operacion', 'live'], 'pedido pagado por mover a su caja', 'pedidos pagados por mover a su caja', irCasilleros('accion')],
+  ['video', 'Operación live', ['duena', 'operacion', 'live'], 'pedido sin video en su caja', 'pedidos sin video en su caja', irCajas('ocupadas')],
+  ['cotizar', 'Supervisor', ['duena', 'supervisor'], 'guía por cotizar', 'guías por cotizar', irCajas('guia')],
+  ['imprimir', 'Supervisor', ['duena', 'supervisor'], 'guía comprada por imprimir', 'guías compradas por imprimir', irCajas('guia')],
+  ['dms', 'Supervisor', ['duena', 'operacion', 'supervisor'], 'clienta nueva por registrar (pide DM)', 'clientas nuevas por registrar (piden DM)', () => irA('vivo')],
+];
+const LLAVE_TAREAS = 'op-tareas-abierta';
+let tareasAbierta = true;
+try { tareasAbierta = localStorage.getItem(LLAVE_TAREAS) !== '0'; } catch (e) { /* sin almacenamiento: abierta */ }
+let tareasDatos = null, tareasCuando = 0, tareasCargando = false, tareasPintado = '';
+function pintarTareas() {
+  const caja = $('#tareas');
+  if (!caja) return;
+  if (!tareasDatos || SOLO[ROL]) { caja.innerHTML = ''; tareasPintado = ''; return; }
+  const mias = TAREAS.filter(t => t[2].includes(ROL) && Number(tareasDatos[t[0]]) > 0 && (t[0] !== 'acomodo' || TIENE_COMENTARIOS));
+  const fila = t => { const n = Number(tareasDatos[t[0]]); return `<button type="button" class="tarea" data-tarea="${t[0]}"><b>${n}</b><span>${esc(n === 1 ? t[3] : t[4])}</span></button>`; };
+  let cuerpo = '';
+  if (ROL === 'duena') {
+    [...new Set(mias.map(t => t[1]))].forEach(g => { cuerpo += `<div class="tareas-grupo">${esc(g)}</div>` + mias.filter(t => t[1] === g).map(fila).join(''); });
+  } else cuerpo = mias.map(fila).join('');
+  const html = mias.length
+    ? `<details class="tareas-caja"${tareasAbierta ? ' open' : ''}><summary><span class="tareas-n">${mias.length}</span>Tareas por hacer<small>${ROL === 'duena' ? 'de todo el equipo' : 'lo que te toca'}</small></summary>${cuerpo}</details>`
+    : `<details class="tareas-caja"><summary><span class="tareas-n cero">✓</span>Sin tareas por hacer<small>${ROL === 'duena' ? 'todo el equipo al corriente' : 'vas al corriente'}</small></summary></details>`;
+  if (html === tareasPintado) return;
+  tareasPintado = html;
+  caja.innerHTML = html;
+  const d = $('details', caja);
+  d.ontoggle = () => {
+    if (!mias.length) return;
+    tareasAbierta = d.open;
+    tareasPintado = '';
+    try { localStorage.setItem(LLAVE_TAREAS, d.open ? '1' : '0'); } catch (e) { /* no pasa nada */ }
+  };
+  $$('[data-tarea]', caja).forEach(b => b.onclick = () => { const t = TAREAS.find(x => x[0] === b.dataset.tarea); if (t) t[5](); });
+}
+// Se vuelve a contar cada 15 segundos como máximo (y al cambiar de pantalla)
+async function cargarTareas(forzar = false) {
+  if (SOLO[ROL] || tareasCargando) return;
+  if (!forzar && Date.now() - tareasCuando < 15000) return;
+  tareasCargando = true;
+  try { tareasDatos = await rpc('tareas_equipo'); tareasCuando = Date.now(); pintarTareas(); }
+  catch (e) { console.error(e); tareasCuando = Date.now(); }   // base sin la función: no se muestra la franja
+  finally { tareasCargando = false; }
+}
+
 const conectar = { host: conectarHost, acomodo: conectarAcomodo, dm: conectarPresentadora, resurtir: conectarResurtir };
 
 /* ---------- En vivo ---------- */
