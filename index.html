@@ -685,6 +685,12 @@ class SupaStore {
     if (error) throw error;
     return data;
   }
+  // ¿Esta persona puede registrar ventas privadas? (Dueñas, y a quien una Dueña le dio el permiso)
+  async puedeVentaPrivada() {
+    const { data, error } = await this.sb.rpc('puede_venta_privada');
+    if (error) throw error;
+    return !!data;
+  }
   async ventaPrivada(clienta, claves, precio, confirmar) {
     const { data, error } = await this.sb.rpc('venta_privada', { p_clienta: clienta, p_claves: claves, p_precio: precio, p_confirmar: !!confirmar, p_usuario: usuario.nombre });
     if (error) throw error;
@@ -1436,6 +1442,7 @@ const RUTAS = [
   [/^(cajas)?$/, vistaCajas, 'cajas', true],
   [/^caja\/([^/]+)$/, vistaCaja, 'cajas', true],
   [/^(?:salida|recoge)\/([^/]+)$/, vistaSalida, 'cajas', true],
+  [/^venta$/, vistaElegirVenta, 'cajas', true],
   [/^clientas$/, vistaClientas, 'clientas', true],
   [/^clienta\/nueva$/, q => formClienta(null, q), 'clientas', false],
   [/^clienta\/([^/]+)\/editar$/, formClienta, 'clientas', false],
@@ -1461,7 +1468,9 @@ async function navegar() {
   const [re, fn, tab, recargable] = ruta;
   if (tab === 'reportes' && ROL === 'operacion') { ir('cajas'); return; }
   // Operación live solo ve las cajas: nada de fichas de clientas, pedidos nuevos, envíos, reportes ni ajustes
-  if (ROL === 'live' && !/^(cajas)?$|^(caja|recoge|salida)\/[^/]+$/.test(path)) { ir('cajas'); return; }
+  // (si tiene permiso de venta privada, también esas dos pantallas)
+  if (ROL === 'live' && !/^(cajas)?$|^(caja|recoge|salida)\/[^/]+$/.test(path)
+      && !(VENTA_PRIVADA && /^venta$|^clienta\/[^/]+\/venta$/.test(path))) { ir('cajas'); return; }
   const args = path.match(re).slice(1).filter(x => x !== undefined && x !== 'cajas').map(decodeURIComponent);
   $$('.tabs a').forEach(a => a.classList.toggle('activa', a.dataset.tab === tab));
   rutaRecargable = recargable;
@@ -1539,6 +1548,7 @@ function vistaCajas(query) {
   vista().innerHTML = `
     ${aviso}
     ${avisoTienda}
+    ${ROL === 'live' && VENTA_PRIVADA ? `<div class="acciones"><a class="btn btn-secundario" href="#/venta">${IC.mas} Venta privada</a></div>` : ''}
     <div class="filtros">
       ${[['todas', 'Todas'], ['ocupadas', 'Ocupadas'], ['libres', 'Libres'], ['vencidas', 'Vencidas'], ['tienda', 'Recoge en tienda'], ['guia', 'Falta guía'], ['pegada', 'Guía pegada']].map(([k, t]) => `<a href="#/cajas?f=${k}" class="filtro ${filtro === k ? 'activo' : ''}">${t} <b>${cuenta[k]}</b></a>`).join('')}
     </div>
@@ -2708,17 +2718,35 @@ function vistaClientas() {
   };
 }
 
-/* ---------- Venta privada (solo Dueñas) ----------
+/* ---------- Venta privada (Dueñas y quien tenga el permiso) ----------
  * Venta fuera de un live a una clienta ya registrada: se escriben o escanean las claves de las prendas y se
  * elige el precio. Queda como pagada: las prendas ya no se pueden apartar en un live y entran como pedido a la
  * caja de resguardo de la clienta. Para deshacerla se elimina ese pedido en su caja. */
-const PRECIO_VENTA_PRIVADA = 99;      // precio con el que abre la pantalla
-const PASO_VENTA_PRIVADA = 10;        // lo que suma o resta cada toque de + y −
+const PRECIO_VENTA_PRIVADA = 89;      // precio con el que abre la pantalla (y el más bajo con los botones)
+const PASO_VENTA_PRIVADA = 10;        // lo que suma cada toque de + (y resta cada toque de −)
+// Quien no ve las fichas de las clientas (Operación live) elige aquí a la clienta, solo por su nombre
+function vistaElegirVenta() {
+  if (!VENTA_PRIVADA) { ir('cajas'); return; }
+  titulo('Venta privada', 'cajas');
+  const lista = D.clientas.slice().sort((a, b) => ordenNatural(nombreCompleto(a), nombreCompleto(b)));
+  vista().innerHTML = `
+    <p class="nota">Elige a la clienta de la venta.</p>
+    <input type="search" class="buscador" id="buscar" placeholder="Buscar clienta por nombre…" autocomplete="off">
+    <div class="lista" id="lista">
+      ${lista.map(c => `<a class="fila" href="#/clienta/${c.id}/venta" data-busca="${esc(sinAcentos(nombreCompleto(c)))}"><span><b>${esc(nombreCompleto(c))}</b></span></a>`).join('') || '<p class="nota">Todavía no hay clientas registradas.</p>'}
+    </div>`;
+  $('#buscar').oninput = e => {
+    const q = sinAcentos(e.target.value);
+    $$('#lista .fila').forEach(el => { el.hidden = q && !el.dataset.busca.includes(q); });
+  };
+}
 function vistaVentaPrivada(id) {
   const cl = idx.clienta(id);
-  if (!cl) { ir('clientas'); return; }
-  if (ROL !== 'duena') { ir(`clienta/${id}`); return; }
-  titulo('Venta privada', `clienta/${id}`);
+  const esDuena = ROL === 'duena';
+  const verFicha = ROL !== 'live';   // Operación live no entra a las fichas de las clientas
+  if (!cl) { ir(verFicha ? 'clientas' : 'cajas'); return; }
+  if (!VENTA_PRIVADA) { ir(verFicha ? `clienta/${id}` : 'cajas'); return; }
+  titulo('Venta privada', verFicha ? `clienta/${id}` : 'venta');
   if (!store.ventaPrivada) {
     vista().innerHTML = `${tarjetaClienta(cl, false)}<p class="nota centro">La venta privada no está disponible en el modo de prueba.</p>`;
     return;
@@ -2732,21 +2760,21 @@ function vistaVentaPrivada(id) {
       <b>Precio de cada prenda</b>
       <div class="vp-precio">
         <button type="button" class="btn btn-secundario vp-paso" data-vp-paso="-1" aria-label="Restar ${dinero(PASO_VENTA_PRIVADA)}">−</button>
-        <label class="vp-monto"><span>$</span><input name="precio" type="number" min="1" step="1" inputmode="numeric" value="${PRECIO_VENTA_PRIVADA}" aria-label="Precio de cada prenda"></label>
+        <label class="vp-monto"><span>$</span><input name="precio" type="number" min="1" step="1" inputmode="numeric" value="${PRECIO_VENTA_PRIVADA}" aria-label="Precio de cada prenda"${esDuena ? '' : ' readonly'}></label>
         <button type="button" class="btn btn-secundario vp-paso" data-vp-paso="1" aria-label="Sumar ${dinero(PASO_VENTA_PRIVADA)}">+</button>
       </div>
-      <p class="nota">Empieza en ${dinero(PRECIO_VENTA_PRIVADA)}. Cada toque de <b>−</b> resta ${dinero(PASO_VENTA_PRIVADA)} y cada toque de <b>+</b> suma ${dinero(PASO_VENTA_PRIVADA)}. También puedes escribir la cantidad.</p>
+      <p class="nota">Empieza en ${dinero(PRECIO_VENTA_PRIVADA)}. Cada toque de <b>+</b> suma ${dinero(PASO_VENTA_PRIVADA)} (${dinero(PRECIO_VENTA_PRIVADA + PASO_VENTA_PRIVADA)}, ${dinero(PRECIO_VENTA_PRIVADA + 2 * PASO_VENTA_PRIVADA)}…) y <b>−</b> lo regresa, sin bajar de ${dinero(PRECIO_VENTA_PRIVADA)}.${esDuena ? ' Como Dueña también puedes escribir otra cantidad.' : ''}</p>
       <button class="btn btn-primario">Revisar claves</button>
     </form>
     <div id="vp-revision" style="margin-top:12px"></div>
-    <p class="nota">La venta se registra <b>por cobrar</b>. Siempre se le asigna una <b>caja libre</b>, aparte de lo que la clienta ya tenga pagado. Desde ese momento sus prendas cuentan para el límite de prendas y para los días de la caja, y ya no se pueden apartar en un live. Mientras no se confirme el pago, esa caja no se puede marcar para guía, enviar ni entregar. Cuando recibas el pago, confírmalo en el pedido, dentro de su caja. Si te equivocas, elimina ese pedido y las prendas regresan a disponibles.</p>`;
+    <p class="nota">La venta se registra <b>por cobrar</b>. Siempre se le asigna una <b>caja libre</b>, aparte de lo que la clienta ya tenga pagado. Desde ese momento sus prendas cuentan para el límite de prendas y para los días de la caja, y ya no se pueden apartar en un live. Mientras no se confirme el pago, esa caja no se puede marcar para guía, enviar ni entregar. ${esDuena ? 'Cuando recibas el pago, confírmalo en el pedido, dentro de su caja. Si te equivocas, elimina ese pedido y las prendas regresan a disponibles.' : 'El pago lo confirma una Dueña en el pedido, dentro de su caja. Si te equivocas, avísale a una Dueña para que elimine ese pedido y las prendas regresen a disponibles.'}</p>`;
   const f = $('#f-venta');
   const precio = () => Math.floor(+f.precio.value) || 0;
   const limpiar = () => { $('#vp-revision').innerHTML = ''; };
   $$('[data-vp-paso]').forEach(b => {
     b.onclick = () => {
       const nuevo = (precio() || PRECIO_VENTA_PRIVADA) + (+b.dataset.vpPaso) * PASO_VENTA_PRIVADA;
-      if (nuevo < 1) { toast('El precio no puede bajar más.', 'error'); return; }
+      if (nuevo < PRECIO_VENTA_PRIVADA) { toast(`El precio más bajo es ${dinero(PRECIO_VENTA_PRIVADA)}.`, 'error'); return; }
       f.precio.value = nuevo;
       limpiar();
     };
@@ -2805,7 +2833,7 @@ function vistaClienta(id) {
     <div class="acciones">
       ${activa ? `<a class="btn btn-primario" href="#/caja/${encodeURIComponent(activa.caja)}">${IC.cajas} Ver caja ${esc(activa.caja)}</a>` : '<p class="nota centro">No tiene caja asignada. Escanea una caja libre para asignársela.</p>'}
       <a class="btn btn-secundario" href="#/clienta/${cl.id}/editar">Editar datos</a>
-      ${ROL === 'duena' ? `<a class="btn btn-secundario" href="#/clienta/${cl.id}/venta">${IC.mas} Venta privada</a>` : ''}
+      ${VENTA_PRIVADA ? `<a class="btn btn-secundario" href="#/clienta/${cl.id}/venta">${IC.mas} Venta privada</a>` : ''}
     </div>
     <div class="totales"><div><small>Compras</small><b>${todos.length}</b></div><div><small>Prendas</small><b>${r.prendas}</b></div><div><small>Total histórico</small><b>${dinero(r.total)}</b></div></div>
     <h3 class="seccion">Historial</h3>
@@ -3808,9 +3836,11 @@ function abrirAyuda() {
 }
 
 let ROL = null;
+let VENTA_PRIVADA = false;   // puede registrar ventas privadas: las Dueñas y quien tenga el permiso
 async function arrancar() {
   try { ROL = await store.rol(); } catch (e) { console.error(e); ROL = null; }
   if (!ROL) return pantallaSinAcceso();
+  VENTA_PRIVADA = ROL === 'duena' || (store.puedeVentaPrivada ? await store.puedeVentaPrivada().catch(e => { console.error(e); return false; }) : false);
   // "Operación live" trabaja en el panel del live (acomodo). A Cajas entra solo con el botón
   // "Cajas" del panel o escaneando el QR de una caja: ve todo y agrega videos, nada más.
   if (ROL === 'live' && !/^#\/./.test(location.hash)) { location.replace('live.html#acomodo'); return; }
