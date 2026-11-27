@@ -1692,7 +1692,7 @@ const cotizacionDe = a => (D.envios || []).find(e => e.asignacion_id === a.id &&
 const cotizacionVigente = c => !!c && Date.now() - new Date(c.cotizada_en).getTime() < HORAS_COTIZACION * 3600000;
 const urlSegura = u => (/^https:\/\//i.test(u || '') ? u : '');
 const paqueteTxt = x => `${Number(x.peso_kg)} kg · ${x.largo}×${x.ancho}×${x.alto} cm`;
-const tarifaTxt = t => `${esc(t.servicio)}${t.dias ? ` · llega en ${t.dias} ${t.dias === 1 ? 'día' : 'días'}` : ''}`;
+const tarifaTxt = t => `${esc(t.servicio)}${t.dias ? ` · llega en ${t.dias} ${t.dias === 1 ? 'día' : 'días'}` : ''}${t.seguro > 0 ? ` · incluye seguro ${dinero(t.seguro)}` : ''}`;
 // En qué paso va la guía de un pedido por enviar (lo que ve cada quien depende de su nivel)
 function pasoGuia(a) {
   if (a.guia_pegada_en) return 'pegada';

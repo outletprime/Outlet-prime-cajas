@@ -134,7 +134,15 @@ function paquete(c: any): Paquete {
   for (const k of ['largo', 'ancho', 'alto'] as const) if (!(p[k] >= 1 && p[k] <= 200)) throw new Aviso('DATOS', 'Escribe las medidas en centímetros.');
   return p;
 }
-async function cotizarSky(de: Record<string, string>, para: Record<string, string>, p: Paquete) {
+// Valor que se asegura: el total de los pedidos del paquete. La cuenta de Skydrop tiene la protección
+// obligatoria, así que todas las guías se cotizan y se compran con seguro (cuesta 1% del valor declarado).
+async function valorAsegurado(adm: SupabaseClient, asignacion: string): Promise<number> {
+  const { data, error } = await adm.from('pedidos').select('total').eq('asignacion_id', asignacion);
+  if (error) throw error;
+  const suma = (data || []).reduce((n: number, x: any) => n + (Number(x.total) || 0), 0);
+  return Math.max(1, Math.round(suma * 100) / 100);
+}
+async function cotizarSky(de: Record<string, string>, para: Record<string, string>, p: Paquete, valor: number) {
   const lugar = (x: Record<string, string>) => ({
     country_code: x.country_code || 'MX', postal_code: x.postal_code,
     area_level1: x.area_level1, area_level2: x.area_level2, area_level3: x.area_level3,
@@ -142,7 +150,7 @@ async function cotizarSky(de: Record<string, string>, para: Record<string, strin
   const r = await sky('POST', '/api/v1/quotations', {
     quotation: {
       address_from: lugar(de), address_to: lugar(para),
-      parcels: [{ length: p.largo, width: p.ancho, height: p.alto, weight: p.peso_kg }],
+      parcels: [{ length: p.largo, width: p.ancho, height: p.alto, weight: p.peso_kg, package_protected: true, declared_value: valor }],
     },
   });
   if (!r.ok || !r.d.id) throw new Aviso('SKYDROP', errorSky(r));
@@ -154,11 +162,17 @@ async function cotizarSky(de: Record<string, string>, para: Record<string, strin
   }
   const tarifas = (q.rates || [])
     .filter((t: any) => t && t.success !== false && Number(t.total) > 0)
-    .map((t: any) => ({
-      id: String(t.id), paqueteria: String(t.provider_display_name || t.provider_name || ''), codigo: String(t.provider_name || ''),
-      servicio: String(t.provider_service_name || ''), dias: t.days == null ? null : Number(t.days), total: Number(t.total),
-      recoleccion: !!t.pickup, verificar_origen: !!t.requires_origin_verification,
-    }))
+    .map((t: any) => {
+      // El precio que se cobra es el del envío más el seguro
+      const envio = Number(t.total), conSeguro = Number(t.total_value_with_protection);
+      const total = conSeguro > envio ? conSeguro : envio;
+      return {
+        id: String(t.id), paqueteria: String(t.provider_display_name || t.provider_name || ''), codigo: String(t.provider_name || ''),
+        servicio: String(t.provider_service_name || ''), dias: t.days == null ? null : Number(t.days), total,
+        seguro: Math.round((total - envio) * 100) / 100,
+        recoleccion: !!t.pickup, verificar_origen: !!t.requires_origin_verification,
+      };
+    })
     .sort((a: any, b: any) => a.total - b.total);
   return { id: String(q.id), completa: !!q.is_completed, tarifas };
 }
@@ -279,7 +293,7 @@ Deno.serve(async req => {
       }
       if (accion === 'cotizar_prueba') {
         const de = await origen(adm, cfg);
-        return json(await cotizarSky(de, c.para, paquete(c)));
+        return json(await cotizarSky(de, c.para, paquete(c), Number(c.valor) || 100));
       }
       return json({ error: 'sin_acceso' });
     }
@@ -304,11 +318,13 @@ Deno.serve(async req => {
       const p = paquete(c);
       const de = await origen(adm, cfg);
       const para = destino(clienta, cfg, de);
-      const q = await cotizarSky(de, para, p);
+      const valor = await valorAsegurado(adm, a.id);
+      const q = await cotizarSky(de, para, p, valor);
       if (!q.tarifas.length) throw new Aviso('SIN_TARIFAS', q.completa ? 'Ninguna paquetería dio precio para ese domicilio, peso y medidas. Revisa el código postal y la colonia.' : 'Skydrop tardó en responder. Intenta cotizar de nuevo.');
       const { data: fila, error } = await adm.from('envios_skydrop').insert({
         asignacion_id: a.id, estado: 'cotizada', cotizacion_id: q.id, tarifas: q.tarifas,
         peso_kg: p.peso_kg, largo: p.largo, ancho: p.ancho, alto: p.alto, destino: para, cotizada_por: quien,
+        valor_declarado: valor,
       }).select('id').single();
       if (error) throw error;
       await adm.from('envios_skydrop').delete().eq('asignacion_id', a.id).eq('estado', 'cotizada').neq('id', fila.id);
@@ -331,6 +347,7 @@ Deno.serve(async req => {
       if (!t) throw new Aviso('DATOS', 'Elige una de las opciones de la cotización.');
       if (c.total == null || Math.abs(Number(c.total) - t.total) > 0.005) throw new Aviso('PRECIO', 'El precio cambió. Cotiza de nuevo.');
       if (Date.now() - new Date(fila.cotizada_en).getTime() > HORAS_TARIFA * 3600_000) throw new Aviso('VENCIDA', 'Esa cotización ya venció. Cotiza de nuevo.');
+      if (!(Number(fila.valor_declarado) > 0)) throw new Aviso('VENCIDA', 'Esta cotización se hizo sin el seguro del paquete. Cotiza de nuevo.');
       if (!cfg.carta_porte) throw new Aviso('SIN_CONFIGURAR', 'Falta terminar la configuración de Skydrop (código del contenido). Avísale a quien administra el sistema.');
       await cajaPorEnviar(adm, fila.asignacion_id);
       const de = await origen(adm, cfg);
@@ -350,7 +367,7 @@ Deno.serve(async req => {
             rate_id: t.id, unique_shipment: true, printing_format: cfg.formato,
             address_from: { ...(address_template_id ? { address_template_id } : {}), ...remitente },
             address_to: destinatario,
-            packages: [{ package_number: '1', package_protected: false, consignment_note: cfg.carta_porte, package_type: cfg.tipo_empaque }],
+            packages: [{ package_number: '1', package_protected: true, declared_value: Number(fila.valor_declarado), consignment_note: cfg.carta_porte, package_type: cfg.tipo_empaque }],
           },
         });
       } catch (x) {
