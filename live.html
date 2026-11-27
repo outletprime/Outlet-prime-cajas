@@ -1405,7 +1405,8 @@ const irCasilleros = f => () => { filtroCas = f; irA('casilleros'); };
 const TAREAS = [
   // [clave, responsable, niveles que la ven, texto con 1, texto con varias, a dónde lleva]
   ['pagos', 'Dueñas', ['duena'], 'pedido esperando pago: registra el pago cuando llegue', 'pedidos esperando pago: registra los que ya pagaron', irCasilleros('pago')],
-  ['autorizar', 'Dueñas', ['duena'], 'guía cotizada por autorizar y comprar', 'guías cotizadas por autorizar y comprar', irCajas('guia')],
+  ['autorizar', 'Dueñas', ['duena'], 'guía cotizada: elige paquetería y manda la cotización a la clienta', 'guías cotizadas: elige paquetería y manda la cotización a la clienta', irCajas('guia')],
+  ['pago_envio', 'Dueñas', ['duena'], 'envío esperando el pago de la clienta', 'envíos esperando el pago de la clienta', irCajas('guia')],
   ['ventas_privadas', 'Dueñas', ['duena'], 'venta privada por cobrar', 'ventas privadas por cobrar', irCajas('ocupadas')],
   ['sin_caja', 'Dueñas', ['duena'], 'pedido pagado sin caja libre: crea o libera cajas', 'pedidos pagados sin caja libre: crea o libera cajas', irCasilleros('accion')],
   ['cobrar', 'Operación', ['duena', 'operacion'], 'nota de cobro por mandar', 'notas de cobro por mandar', irCasilleros('cobrar')],

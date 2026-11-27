@@ -522,6 +522,20 @@ class LocalStore {
   }
   // Skydrop de mentiras para la vista previa: no cotiza ni compra nada de verdad
   async enviosSkydrop() { return this._envios || []; }
+  async envioElegir(envio, tarifa) {
+    const e = (this._envios || []).find(x => x.id === envio);
+    const t = e && tarifa ? e.tarifas.find(x => x.id === tarifa) : null;
+    if (e) Object.assign(e, t
+      ? { tarifa_id: t.id, paqueteria: t.paqueteria, servicio: t.servicio, dias: t.dias, costo: t.total, cobro_cliente: t.total + 60, elegida_en: new Date().toISOString(), elegida_por: usuario.nombre, compartida_en: null }
+      : { tarifa_id: null, paqueteria: null, servicio: null, dias: null, costo: null, cobro_cliente: null, elegida_en: null, compartida_en: null });
+    return e;
+  }
+  async envioCompartida(envio) {
+    const e = (this._envios || []).find(x => x.id === envio);
+    if (e && !e.compartida_en) Object.assign(e, { compartida_en: new Date().toISOString(), compartida_por: usuario.nombre });
+    return e;
+  }
+  async datosPago() { return { banco: 'BBVA', clabe: '012345678901234567', titular: 'Outlet Prime' }; }
   async skydrop(accion, datos = {}) {
     await new Promise(r => setTimeout(r, 500));
     this._envios = this._envios || [];
@@ -669,10 +683,28 @@ class SupaStore {
   // Guías con Skydrop: las cotiza y compra la función "skydrop"; aquí solo se leen las guías vivas
   async enviosSkydrop() {
     const { data, error } = await this.sb.from('envios_skydrop')
-      .select('id, asignacion_id, estado, tarifas, peso_kg, largo, ancho, alto, paqueteria, servicio, dias, costo, guia, etiqueta_url, rastreo_url, cotizada_en, cotizada_por, comprada_en, comprada_por')
+      .select('id, asignacion_id, estado, tarifas, peso_kg, largo, ancho, alto, paqueteria, servicio, dias, costo, guia, etiqueta_url, rastreo_url, cotizada_en, cotizada_por, comprada_en, comprada_por, tarifa_id, cobro_cliente, elegida_en, elegida_por, compartida_en, compartida_por')
       .in('estado', ['cotizada', 'comprando', 'comprada']).order('cotizada_en', { ascending: false });
     if (error) throw error;
     return data || [];
+  }
+  // La Dueña elige la paquetería de una cotización (o la quita, con tarifa nula) para armar la hoja de la clienta
+  async envioElegir(envio, tarifa) {
+    const { data, error } = await this.sb.rpc('envio_elegir', { p_envio: envio, p_tarifa: tarifa || null, p_usuario: usuario.nombre });
+    if (error) throw error;
+    return data;
+  }
+  // La cotización ya se le mandó a la clienta: queda pendiente de su pago
+  async envioCompartida(envio) {
+    const { data, error } = await this.sb.rpc('envio_compartida', { p_envio: envio, p_usuario: usuario.nombre });
+    if (error) throw error;
+    return data;
+  }
+  // Datos de la cuenta para recibir pagos (los mismos de la nota de cobro del live)
+  async datosPago() {
+    const { data, error } = await this.sb.from('live_config').select('banco, clabe, titular').limit(1);
+    if (error) throw error;
+    return (data && data[0]) || {};
   }
   async skydrop(accion, datos = {}) {
     const { data, error } = await this.sb.functions.invoke('skydrop', { body: { accion, usuario: usuario.nombre, ...datos } });
@@ -1690,6 +1722,9 @@ const HORAS_COTIZACION = 23;   // Skydrop respeta el precio 24 horas
 const envioDe = a => (D.envios || []).find(e => e.asignacion_id === a.id && e.estado !== 'cotizada');   // guía comprada o en proceso
 const cotizacionDe = a => (D.envios || []).find(e => e.asignacion_id === a.id && e.estado === 'cotizada');   // la más reciente
 const cotizacionVigente = c => !!c && Date.now() - new Date(c.cotizada_en).getTime() < HORAS_COTIZACION * 3600000;
+const venceCotizacion = c => new Date(new Date(c.cotizada_en).getTime() + HORAS_COTIZACION * 3600000).toISOString();
+// Paquetería que la Dueña eligió para la cotización de la clienta (si ya eligió)
+const tarifaElegida = c => (c && c.tarifa_id ? (c.tarifas || []).find(t => t.id === c.tarifa_id) : null) || null;
 const urlSegura = u => (/^https:\/\//i.test(u || '') ? u : '');
 const paqueteTxt = x => `${Number(x.peso_kg)} kg · ${x.largo}×${x.ancho}×${x.alto} cm`;
 const tarifaTxt = t => `${esc(t.servicio)}${t.dias ? ` · llega en ${t.dias} ${t.dias === 1 ? 'día' : 'días'}` : ''}${t.seguro > 0 ? ` · incluye seguro ${dinero(t.seguro)}` : ''}`;
@@ -1723,14 +1758,38 @@ function htmlSkydrop(a) {
   if (a.guia_pegada_en || a.guia_impresa_en) return '';
   if (cotizacionVigente(c)) {
     const corregir = `<a class="btn btn-mini" href="#/guia/${a.id}">Corregir peso o medidas</a>`;
+    const elegida = tarifaElegida(c);
+    if (PUEDE_AUTORIZAR_GUIA() && elegida) {
+      return `<div class="sky-caja">
+        <b>${c.compartida_en ? 'Esperando el pago de la clienta' : 'Cotización lista para mandar a la clienta'}</b>
+        <p><b>${esc(elegida.paqueteria)}</b> · ${tarifaTxt(elegida)}</p>
+        <p>A la clienta se le cobra <b style="font-size:20px">${dinero(c.cobro_cliente)}</b></p>
+        <small>La guía cuesta ${dinero(elegida.total)} en Skydrop · paquete de ${paqueteTxt(c)}<span id="sky-saldo"></span></small>
+        <small>${c.compartida_en ? `Se le mandó ${fechaHora(c.compartida_en)} · ` : ''}El precio se respeta hasta ${fechaHora(venceCotizacion(c))}</small>
+        <button class="btn btn-primario" type="button" data-cot="ver">${IC.qr} Ver y compartir la cotización</button>
+        <button class="btn btn-secundario" type="button" data-cot="pagada">${IC.camion} La clienta ya pagó · comprar la guía</button>
+        ${c.compartida_en ? '' : '<button class="btn btn-mini" type="button" data-cot="mandada">Ya se la mandé a la clienta</button>'}
+        <button class="btn btn-mini" type="button" data-cot="cambiar">Elegir otra paquetería</button>
+        ${corregir}
+      </div>`;
+    }
     if (PUEDE_AUTORIZAR_GUIA()) {
       return `<div class="sky-caja">
         <b>Guía por autorizar</b>
         <p>Paquete de <b>${paqueteTxt(c)}</b></p>
         <small>Cotizó ${quienCorto(c.cotizada_por)} · ${fechaHora(c.cotizada_en)}<span id="sky-saldo"></span></small>
-        <p class="nota">Elige la paquetería. Al confirmar se compra la guía y se descuenta del saldo de Skydrop.</p>
+        <p class="nota">Elige la paquetería. Se arma la cotización para mandársela a la clienta; la guía se compra hasta que ella pague.</p>
         <div class="lista">${(c.tarifas || []).map((t, i) => `<button type="button" class="sky-tarifa" data-sky-tarifa="${i}">
           <span><b>${esc(t.paqueteria)}</b><small>${tarifaTxt(t)}</small></span><b>${dinero(t.total)}</b></button>`).join('')}</div>
+        ${corregir}
+      </div>`;
+    }
+    if (elegida) {
+      return `<div class="sky-caja">
+        <b>Esperando el pago de la clienta</b>
+        <p><b>${esc(elegida.paqueteria)}</b> · ${tarifaTxt(elegida)} · paquete de ${paqueteTxt(c)}</p>
+        <small>La eligió ${quienCorto(c.elegida_por)} · ${fechaHora(c.elegida_en)}</small>
+        <p class="nota">La Dueña le manda la cotización a la clienta. Cuando pague se compra la guía y aparece aquí para imprimir.</p>
         ${corregir}
       </div>`;
     }
@@ -1869,10 +1928,11 @@ async function vistaGuiaSkydrop(asigId) {
     ir(`salida/${a.id}`);
   };
 }
-// Una Dueña elige la paquetería de la cotización y compra la guía (descuenta saldo de Skydrop)
+// Una Dueña elige la paquetería: se arma la cotización para la clienta y queda esperando su pago.
+// La guía se compra (y se descuenta del saldo de Skydrop) hasta que la Dueña confirma que la clienta pagó.
 function conectarAutorizar(a) {
   const c = cotizacionDe(a);
-  if (!c || !PUEDE_AUTORIZAR_GUIA() || !$$('[data-sky-tarifa]').length) return;
+  if (!c || !PUEDE_AUTORIZAR_GUIA()) return;
   let saldo = null;
   const turno = turnoRender;
   store.skydrop('estado').then(e => {
@@ -1882,18 +1942,40 @@ function conectarAutorizar(a) {
     if (z) z.innerHTML = ` · Saldo en Skydrop: <b>${dinero(saldo)}</b>`;
   }).catch(() => {});
   const cl = idx.clienta(a.clienta_id);
+  const guardar = async (fn, texto = 'Guardando…') => accion(async () => { await fn(); D.cargado = 0; await refrescar(true); return true; }, texto);
   $$('[data-sky-tarifa]').forEach(b => {
     b.onclick = async () => {
       const t = c.tarifas[+b.dataset.skyTarifa];
+      if (!(await guardar(() => store.envioElegir(c.id, t.id)))) return;
+      navegar();
+      abrirCotizacionEnvio(a);
+    };
+  });
+  $$('[data-cot]').forEach(b => {
+    b.onclick = async () => {
+      const que = b.dataset.cot, t = tarifaElegida(c);
+      if (!t) return;
+      if (que === 'ver') return abrirCotizacionEnvio(a);
+      if (que === 'mandada') {
+        if (await guardar(() => store.envioCompartida(c.id))) { toast('Queda pendiente el pago de la clienta.'); navegar(); }
+        return;
+      }
+      if (que === 'cambiar') {
+        if (c.compartida_en && !(await confirmar('La cotización ya se le mandó a la clienta. Si eliges otra paquetería cambia el precio y hay que mandarle la nueva.', { titulo: '¿Elegir otra paquetería?', si: 'Sí, elegir otra' }))) return;
+        if (await guardar(() => store.envioElegir(c.id, null))) navegar();
+        return;
+      }
+      // La clienta ya pagó: se compra la guía
       if (saldo != null && saldo < t.total) {
         await modal({ titulo: 'No alcanza el saldo', html: `<p>Esta guía cuesta <b>${dinero(t.total)}</b> y en Skydrop hay <b>${dinero(saldo)}</b>.</p><p>Recarga saldo en Skydrop y vuelve a intentar.</p>` });
         return;
       }
-      const si = await confirmar(`<b>${esc(t.paqueteria)} · ${tarifaTxt(t)}</b><br>
+      const si = await confirmar(`¿Ya recibiste el pago de <b>${dinero(c.cobro_cliente)}</b> de <b>${esc(nombreCompleto(cl))}</b>?<br><br>
+        <b>${esc(t.paqueteria)} · ${tarifaTxt(t)}</b><br>
         <span class="sky-precio">${dinero(t.total)}</span><br>
-        Para <b>${esc(nombreCompleto(cl))}</b><br><small>${esc(direccion(cl))}</small><br><br>
+        <small>${esc(direccion(cl))}</small><br><br>
         Paquete de <b>${paqueteTxt(c)}</b>.<br><br>
-        Se descuenta del saldo de Skydrop en cuanto confirmes, y se le avisa al Supervisor para que imprima la guía.`, { titulo: '¿Autorizar y comprar esta guía?', si: 'Sí, comprar guía', no: 'Todavía no' });
+        Se descuentan ${dinero(t.total)} del saldo de Skydrop en cuanto confirmes, y se le avisa al Supervisor para que imprima la guía.`, { titulo: '¿Comprar la guía?', si: 'Sí, ya pagó · comprar guía', no: 'Todavía no' });
       if (!si) return;
       espera.mostrar('Comprando la guía… no cierres esta pantalla');
       let error = null;
@@ -1905,6 +1987,187 @@ function conectarAutorizar(a) {
       navegar();
     };
   });
+}
+
+/* ---------- Cotización de envío para la clienta (solo Dueñas) ----------
+ * Una hoja carta en PDF: fecha de la cotización, clienta, domicilio de entrega, paquetería, los pedidos que van
+ * en el envío con las claves de sus prendas, y UN solo importe por el servicio de paquetería (lo que cuesta la
+ * guía más el cargo fijo, sin desglosar). La Dueña se la manda a la clienta y la guía se compra cuando paga. */
+function datosCotizacionEnvio(a, c, t, cl, pedidos, pago) {
+  const zona = { timeZone: 'America/Mexico_City' };
+  const dia = x => new Date(x).toLocaleDateString('es-MX', { ...zona, day: 'numeric', month: 'long', year: 'numeric' });
+  const diaCorto = x => new Date(x).toLocaleDateString('es-MX', { ...zona, day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '');
+  const hasta = new Date(venceCotizacion(c));
+  const peds = pedidos.map((p, i) => {
+    const partes = String(p.notas || '').split(' · ');
+    const claves = (partes.find(x => /^piezas /.test(x)) || '').replace(/^piezas /, '').split(',').map(x => x.trim()).filter(Boolean);
+    return { n: i + 1, fecha: diaCorto(p.fecha), prendas: Number(p.prendas) || claves.length, claves };
+  });
+  return {
+    fecha: dia(c.cotizada_en),
+    vigencia: `${diaCorto(hasta)}, ${hasta.toLocaleTimeString('es-MX', { ...zona, hour: 'numeric', minute: '2-digit' })}`,
+    clienta: nombreCompleto(cl),
+    domicilio: direccion(cl) || 'Sin domicilio registrado',
+    servicio: [t.paqueteria, t.servicio].filter(Boolean).join(' · '),
+    entrega: t.dias ? `${t.dias} ${t.dias === 1 ? 'día hábil' : 'días hábiles'} (aprox.)` : 'Según la paquetería',
+    paquete: paqueteTxt(c),
+    pedidos: peds,
+    prendas: peds.reduce((n, x) => n + x.prendas, 0),
+    total: Number(c.cobro_cliente) || 0,
+    pago: pago || {},
+    archivo: `Cotización de envío ${nombreCompleto(cl)}.pdf`.replace(/[\\/:*?"<>|]/g, ''),
+  };
+}
+function pdfCotizacionEnvio(d, jsPDF, logo) {
+  const W = 612, H = 792, M = 42, ROJO = [206, 9, 30], GRIS = 105;
+  const PIE = H - 76;            // línea del pie
+  const YB = PIE - 142;          // aquí empiezan el importe y los datos de pago
+  const pesos = x => '$' + Number(x || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const doc = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
+  const regla = (x1, x2, y, grosor = 0.6, color = 200) => { doc.setDrawColor(color); doc.setLineWidth(grosor); doc.line(x1, y, x2, y); };
+  const etiqueta = (txt, x, y, opc) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(GRIS); doc.text(String(txt).toUpperCase(), x, y, { charSpace: 0.5, ...opc }); };
+  // Un dato con su etiqueta arriba; regresa en qué renglón terminó
+  const campo = (nombre, valor, x, y, ancho, letra = 12, renglones = 1) => {
+    etiqueta(nombre, x, y);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(letra); doc.setTextColor(20);
+    const lineas = doc.splitTextToSize(String(valor || '—'), ancho).slice(0, renglones);
+    lineas.forEach((l, i) => doc.text(l, x, y + letra + 3 + i * (letra + 2.5)));
+    return y + letra + 3 + (lineas.length - 1) * (letra + 2.5);
+  };
+
+  // Encabezado
+  doc.addImage(logo, 'PNG', M, 34, 124, 62, 'logo', 'FAST');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(19); doc.setTextColor(20);
+  doc.text('COTIZACIÓN DE ENVÍO', W - M, 64, { align: 'right' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(GRIS);
+  doc.text(d.fecha, W - M, 81, { align: 'right' });
+  doc.setDrawColor(...ROJO); doc.setLineWidth(2); doc.line(M, 110, W - M, 110);
+
+  // Datos de la clienta y del envío
+  const XD = M + 330, AI = 300, AD = W - M - XD;
+  let y = 134;
+  campo('Clienta', d.clienta, M, y, AI, 15);
+  campo('Fecha de cotización', d.fecha, XD, y, AD);
+  y += 38;
+  const finDom = campo('Domicilio de entrega', d.domicilio, M, y, AI, 11, 3);
+  campo('Precio válido hasta', d.vigencia, XD, y, AD);
+  y = Math.max(finDom + 20, y + 38);
+  campo('Paquetería', d.servicio, M, y, AI);
+  campo('Tiempo de entrega', d.entrega, XD, y, AD);
+  y += 38;
+  campo('Paquete', d.paquete, M, y, AI);
+  y += 34;
+
+  // Pedidos que van en el envío, con las claves de sus prendas. La letra se achica lo necesario para que quepa en la hoja.
+  const XN = M + 4, XF = M + 34, XP = M + 112, XC = M + 168, AC = W - M - XC - 4;
+  const texto = p => (p.claves.length ? p.claves.join(', ') : 'Prendas sin clave registrada');
+  let letra = 10.5, filas = [];
+  const medir = () => {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(letra);
+    filas = d.pedidos.map(p => doc.splitTextToSize(texto(p), AC));
+    return filas.reduce((n, l) => n + l.length * (letra + 2.5) + 9, 0);
+  };
+  const libre = YB - 22 - (y + 20);
+  while (medir() > libre && letra > 5.5) letra -= 0.5;
+  regla(M, W - M, y, 1.2, 20);
+  etiqueta('Pedido', XN, y + 13); etiqueta('Fecha', XF + 16, y + 13); etiqueta('Prendas', XP, y + 13); etiqueta('Claves de las prendas', XC, y + 13);
+  regla(M, W - M, y + 20, 1.2, 20);
+  y += 20;
+  d.pedidos.forEach((p, i) => {
+    const lineas = filas[i], alto = lineas.length * (letra + 2.5) + 9;
+    if (y + alto > YB - 10) return;                       // ya no cabe (pedidos enormes): se queda en una hoja
+    const base = y + letra + 4;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(Math.min(11, letra + 0.5)); doc.setTextColor(20);
+    doc.text(String(p.n), XN + 8, base);
+    doc.setFont('helvetica', 'normal'); doc.text(p.fecha, XF + 16, base);
+    doc.text(String(p.prendas), XP + 10, base);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(letra);
+    lineas.forEach((l, k) => doc.text(l, XC, base + k * (letra + 2.5), { charSpace: 0.2 }));
+    y += alto;
+    regla(M, W - M, y);
+  });
+
+  // Importe: un solo renglón por el servicio de paquetería
+  const xt = W - M - 220;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(20);
+  doc.text('Pedidos', xt + 6, YB + 10); doc.text(String(d.pedidos.length), W - M - 6, YB + 10, { align: 'right' });
+  doc.text('Prendas', xt + 6, YB + 28); doc.text(String(d.prendas), W - M - 6, YB + 28, { align: 'right' });
+  regla(xt, W - M, YB + 37, 1.2, 20);
+  etiqueta('Servicio de paquetería', xt + 6, YB + 54);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(20); doc.text('TOTAL A PAGAR', xt + 6, YB + 82);
+  doc.setFontSize(24); doc.text(pesos(d.total), W - M - 6, YB + 84, { align: 'right' });
+  regla(xt, W - M, YB + 96, 1.2, 20);
+
+  // Datos para pagar (los mismos de la nota de cobro)
+  const clabe = String(d.pago.clabe || '').replace(/\D/g, '');
+  doc.setDrawColor(200); doc.setLineWidth(0.8); doc.roundedRect(M, YB - 4, 300, 104, 6, 6, 'S');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...ROJO); doc.text('DATOS PARA TU PAGO', M + 12, YB + 14, { charSpace: 0.6 });
+  if (clabe.length === 18) {
+    etiqueta('CLABE (transferencia)', M + 12, YB + 31);
+    doc.setFont('courier', 'bold'); doc.setFontSize(15); doc.setTextColor(20);
+    doc.text(`${clabe.slice(0, 3)} ${clabe.slice(3, 6)} ${clabe.slice(6, 17)} ${clabe.slice(17)}`, M + 12, YB + 48);
+    const extra = [['Banco', d.pago.banco], ['A nombre de', d.pago.titular]].filter(x => x[1]);
+    extra.forEach(([n, v], i) => {
+      const x = M + 12 + i * 100;
+      etiqueta(n, x, YB + 66);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(20); doc.text(doc.splitTextToSize(String(v), i ? 176 : 92)[0], x, YB + 80);
+    });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(GRIS); doc.text('Mándanos tu comprobante por WhatsApp.', M + 12, YB + 94);
+  } else {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(20);
+    doc.text(doc.splitTextToSize('Te compartimos los datos de pago por WhatsApp. Mándanos tu comprobante por ese mismo medio.', 276), M + 12, YB + 36);
+  }
+
+  // Pie de página
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(60);
+  doc.text(`Al recibir tu pago generamos tu guía y te mandamos tu número de rastreo. Precio válido hasta el ${d.vigencia.replace(/\.$/, '')}.`, W / 2, PIE - 14, { align: 'center' });
+  regla(M, W - M, PIE);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(20); doc.text('¡Gracias por tu compra!', W / 2, PIE + 19, { align: 'center' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(GRIS); doc.text('Outlet Prime · Ropa americana nueva con etiqueta', W / 2, PIE + 32, { align: 'center' });
+  return doc.output('blob');
+}
+// Arma la hoja y la ofrece para compartir. Al compartirla o descargarla queda pendiente el pago de la clienta.
+async function abrirCotizacionEnvio(a) {
+  const c = cotizacionDe(a), t = tarifaElegida(c);
+  if (!c || !t) return;
+  const cl = idx.clienta(a.clienta_id);
+  const pedidos = idx.pedidosDe(a.id).slice().sort((x, y) => (x.fecha < y.fecha ? -1 : 1));
+  const r = await accion(async () => {
+    const [jsPDF, logo, pago] = await Promise.all([cargarJsPDF(), logoNota(), store.datosPago ? store.datosPago().catch(e => { console.error(e); return {}; }) : {}]);
+    const d = datosCotizacionEnvio(a, c, t, cl, pedidos, pago);
+    return { d, blob: pdfCotizacionEnvio(d, jsPDF, logo) };
+  }, 'Preparando cotización…');
+  if (!r) return;
+  let archivo = null;
+  try { archivo = new File([r.blob], r.d.archivo, { type: 'application/pdf' }); } catch (e) { /* navegadores viejos: solo descarga */ }
+  const url = URL.createObjectURL(r.blob);
+  const compartir = !!(archivo && navigator.canShare && navigator.canShare({ files: [archivo] }));
+  let mandada = !!c.compartida_en;
+  const marcar = async () => {
+    if (mandada) return;
+    mandada = true;
+    try { await store.envioCompartida(c.id); D.cargado = 0; } catch (e) { console.error(e); mandada = false; }
+  };
+  await modal({
+    titulo: 'Cotización de envío',
+    html: `<p><b>${esc(r.d.clienta)}</b><br>${esc(r.d.servicio)} · ${esc(r.d.entrega)}<br>Total a pagar: <b style="font-size:20px">${dinero(r.d.total)}</b></p>
+      <div class="acciones">
+        ${compartir ? '<button type="button" class="btn btn-primario" id="ce-compartir">Compartir con la clienta</button>' : ''}
+        <a class="btn ${compartir ? 'btn-secundario' : 'btn-primario'}" href="${url}" target="_blank" rel="noopener">Ver la cotización</a>
+        <a class="btn btn-secundario" id="ce-descargar" href="${url}" download="${esc(r.d.archivo)}">Descargar PDF</a>
+      </div>
+      <p class="nota">${compartir ? '"Compartir con la clienta" abre las opciones del teléfono: elige WhatsApp y mándasela.' : 'Descárgala y mándasela por WhatsApp.'} Al compartirla o descargarla queda como <b>pendiente el pago de la clienta</b>. La guía se compra hasta que confirmes que pagó.</p>`,
+    botones: [{ texto: 'Cerrar', valor: true }],
+    alAbrir: f => {
+      const b = $('#ce-compartir', f);
+      if (b) b.onclick = () => navigator.share({ files: [archivo], title: r.d.archivo }).then(marcar).catch(() => {});
+      const dl = $('#ce-descargar', f);
+      if (dl) dl.addEventListener('click', () => { marcar(); });
+    },
+  });
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  if (mandada && !c.compartida_en) { await refrescar(true).catch(() => {}); toast('Queda pendiente el pago de la clienta.'); }
+  navegar();
 }
 function conectarGuia(a, id) {
   conectarAutorizar(a);
